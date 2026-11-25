@@ -17,9 +17,14 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private readonly ModuleBuilder _builder = frontend.Builder;
     private readonly Body _body = new();
     private readonly Dictionary<ISymbol, LocalId> _locals = new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<CaptureId, LocalId> _captures = [];
-    private readonly Dictionary<int, BlockId> _blocks = [];
-    private readonly Dictionary<int, List<ILocalSymbol>> _regionLocals = [];
+    private readonly Dictionary<(ControlFlowGraph Cfg, CaptureId Id), LocalId> _captures = [];
+    private readonly List<DeferRecord> _defers = [];
+    private readonly Dictionary<ControlFlowGraph, List<HashSet<int>>> _dominators = [];
+    private Dictionary<int, BlockId> _blocks = [];
+    private Dictionary<int, List<ILocalSymbol>> _regionLocals = [];
+    private BlockId _inlineExit = BlockId.None;
+    private int _inlineFirst;
+    private int _inlineLast;
     private LocalId _thisLocal = LocalId.None;
     private FunctionBuilder _f = null!;
     private ControlFlowGraph _cfg = null!;
@@ -53,7 +58,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         CollectRegionLocals(_cfg.Root);
         foreach (BasicBlock block in _cfg.Blocks)
         {
-            if (block.Kind == BasicBlockKind.Block)
+            if (block.Kind == BasicBlockKind.Block && !InFinally(block))
             {
                 _blocks[block.Ordinal] = _f.NewBlock();
             }
@@ -61,7 +66,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         foreach (BasicBlock block in _cfg.Blocks)
         {
-            if (block.Kind == BasicBlockKind.Block)
+            if (block.Kind == BasicBlockKind.Block && !InFinally(block))
             {
                 LowerBlock(block);
             }
@@ -74,6 +79,19 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         return _body;
+    }
+
+    private static bool InFinally(BasicBlock block)
+    {
+        for (ControlFlowRegion? region = block.EnclosingRegion; region is not null; region = region.EnclosingRegion)
+        {
+            if (region.Kind == ControlFlowRegionKind.Finally)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string Describe(IOperation operation) => operation.Kind + " (" + operation.Syntax + ")";
@@ -129,10 +147,35 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         foreach (IOperation operation in block.Operations)
         {
-            LowerStatement(operation);
+            if (!TryRecordDefer(operation, block))
+            {
+                LowerStatement(operation);
+            }
         }
 
         LowerTerminator(block);
+    }
+
+    private bool TryRecordDefer(IOperation operation, BasicBlock block)
+    {
+        IOperation statement = operation is IExpressionStatementOperation expression ? expression.Operation : operation;
+        if (statement is not IInvocationOperation invocation
+            || invocation.TargetMethod.Name != "Defer"
+            || invocation.TargetMethod.ContainingType.ToDisplayString() != "CDelta.Intrinsics"
+            || invocation.Arguments.Length != 1)
+        {
+            return false;
+        }
+
+        if (invocation.Arguments[0].Value is not IDelegateCreationOperation { Target: IFlowAnonymousFunctionOperation lambda })
+        {
+            throw new UnsupportedConstructException("Defer needs a lambda written in place", operation.Syntax.GetLocation());
+        }
+
+        SyntaxNode scope = invocation.Syntax.Ancestors().FirstOrDefault(n => n is BlockSyntax or SwitchSectionSyntax or ArrowExpressionClauseSyntax)
+            ?? invocation.Syntax;
+        _defers.Add(new DeferRecord(_cfg, scope, block.Ordinal, _cfg.GetAnonymousFunctionControlFlowGraph(lambda)));
+        return true;
     }
 
     private void LowerTerminator(BasicBlock block)
@@ -144,23 +187,29 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             OperandId condition = LowerValue(block.BranchValue!);
             ControlFlowBranch conditional = block.ConditionalSuccessor!;
             bool whenTrue = block.ConditionKind == ControlFlowConditionKind.WhenTrue;
-            BlockId onTrue = EdgeTarget(whenTrue ? conditional : fallThrough, span);
-            BlockId onFalse = EdgeTarget(whenTrue ? fallThrough : conditional, span);
+            BlockId onTrue = EdgeTarget(whenTrue ? conditional : fallThrough, block, span);
+            BlockId onFalse = EdgeTarget(whenTrue ? fallThrough : conditional, block, span);
             _f.Branch(condition, onTrue, onFalse, span);
+            return;
+        }
+
+        if (LeavesInlinedRegion(fallThrough))
+        {
+            _f.Goto(_inlineExit, span);
             return;
         }
 
         if (fallThrough.Destination is { Kind: BasicBlockKind.Exit } || fallThrough.Semantics == ControlFlowBranchSemantics.Return)
         {
             OperandId? value = block.BranchValue is null ? null : LowerValue(block.BranchValue);
-            if (value is not null && !fallThrough.LeavingRegions.IsEmpty)
+            if (value is not null)
             {
                 LocalId saved = NewTemp(OperandType(value.Value));
                 _f.Assign(_f.LocalPlace(saved), _f.Use(value.Value), span);
                 value = _f.Copy(_f.LocalPlace(saved));
             }
 
-            EmitDead(fallThrough, span);
+            EmitExitActions(fallThrough, block, span, true);
             _f.Return(value ?? OperandId.None, span);
             return;
         }
@@ -177,14 +226,43 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             throw new UnsupportedConstructException("the control flow " + fallThrough.Semantics + " is not supported yet", method.Locations[0]);
         }
 
-        _f.Goto(EdgeTarget(fallThrough, span), span);
+        _f.Goto(EdgeTarget(fallThrough, block, span), span);
     }
 
-    private BlockId EdgeTarget(ControlFlowBranch branch, SourceSpan span)
+    private bool LeavesInlinedRegion(ControlFlowBranch branch)
     {
-        BlockId target = _blocks[branch.Destination!.Ordinal];
-        bool leavesLocals = branch.LeavingRegions.Any(r => r.Kind == ControlFlowRegionKind.LocalLifetime && !r.Locals.IsEmpty);
-        if (!leavesLocals)
+        if (_inlineExit.IsNone)
+        {
+            return false;
+        }
+
+        BasicBlock? destination = branch.Destination;
+        return destination is null
+            || destination.Kind == BasicBlockKind.Exit
+            || destination.Ordinal < _inlineFirst
+            || destination.Ordinal > _inlineLast;
+    }
+
+    private BlockId EdgeTarget(ControlFlowBranch branch, BasicBlock source, SourceSpan span)
+    {
+        if (LeavesInlinedRegion(branch))
+        {
+            return _inlineExit;
+        }
+
+        if (branch.Destination!.Kind == BasicBlockKind.Exit)
+        {
+            BlockId exit = _f.NewBlock();
+            BlockId resume = _f.Current;
+            _f.SetBlock(exit);
+            EmitExitActions(branch, source, span, true);
+            _f.Return(OperandId.None, span);
+            _f.SetBlock(resume);
+            return exit;
+        }
+
+        BlockId target = _blocks[branch.Destination.Ordinal];
+        if (branch.LeavingRegions.IsEmpty && ActiveDefers(branch, source).Count == 0)
         {
             return target;
         }
@@ -192,26 +270,188 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         BlockId edge = _f.NewBlock();
         BlockId current = _f.Current;
         _f.SetBlock(edge);
-        EmitDead(branch, span);
+        EmitExitActions(branch, source, span, false);
         _f.Goto(target, span);
         _f.SetBlock(current);
         return edge;
     }
 
-    private void EmitDead(ControlFlowBranch branch, SourceSpan span)
+    private void EmitExitActions(ControlFlowBranch branch, BasicBlock source, SourceSpan span, bool isReturn)
     {
+        RunDefers(branch, source, span);
         foreach (ControlFlowRegion region in branch.LeavingRegions)
         {
-            if (region.Kind != ControlFlowRegionKind.LocalLifetime)
+            switch (region.Kind)
+            {
+                case ControlFlowRegionKind.Try when region.EnclosingRegion is { Kind: ControlFlowRegionKind.TryAndFinally } protectedRegion:
+                    ControlFlowRegion finallyRegion = protectedRegion.NestedRegions.First(r => r.Kind == ControlFlowRegionKind.Finally);
+                    InlineFinally(finallyRegion, span);
+                    break;
+                case ControlFlowRegionKind.LocalLifetime:
+                    foreach (ILocalSymbol local in region.Locals)
+                    {
+                        _f.Dead(LocalOf(local, span), span);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static SyntaxNode? PositionOf(BasicBlock block, int depth = 0)
+    {
+        SyntaxNode? own = block.Operations.LastOrDefault()?.Syntax ?? block.BranchValue?.Syntax;
+        if (own is not null || depth > 8)
+        {
+            return own;
+        }
+
+        BasicBlock? next = block.FallThroughSuccessor?.Destination;
+        return next is null || next.Kind == BasicBlockKind.Exit ? null : PositionOf(next, depth + 1);
+    }
+
+    private void RunDefers(ControlFlowBranch branch, BasicBlock source, SourceSpan span)
+    {
+        foreach (DeferRecord defer in ActiveDefers(branch, source))
+        {
+            InlineCfg(defer.Body, 0, defer.Body.Blocks.Length - 1, span);
+        }
+    }
+
+    private List<DeferRecord> ActiveDefers(ControlFlowBranch branch, BasicBlock source)
+    {
+        SyntaxNode? from = PositionOf(source);
+        SyntaxNode? to = branch.Destination is null || branch.Destination.Kind == BasicBlockKind.Exit ? null : PositionOf(branch.Destination);
+        var active = new List<DeferRecord>();
+        foreach (DeferRecord defer in _defers)
+        {
+            if (defer.Cfg != _cfg || !Dominates(defer.BlockOrdinal, source.Ordinal))
             {
                 continue;
             }
 
-            foreach (ILocalSymbol local in region.Locals)
+            bool insideBefore = from is null || defer.Scope.Span.Contains(from.Span);
+            bool insideAfter = to is not null && defer.Scope.Span.Contains(to.Span);
+            if (insideBefore && !insideAfter)
             {
-                _f.Dead(LocalOf(local, span), span);
+                active.Add(defer);
             }
         }
+
+        active = [.. active.Select((d, order) => (d, order)).OrderByDescending(x => x.d.Scope.SpanStart).ThenByDescending(x => x.order).Select(x => x.d)];
+        return active;
+    }
+
+    private bool Dominates(int candidate, int block)
+    {
+        if (!_dominators.TryGetValue(_cfg, out List<HashSet<int>>? sets))
+        {
+            sets = ComputeDominators(_cfg);
+            _dominators[_cfg] = sets;
+        }
+
+        return sets[block].Contains(candidate);
+    }
+
+    private static List<HashSet<int>> ComputeDominators(ControlFlowGraph cfg)
+    {
+        int count = cfg.Blocks.Length;
+        var predecessors = new List<int>[count];
+        for (int i = 0; i < count; i++)
+        {
+            predecessors[i] = [];
+        }
+
+        foreach (BasicBlock block in cfg.Blocks)
+        {
+            foreach (BasicBlock? next in new[] { block.FallThroughSuccessor?.Destination, block.ConditionalSuccessor?.Destination })
+            {
+                if (next is not null)
+                {
+                    predecessors[next.Ordinal].Add(block.Ordinal);
+                }
+            }
+        }
+
+        var all = Enumerable.Range(0, count).ToHashSet();
+        var sets = new List<HashSet<int>>();
+        for (int i = 0; i < count; i++)
+        {
+            sets.Add(i == 0 ? [0] : new HashSet<int>(all));
+        }
+
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int i = 1; i < count; i++)
+            {
+                HashSet<int>? intersection = null;
+                foreach (int predecessor in predecessors[i])
+                {
+                    intersection = intersection is null ? new HashSet<int>(sets[predecessor]) : [.. intersection.Intersect(sets[predecessor])];
+                }
+
+                intersection ??= [];
+                intersection.Add(i);
+                if (!intersection.SetEquals(sets[i]))
+                {
+                    sets[i] = intersection;
+                    changed = true;
+                }
+            }
+        }
+
+        return sets;
+    }
+
+    private void InlineFinally(ControlFlowRegion region, SourceSpan span) =>
+        InlineCfg(_cfg, region.FirstBlockOrdinal, region.LastBlockOrdinal, span);
+
+    private void InlineCfg(ControlFlowGraph cfg, int first, int last, SourceSpan span)
+    {
+        BlockId continuation = _f.NewBlock();
+        ControlFlowGraph savedCfg = _cfg;
+        Dictionary<int, BlockId> savedBlocks = _blocks;
+        Dictionary<int, List<ILocalSymbol>> savedRegionLocals = _regionLocals;
+        BlockId savedExit = _inlineExit;
+        int savedFirst = _inlineFirst;
+        int savedLast = _inlineLast;
+
+        _cfg = cfg;
+        _blocks = new Dictionary<int, BlockId>(cfg == savedCfg ? savedBlocks : []);
+        _regionLocals = cfg == savedCfg ? savedRegionLocals : [];
+        if (cfg != savedCfg)
+        {
+            CollectRegionLocals(cfg.Root);
+        }
+
+        _inlineExit = continuation;
+        _inlineFirst = first;
+        _inlineLast = last;
+        var inlined = new List<BasicBlock>();
+        foreach (BasicBlock block in cfg.Blocks)
+        {
+            if (block.Kind == BasicBlockKind.Block && block.Ordinal >= first && block.Ordinal <= last)
+            {
+                _blocks[block.Ordinal] = _f.NewBlock();
+                inlined.Add(block);
+            }
+        }
+
+        _f.Goto(_blocks[inlined.Count == 0 ? first : inlined[0].Ordinal], span);
+        foreach (BasicBlock block in inlined)
+        {
+            LowerBlock(block);
+        }
+
+        _cfg = savedCfg;
+        _blocks = savedBlocks;
+        _regionLocals = savedRegionLocals;
+        _inlineExit = savedExit;
+        _inlineFirst = savedFirst;
+        _inlineLast = savedLast;
+        _f.SetBlock(continuation);
     }
 
     private SourceSpan? SpanOfOperation(IOperation? operation) =>
@@ -265,10 +505,10 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private void LowerCapture(IFlowCaptureOperation capture)
     {
         OperandId value = LowerValue(capture.Value);
-        if (!_captures.TryGetValue(capture.Id, out LocalId local))
+        if (!_captures.TryGetValue((_cfg, capture.Id), out LocalId local))
         {
             local = NewTemp(OperandType(value));
-            _captures[capture.Id] = local;
+            _captures[(_cfg, capture.Id)] = local;
         }
 
         _f.Assign(_f.LocalPlace(local), _f.Use(value), SpanOf(capture));
@@ -620,7 +860,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             case IParameterReferenceOperation parameter:
                 return ValuePlace(_locals[parameter.Parameter], parameter.Parameter.RefKind);
             case IFlowCaptureReferenceOperation reference:
-                return _f.LocalPlace(_captures[reference.Id]);
+                return _f.LocalPlace(_captures[(_cfg, reference.Id)]);
             case IParenthesizedOperation parenthesized:
                 return PlaceOf(parenthesized.Operand);
             case IInstanceReferenceOperation:
@@ -724,6 +964,13 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         Location location = invocation.Syntax.GetLocation();
         SourceSpan span = SpanOf(invocation);
         IMethodSymbol target = invocation.TargetMethod;
+        if (target.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface
+            && invocation.Instance?.Type is { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct } receiver
+            && receiver.FindImplementationForInterfaceMember(target) is IMethodSymbol implementation)
+        {
+            target = implementation;
+        }
+
         var arguments = new List<OperandId>();
         if (!target.IsStatic)
         {
