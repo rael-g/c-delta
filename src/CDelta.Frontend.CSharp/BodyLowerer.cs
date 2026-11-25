@@ -13,6 +13,8 @@ namespace CDelta.Frontend.CSharp;
 
 internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 {
+    private const int RangeCurrent = 0;
+    private const int RangeEnd = 1;
     private const int EnumeratorItems = 0;
     private const int EnumeratorIndex = 1;
 
@@ -565,6 +567,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _f.Copy(PlaceOf(operation));
             case ICollectionExpressionOperation collection:
                 return LowerCollectionExpression(collection);
+            case IInvocationOperation { TargetMethod: { Name: "GetEnumerator", ContainingType.Name: "RangeExtensions" } } rangeEnumeration:
+                return LowerRangeEnumerator(rangeEnumeration);
+            case IInvocationOperation { TargetMethod: { Name: "MoveNext", ContainingType.Name: "RangeEnumerator" } } rangeAdvance:
+                return LowerRangeMoveNext(rangeAdvance);
+            case IPropertyReferenceOperation { Property: { Name: "Current", ContainingType.Name: "RangeEnumerator" } } rangeCurrent:
+                return _f.Copy(_f.Project(PlaceOf(rangeCurrent.Instance!), ProjectionKind.Field, RangeCurrent));
             case IInvocationOperation { TargetMethod: { Name: "GetEnumerator", ContainingType.Name: "IEnumerable" } } arrayEnumeration:
                 return LowerArrayEnumerator(arrayEnumeration);
             case IInvocationOperation { TargetMethod: { Name: "MoveNext", ContainingType.Name: "IEnumerator" } } arrayAdvance:
@@ -826,6 +834,14 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         if (conversion.Operand is IPropertyReferenceOperation { Property: { Name: "Current", ContainingType.Name: "IEnumerator" } })
         {
             return _f.Copy(PlaceOf(conversion.Operand));
+        }
+
+        if (source is not null && TypeMapper.IsSpanLike(target) && TypeMapper.IsInlineArray(source, out int inlineLength, out _))
+        {
+            PlaceId storage = _f.Project(PlaceOf(conversion.Operand), ProjectionKind.Field, 0);
+            TypeId i32 = _builder.Primitive(TypeKind.I32);
+            OperandId whole = _f.Const(_builder.IntConstant(i32, inlineLength));
+            return Emit(frontend.Types.Map(target, location), _f.Slice(storage, _f.Const(_builder.IntConstant(i32, 0)), whole), SpanOf(conversion));
         }
 
         if (source is not null && TypeMapper.IsSpanLike(target) && (source is IArrayTypeSymbol || TypeMapper.IsSpanLike(source)) && !SymbolEqualityComparer.Default.Equals(source, target))
@@ -1250,6 +1266,50 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
     private static bool IsEnumeratorMember(INamedTypeSymbol type) =>
         type.Name == "IEnumerator" || type is { Name: "Enumerator", ContainingType: { } outer } && TypeMapper.IsSpanLike(outer);
+
+    private OperandId LowerRangeEnumerator(IInvocationOperation enumeration)
+    {
+        SourceSpan span = SpanOf(enumeration);
+        IOperation source = enumeration.Arguments[0].Value;
+        while (source is IConversionOperation or IParenthesizedOperation)
+        {
+            source = source is IConversionOperation conversion ? conversion.Operand : ((IParenthesizedOperation)source).Operand;
+        }
+
+        if (source is not IRangeOperation range || range.LeftOperand is null || range.RightOperand is null)
+        {
+            throw new UnsupportedConstructException("foreach over a range needs a range with both bounds written", enumeration.Syntax.GetLocation());
+        }
+
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId start = Snapshot(LowerValue(BoundValue(range.LeftOperand)), span);
+        OperandId end = Snapshot(LowerValue(BoundValue(range.RightOperand)), span);
+        OperandId before = Emit(i32, _f.Binop(BinOp.Sub, ArithMode.Wrap, start, _f.Const(_builder.IntConstant(i32, 1))), span);
+        TypeId type = frontend.Types.Map(enumeration.Type!, enumeration.Syntax.GetLocation());
+        return Emit(type, _f.Aggregate(type, [before, end]), span);
+    }
+
+    private static IOperation BoundValue(IOperation bound)
+    {
+        if (bound is IUnaryOperation { OperatorKind: UnaryOperatorKind.Hat })
+        {
+            throw new UnsupportedConstructException("foreach over a range with a bound from the end is not supported", bound.Syntax.GetLocation());
+        }
+
+        return bound is IConversionOperation { Operand.Type.SpecialType: SpecialType.System_Int32 } conversion ? conversion.Operand : bound;
+    }
+
+    private OperandId LowerRangeMoveNext(IInvocationOperation advance)
+    {
+        SourceSpan span = SpanOf(advance);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        PlaceId enumerator = PlaceOf(advance.Instance!);
+        PlaceId current = _f.Project(enumerator, ProjectionKind.Field, RangeCurrent);
+        OperandId next = Emit(i32, _f.Binop(BinOp.Add, ArithMode.Wrap, _f.Copy(current), _f.Const(_builder.IntConstant(i32, 1))), span);
+        _f.Assign(current, _f.Use(next), span);
+        OperandId end = _f.Copy(_f.Project(enumerator, ProjectionKind.Field, RangeEnd));
+        return Emit(_builder.Primitive(TypeKind.Bool), _f.Binop(BinOp.Lt, ArithMode.Default, next, end), span);
+    }
 
     private OperandId LowerArrayEnumerator(IInvocationOperation enumeration)
     {

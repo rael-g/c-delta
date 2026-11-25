@@ -82,6 +82,24 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
     }
 
+    public StructId RangeEnumeratorStruct()
+    {
+        Module module = builder.Module;
+        const string key = "range.enumerator";
+        if (module.StructsByKey.TryGetValue(key, out StructId existing))
+        {
+            return existing;
+        }
+
+        TypeId i32 = builder.Primitive(TypeKind.I32);
+        var fields = new List<FieldDecl>
+        {
+            new(module.Intern("Current"), i32, IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+            new(module.Intern("End"), i32, IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+        };
+        return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
+    }
+
     public StructId EnumeratorOf(INamedTypeSymbol span, Location location) => EnumeratorOf(Map(span, location));
 
     public StructId EnumeratorOf(TypeId sliceType)
@@ -201,6 +219,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.Pointer(element, TypeFlags.Nullable | TypeFlags.Many);
             case INamedTypeSymbol { IsTupleType: true } tuple:
                 return builder.StructType(TupleOf(tuple, location));
+            case INamedTypeSymbol { Name: "RangeEnumerator", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }:
+                return builder.StructType(RangeEnumeratorStruct());
             case INamedTypeSymbol { Name: "Enumerator", ContainingType: { } enumerated } when IsSpanLike(enumerated):
                 return builder.StructType(EnumeratorOf(enumerated, location));
             case INamedTypeSymbol spanType when IsSpan(spanType) || IsReadOnlySpan(spanType):
@@ -298,7 +318,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return new FieldDecl(builder.Module.Intern(field.Name), type, IdRange.Empty, width, offset, FieldDecl.NoBitOffset);
     }
 
-    private static bool IsInlineArray(ITypeSymbol type, out int length, out ITypeSymbol? element)
+    public static bool IsInlineArray(ITypeSymbol type, out int length, out ITypeSymbol? element)
     {
         length = 0;
         element = null;
