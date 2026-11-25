@@ -1,6 +1,5 @@
-using CDelta.Ir;
 
-namespace CDelta.Core;
+namespace CDelta.Ir;
 
 public static class PrimitiveLayout
 {

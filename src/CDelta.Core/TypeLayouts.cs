@@ -48,7 +48,12 @@ public sealed class TypeLayouts(Module module, Target target)
         for (int i = 0; i < offsets.Length; i++)
         {
             int index = declaration.Fields.Start + i;
-            module.Fields[index] = module.Fields[index] with { Offset = offsets[i] };
+            FieldDecl field = module.Fields[index];
+            module.Fields[index] = field with
+            {
+                Offset = field.BitWidth == FieldDecl.NoBits ? offsets[i] : offsets[i] / BitsPerByte,
+                BitOffset = field.BitWidth == FieldDecl.NoBits ? FieldDecl.NoBitOffset : offsets[i],
+            };
         }
 
         module.Structs[id.Index] = declaration with { Size = result.Size, Alignment = result.Alignment };
@@ -145,7 +150,7 @@ public sealed class TypeLayouts(Module module, Target target)
                 bit = (bit + unit - 1) / unit * unit;
             }
 
-            offsets[index] = (int)(bit / BitsPerByte);
+            offsets[index] = (int)bit;
             bit += field.BitWidth;
         }
 
@@ -181,7 +186,7 @@ public sealed class TypeLayouts(Module module, Target target)
             int storage = sizes.Size * BitsPerByte;
             if (inUnit && unitSize == sizes.Size && bitsUsed + field.BitWidth <= storage)
             {
-                offsets[index] = unitOffset + bitsUsed / BitsPerByte;
+                offsets[index] = unitOffset * BitsPerByte + bitsUsed;
                 bitsUsed += field.BitWidth;
                 continue;
             }
@@ -195,7 +200,7 @@ public sealed class TypeLayouts(Module module, Target target)
             unitSize = sizes.Size;
             bitsUsed = field.BitWidth;
             inUnit = true;
-            offsets[index] = unitOffset;
+            offsets[index] = unitOffset * BitsPerByte;
         }
 
         if (inUnit)

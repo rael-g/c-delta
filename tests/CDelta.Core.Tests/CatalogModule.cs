@@ -20,7 +20,8 @@ internal static class CatalogModule
                     TypeOf(builder, ids, entry.Fields[i].Type),
                     IdRange.Empty,
                     entry.Fields[i].Bits,
-                    FieldDecl.NoOffset));
+                    FieldDecl.NoOffset,
+                    FieldDecl.NoBitOffset));
             }
 
             ids[entry.Name] = builder.DeclareStruct(

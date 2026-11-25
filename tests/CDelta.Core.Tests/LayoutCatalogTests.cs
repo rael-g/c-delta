@@ -44,7 +44,7 @@ public sealed partial class LayoutCatalogTests
             foreach (Match match in RecordLayout().Matches(dump))
             {
                 int[] offsets = match.Groups[4].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(o => int.Parse(o) / BitsPerByte)
+                    .Select(int.Parse)
                     .ToArray();
                 expected[match.Groups[1].Value] = (int.Parse(match.Groups[2].Value) / BitsPerByte, int.Parse(match.Groups[3].Value) / BitsPerByte, offsets);
             }
@@ -54,7 +54,11 @@ public sealed partial class LayoutCatalogTests
                 StructDecl actual = module.Structs[module.StructsByKey[entry.Name].Index];
                 (int size, int alignment, int[] offsets) = expected[entry.Name];
                 int[] actualOffsets = Enumerable.Range(0, actual.Fields.Count)
-                    .Select(i => module.Fields[actual.Fields.Start + i].Offset)
+                    .Select(i =>
+                    {
+                        FieldDecl field = module.Fields[actual.Fields.Start + i];
+                        return field.BitWidth == FieldDecl.NoBits ? field.Offset * BitsPerByte : field.BitOffset;
+                    })
                     .ToArray();
                 Assert.True(
                     (size, alignment) == (actual.Size, actual.Alignment) && offsets.SequenceEqual(actualOffsets),

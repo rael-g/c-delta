@@ -15,7 +15,7 @@ public sealed class StructLayoutTests
         var declared = new List<FieldDecl>();
         for (int i = 0; i < fields.Length; i++)
         {
-            declared.Add(new FieldDecl(module.Intern("f" + i), builder.Primitive(fields[i].Type), IdRange.Empty, 0, fields[i].Offset));
+            declared.Add(new FieldDecl(module.Intern("f" + i), builder.Primitive(fields[i].Type), IdRange.Empty, 0, fields[i].Offset, FieldDecl.NoBitOffset));
         }
 
         StructId id = builder.DeclareStruct("S", "S", SourceSpan.None, Origin.Synthetic, declared, kind, pack, minSize, []);

@@ -214,9 +214,12 @@ public static partial class IrPrinter
             if (field.BitWidth != FieldDecl.NoBits)
             {
                 text.Append(" bits ").Append(field.BitWidth);
+                if (field.BitOffset != FieldDecl.NoBitOffset)
+                {
+                    text.Append(" at ").Append(field.BitOffset);
+                }
             }
-
-            if (field.Offset != FieldDecl.NoOffset)
+            else if (field.Offset != FieldDecl.NoOffset)
             {
                 text.Append(" @").Append(field.Offset);
             }
