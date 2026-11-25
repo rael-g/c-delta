@@ -11,7 +11,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace CDelta.Frontend.CSharp;
 
-internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
+internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 {
     private const int RangeCurrent = 0;
     private const int RangeEnd = 1;
@@ -33,6 +33,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private int _inlineFirst;
     private int _inlineLast;
     private LocalId _thisLocal = LocalId.None;
+    private int _currentOrdinal;
     private FunctionBuilder _f = null!;
     private ControlFlowGraph _cfg = null!;
 
@@ -143,6 +144,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private void LowerBlock(BasicBlock block)
     {
         _f.SetBlock(_blocks[block.Ordinal]);
+        _currentOrdinal = block.Ordinal;
         SourceSpan blockSpan = frontend.SpanOf(method.Locations[0]);
         if (_regionLocals.TryGetValue(block.Ordinal, out List<ILocalSymbol>? entering))
         {
@@ -167,7 +169,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     {
         IOperation statement = operation is IExpressionStatementOperation expression ? expression.Operation : operation;
         if (statement is not IInvocationOperation invocation
-            || invocation.TargetMethod.Name != "Defer"
+            || invocation.TargetMethod.Name is not ("Defer" or "ErrDefer")
             || invocation.TargetMethod.ContainingType.ToDisplayString() != "CDelta.Intrinsics"
             || invocation.Arguments.Length != 1)
         {
@@ -181,7 +183,13 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         SyntaxNode scope = invocation.Syntax.Ancestors().FirstOrDefault(n => n is BlockSyntax or SwitchSectionSyntax or ArrowExpressionClauseSyntax)
             ?? invocation.Syntax;
-        _defers.Add(new DeferRecord(_cfg, scope, block.Ordinal, _cfg.GetAnonymousFunctionControlFlowGraph(lambda)));
+        _defers.Add(new DeferRecord(
+            _cfg,
+            scope,
+            block.Ordinal,
+            _cfg.GetAnonymousFunctionControlFlowGraph(lambda),
+            invocation.TargetMethod.Name == "ErrDefer",
+            lambda.Symbol.Parameters.Length == 1 ? lambda.Symbol.Parameters[0] : null));
         return true;
     }
 
@@ -218,7 +226,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 value = _f.Copy(_f.LocalPlace(saved));
             }
 
-            EmitExitActions(fallThrough, block, span, true);
+            EmitExitActions(fallThrough, block, span, true, value);
+            if (IsErrorConversion(block.BranchValue))
+            {
+                _f.TracePush(span);
+            }
+
             _f.Return(value ?? OperandId.None, span);
             return;
         }
@@ -312,9 +325,9 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         return edge;
     }
 
-    private void EmitExitActions(ControlFlowBranch branch, BasicBlock source, SourceSpan span, bool isReturn)
+    private void EmitExitActions(ControlFlowBranch branch, BasicBlock source, SourceSpan span, bool isReturn, OperandId? returned = null)
     {
-        RunDefers(branch, source, span);
+        RunDefers(branch, source, span, returned);
         foreach (ControlFlowRegion region in branch.LeavingRegions)
         {
             switch (region.Kind)
@@ -346,11 +359,18 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         return next is null || next.Kind == BasicBlockKind.Exit ? null : PositionOf(next, depth + 1);
     }
 
-    private void RunDefers(ControlFlowBranch branch, BasicBlock source, SourceSpan span)
+    private void RunDefers(ControlFlowBranch branch, BasicBlock source, SourceSpan span, OperandId? returned)
     {
         foreach (DeferRecord defer in ActiveDefers(branch, source))
         {
-            InlineCfg(defer.Body, 0, defer.Body.Blocks.Length - 1, span);
+            if (!defer.OnErrorOnly)
+            {
+                InlineCfg(defer.Body, 0, defer.Body.Blocks.Length - 1, span);
+            }
+            else if (returned is not null)
+            {
+                RunErrorDefer(defer, returned.Value, span);
+            }
         }
     }
 
@@ -465,6 +485,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         BlockId savedExit = _inlineExit;
         int savedFirst = _inlineFirst;
         int savedLast = _inlineLast;
+        int savedOrdinal = _currentOrdinal;
 
         _cfg = cfg;
         _blocks = new Dictionary<int, BlockId>(cfg == savedCfg ? savedBlocks : []);
@@ -499,6 +520,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         _inlineExit = savedExit;
         _inlineFirst = savedFirst;
         _inlineLast = savedLast;
+        _currentOrdinal = savedOrdinal;
         _f.SetBlock(continuation);
     }
 
@@ -679,6 +701,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return LowerExpression(parenthesized.Operand);
             case IUtf8StringOperation utf8:
                 return LowerTextBytes(utf8.Value, SpanOf(utf8));
+            case IOperation when TryLowerErrorOperation(operation, out OperandId? errorValue):
+                return errorValue;
             case IBinaryOperation binary:
                 return LowerBinary(binary);
             case IUnaryOperation unary:
@@ -1951,6 +1975,15 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _builder.AggregateConstant(type, [_builder.NullConstant(elementPointer), _builder.IntConstant(_builder.Primitive(TypeKind.I32), 0)]);
             case TypeKind.Optional:
                 return _builder.AggregateConstant(type, [ZeroConstant(new TypeId(node.A)), _builder.BoolConstant(_builder.Primitive(TypeKind.Bool), false)]);
+            case TypeKind.Result:
+                var parts = new List<ConstId>();
+                if (_module.Types[node.A].Kind != TypeKind.Void)
+                {
+                    parts.Add(ZeroConstant(new TypeId(node.A)));
+                }
+
+                parts.Add(_builder.IntConstant(_builder.Primitive(TypeKind.U16), 0));
+                return _builder.AggregateConstant(type, parts);
             case TypeKind.Array:
                 var elements = new List<ConstId>();
                 for (int i = 0; i < node.B; i++)

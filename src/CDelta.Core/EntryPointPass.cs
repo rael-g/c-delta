@@ -6,6 +6,7 @@ public static class EntryPointPass
 {
     private const string MainKey = "synthetic:main";
     private const string MainName = "main";
+    private const int FailureExitCode = 1;
 
     public static void Run(Module module)
     {
@@ -62,11 +63,48 @@ public static class EntryPointPass
             LocalId value = f.NewLocal(null, result, LocalKind.Temp, SourceSpan.None);
             f.Assign(f.LocalPlace(value), call, SourceSpan.None);
             LocalId converted = f.NewLocal(null, cInt, LocalKind.Temp, SourceSpan.None);
-            f.Assign(f.LocalPlace(converted), f.Cast(CastKind.IntInt, ArithMode.Wrap, f.Copy(f.LocalPlace(value)), cInt), SourceSpan.None);
+            if (module.Types[result.Index].Kind == TypeKind.Result)
+            {
+                EmitResultExit(module, builder, f, value, converted, cInt);
+            }
+            else
+            {
+                f.Assign(f.LocalPlace(converted), f.Cast(CastKind.IntInt, ArithMode.Wrap, f.Copy(f.LocalPlace(value)), cInt), SourceSpan.None);
+            }
+
             exitCode = f.Copy(f.LocalPlace(converted));
         }
 
         f.Return(exitCode, SourceSpan.None);
         builder.SetBody(main, body);
+    }
+
+    private static void EmitResultExit(Module module, ModuleBuilder builder, FunctionBuilder f, LocalId value, LocalId exitCode, TypeId cInt)
+    {
+        TypeId resultType = f.Body.Locals[value.Index].Type;
+        TypeId payload = new(module.Types[resultType.Index].A);
+        TypeId boolean = builder.Primitive(TypeKind.Bool);
+        LocalId succeeded = f.NewLocal(null, boolean, LocalKind.Temp, SourceSpan.None);
+        f.Assign(f.LocalPlace(succeeded), f.HasPayload(f.LocalPlace(value)), SourceSpan.None);
+        BlockId ok = f.NewBlock();
+        BlockId failed = f.NewBlock();
+        BlockId done = f.NewBlock();
+        f.Branch(f.Copy(f.LocalPlace(succeeded)), ok, failed, SourceSpan.None);
+        f.SetBlock(ok);
+        if (module.Types[payload.Index].Kind == TypeKind.Void)
+        {
+            f.Assign(f.LocalPlace(exitCode), f.Use(f.Const(builder.IntConstant(cInt, 0))), SourceSpan.None);
+        }
+        else
+        {
+            OperandId payloadValue = f.Copy(f.Project(f.LocalPlace(value), ProjectionKind.Payload, 0));
+            f.Assign(f.LocalPlace(exitCode), f.Cast(CastKind.IntInt, ArithMode.Wrap, payloadValue, cInt), SourceSpan.None);
+        }
+
+        f.Goto(done, SourceSpan.None);
+        f.SetBlock(failed);
+        f.Assign(f.LocalPlace(exitCode), f.Use(f.Const(builder.IntConstant(cInt, FailureExitCode))), SourceSpan.None);
+        f.Goto(done, SourceSpan.None);
+        f.SetBlock(done);
     }
 }

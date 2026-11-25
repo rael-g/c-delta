@@ -101,10 +101,6 @@ internal static class CPrelude
 
         """;
 
-    public const string TraceFunctionToken = "@@TRACE_FUNCTION@@\n";
-
-    public const string TraceCallToken = "@@TRACE_CALL@@\n";
-
     public const string PanicWithLibc = """
         static void cd_write_text(const char* text)
         {

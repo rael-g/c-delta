@@ -208,6 +208,12 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public static bool IsNullable(ITypeSymbol? type) => type?.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
+    private static bool IsVoidStruct(ITypeSymbol type) =>
+        type is INamedTypeSymbol { Name: "Void", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
+
+    public TypeId ErrorSetOf(INamedTypeSymbol enumeration) =>
+        builder.ErrorSetOf(enumeration.GetMembers().OfType<IFieldSymbol>().Where(f => f.HasConstantValue).Select(f => f.Name));
+
     public TypeId Map(ITypeSymbol type, Location location)
     {
         switch (type)
@@ -227,6 +233,16 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.SliceOf(Map(spanType.TypeArguments[0], location), IsReadOnlySpan(spanType));
             case INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable:
                 return builder.OptionalOf(Map(nullable.TypeArguments[0], location));
+            case INamedTypeSymbol { Name: "Result", ContainingNamespace: { Name: "CDelta", ContainingNamespace.IsGlobalNamespace: true } } result:
+                TypeId payload = result.TypeArguments.Length == 0 || IsVoidStruct(result.TypeArguments[0])
+                    ? builder.Primitive(TypeKind.Void)
+                    : Map(result.TypeArguments[0], location);
+                TypeId error = result.TypeArguments.Length == 2 ? ErrorSetOf((INamedTypeSymbol)result.TypeArguments[1]) : builder.AnyError();
+                return builder.ResultOf(payload, error);
+            case INamedTypeSymbol { Name: "Error", ContainingNamespace: { Name: "CDelta", ContainingNamespace.IsGlobalNamespace: true } }:
+                return builder.AnyError();
+            case INamedTypeSymbol { Name: "Void", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }:
+                return builder.Primitive(TypeKind.Void);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
                 return builder.StructType(StructOf(named, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:

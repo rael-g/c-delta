@@ -10,5 +10,7 @@ internal sealed class CEmitState
 
     public bool UsesTrace { get; set; }
 
-    public SortedSet<int> ErrorEnums { get; } = [];
+    public SortedSet<int> ErrorFromEnums { get; } = [];
+
+    public SortedSet<int> ErrorToEnums { get; } = [];
 }

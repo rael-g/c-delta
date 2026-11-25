@@ -315,6 +315,11 @@ public sealed class CSharpFrontend : IBodyProvider
         _diagnostics.Add(code, at, new Note(null, note));
     }
 
+    private static bool IsMainReturn(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_Void or SpecialType.System_Int32
+        || type is INamedTypeSymbol { Name: "Result", ContainingNamespace: { Name: "CDelta", ContainingNamespace.IsGlobalNamespace: true } } result
+            && (result.TypeArguments.Length == 0 || result.TypeArguments.Length == 1 && result.TypeArguments[0].SpecialType == SpecialType.System_Int32);
+
     private IEnumerable<IMethodSymbol> PanicHandlerCandidates() =>
         MethodsOfAssembly()
             .Where(m => m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == PanicHandlerType))
@@ -360,8 +365,7 @@ public sealed class CSharpFrontend : IBodyProvider
                         pending.Push(container);
                         break;
                     case IMethodSymbol { Name: MainName, IsStatic: true, Parameters.Length: 0 } method
-                        when method.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Int32
-                            && method.TypeParameters.Length == 0:
+                        when IsMainReturn(method.ReturnType) && method.TypeParameters.Length == 0:
                         found.Add(method);
                         break;
                 }

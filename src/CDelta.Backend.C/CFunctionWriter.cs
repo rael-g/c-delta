@@ -367,7 +367,7 @@ internal sealed partial class CFunctionWriter(
 
     private string ErrorHelper(string direction, TypeId enumType)
     {
-        state.ErrorEnums.Add(module.Types[enumType.Index].A);
+        (direction == "from" ? state.ErrorFromEnums : state.ErrorToEnums).Add(module.Types[enumType.Index].A);
         return "cd_err_" + direction + "_" + names.Enum(new EnumId(module.Types[enumType.Index].A));
     }
 

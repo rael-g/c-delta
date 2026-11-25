@@ -54,6 +54,14 @@ internal static class CConstants
                         + Initializer(module, names, new ConstId(items[1])) + " }";
                 }
 
+                if (node.Kind == TypeKind.Result)
+                {
+                    return items.Length == 1
+                        ? "0"
+                        : "{ .value = " + Initializer(module, names, new ConstId(items[0])) + ", .err = "
+                            + Initializer(module, names, new ConstId(items[1])) + " }";
+                }
+
                 if (node.Kind == TypeKind.Optional)
                 {
                     return "{ .value = " + Initializer(module, names, new ConstId(items[0])) + ", .has = "
