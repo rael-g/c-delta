@@ -256,6 +256,7 @@ Errors and results:
 | `Catch(r, d)` | `trace.save`; `branch` on `haspayload r`; success: `r.payload(0)`; error: `trace.restore`, then `d` |
 | `Try(r)` in a function returning `result<U, F>` | `branch` on `haspayload r`; success: `r.payload(0)`; error: `err r`, `cast error.error` to `F` (or `anyerror`), the deferred bodies, `trace.push`, `return result.err` |
 | `error.Name` | `intrinsic error.name(e)`, of type `slice<u8> const`; the core replaces it by an index into the name table |
+| an error from `Main`, in the synthetic entry point only | the statement `intrinsic error.report(name)`, with `name` a `slice<u8> const`: writes `error: <name>` and the trace block to standard error ([backend-c.md](backend-c.md#output-of-an-error-from-main)) |
 
 - On a `result` place, `haspayload` is true on success and `payload(0)` is the `T`; `err` gives
   the error, typed with the result's error set. A `result` of one type never converts to another
@@ -266,6 +267,7 @@ Errors and results:
 ```
 Statement   := Place = Rvalue
              | call(Callee, Operand...)                 result discarded
+             | intrinsic(name, Operand...)               an intrinsic of type void
              | check(kind, Operand condition, message)  Final only
              | live(local) | dead(local)                scope of a local's storage
              | fill.undef(Place)                        Debug 0xAA fill
@@ -414,6 +416,7 @@ local       = "local" lref [ident] ":" type ("param" | "user" | "temp") [span] N
 block       = bref ":" NL {stmt} term
 stmt        = ( place "=" rvalue
               | "call" callee "(" [operand {"," operand}] ")"
+              | "intrinsic" ident "(" [operand {"," operand}] ")"
               | "check" ckind operand string
               | "live" lref | "dead" lref
               | "fill.undef" place

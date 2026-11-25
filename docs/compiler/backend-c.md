@@ -95,6 +95,7 @@ program uses it; each is `static` (`static inline` for arithmetic).
 | `cd_trace`, `cd_trace_len` | `_Thread_local` ring of 32 `{ const char* file; int32_t line; }` and its count |
 | `void cd_trace_push(const char* file, int32_t line)` | writes at `cd_trace_len % 32`, then increments |
 | `void cd_trace_print(void)` | the trace block below, when `cd_trace_len > 0` |
+| `void cd_report_error(const uint8_t* name, int32_t len)` | `intrinsic error.report`: writes `error: `, the name and a newline through `cd_libc_write_stderr`, then calls `cd_trace_print` |
 | `<to> cd_f2i_wrap_<from>_<to>(<from> v)` | saturating conversion, `NaN` to `0` |
 | `<to> cd_f2i_trap_<from>_<to>(<from> v, const char* file, int32_t line)` | panics "float cast out of range" when not representable |
 | `cd_alloca(n, a)` | a macro, since the memory must belong to the caller's frame: `n` bytes aligned to `a`, through `__builtin_alloca` (`_alloca` on MSVC) of `n + a - 1` bytes with the address rounded up |
@@ -128,7 +129,8 @@ error return trace:
   <file>:<line>
 ```
 
-then the exit code `1`. The error name table is always emitted when `Main` returns a `Result`.
+then the exit code `1`, written by `cd_report_error`. The error name table is always emitted when
+`Main` returns a `Result`.
 
 ## Types
 

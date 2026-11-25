@@ -80,9 +80,10 @@ An interpreter over IR, inside the core, used for comptime regions, static initi
 
 Collect the member names of every reachable `errorset` type and `error` constant; sort them
 ordinally; number them from `1`; add one `errorname` item per name. More than 65535 names is
-`CD3010`. If an `intrinsic error.name` is reachable, emit the name table global, a
-`slice<u8> const` per code with index `0` unused, and replace each `error.name(e)` with the
-element at `errcode e`. Every `cast error.error` is checked here: a target set that lacks a name
+`CD3010`. If an `intrinsic error.name` is reachable or `Main` returns a `Result` type, emit the
+name table, the internal global `synthetic:error_names` of type `array<slice<u8> const, N + 1>`
+with index `0` an empty slice, and replace each `error.name(e)` with the element at
+`errcode e`. Every `cast error.error` is checked here: a target set that lacks a name
 of the source set is a compiler bug, since `CD3002` already rejected it in the source.
 
 ## 5. Entry point and test runner
@@ -91,6 +92,10 @@ of the source set is a compiler bug, since `CD3002` already rejected it in the s
   the synthetic globals `synthetic:argc` and `synthetic:argv`, which the intrinsics
   `Startup.ArgCount()` and `Startup.ArgValues()` read and `Std.Process.Args()` wraps, calls `Main`, and converts its result into the exit code
   of [../language/errors.md](../language/errors.md#main). A freestanding target gets no `main`.
+- For a `Main` returning `Result` or `Result<int>`, the synthetic `main` branches on
+  `haspayload`. The success edge returns `0` or the payload. The error edge reads `err`, copies
+  `global synthetic:error_names[errcode e]` into a temp, runs `intrinsic error.report(name)`, and
+  returns `1`. This pass runs after pass 4, so it writes the index itself.
 - A test build gets a synthetic `Main` that iterates over the tests, sorted by name, prints each
   name and result, and returns the failure count.
 
