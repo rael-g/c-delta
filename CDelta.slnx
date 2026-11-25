@@ -17,6 +17,7 @@
     <Project Path="lib/corelib/CDelta.Corelib.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CDelta.Backend.C.Tests/CDelta.Backend.C.Tests.csproj" />
     <Project Path="tests/CDelta.Core.Tests/CDelta.Core.Tests.csproj" />
     <Project Path="tests/CDelta.Diagnostics.Tests/CDelta.Diagnostics.Tests.csproj" />
     <Project Path="tests/CDelta.Ir.Tests/CDelta.Ir.Tests.csproj" />

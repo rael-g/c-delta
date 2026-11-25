@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CDelta.Backend.C\CDelta.Backend.C.csproj" />
+    <ProjectReference Include="..\..\src\CDelta.Core\CDelta.Core.csproj" />
+    <ProjectReference Include="..\..\src\CDelta.Toolchain\CDelta.Toolchain.csproj" />
+    <Compile Include="..\Shared\GoldenFile.cs" Link="GoldenFile.cs" />
+    <Compile Include="..\CDelta.Core.Tests\LoweredPrograms.cs" Link="LoweredPrograms.cs" />
+    <Compile Include="..\CDelta.Core.Tests\DictionaryBodyProvider.cs" Link="DictionaryBodyProvider.cs" />
+  </ItemGroup>
+
+</Project>

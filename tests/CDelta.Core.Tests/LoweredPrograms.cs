@@ -4,7 +4,7 @@ namespace CDelta.Core.Tests;
 
 internal static class LoweredPrograms
 {
-    public static Module DivideAndMain(SafetyOverride safety = SafetyOverride.Default)
+    public static Module DivideAndMain(SafetyOverride safety = SafetyOverride.Default, int numerator = 7, int divisor = 2)
     {
         var module = new Module("Sample");
         var builder = new ModuleBuilder(module);
@@ -56,7 +56,7 @@ internal static class LoweredPrograms
         m.SetBlock(m.NewBlock());
         m.Assign(
             m.LocalPlace(r),
-            m.CallDirect(divide, [m.Const(builder.IntConstant(i32, 7)), m.Const(builder.IntConstant(i32, 2))]),
+            m.CallDirect(divide, [m.Const(builder.IntConstant(i32, numerator)), m.Const(builder.IntConstant(i32, divisor))]),
             span);
         m.Return(m.Copy(m.LocalPlace(r)), span);
         builder.SetBody(main, mainBody);
@@ -78,6 +78,39 @@ internal static class LoweredPrograms
         u.SetBlock(u.NewBlock());
         u.Return(OperandId.None, span);
         builder.SetBody(unused, unusedBody);
+        return module;
+    }
+
+    public static Module AddOverflow(ArithMode mode)
+    {
+        var module = new Module("Overflow");
+        var builder = new ModuleBuilder(module);
+        SourceId source = builder.AddSource("$ROOT/Overflow.cs", "Overflow.cs");
+        TypeId i32 = builder.Primitive(TypeKind.I32);
+        var span = new SourceSpan(source, 5, 9);
+        var origin = Origin.FromSource(module.Intern("csharp"));
+        FunctionId main = builder.DeclareFunction(
+            "Overflow.Program.Main",
+            "Overflow.Program.Main",
+            span,
+            origin,
+            [],
+            false,
+            i32,
+            CallConv.Default,
+            LinkageKind.Internal,
+            null,
+            ["cdelta.EntryPoint"]);
+        var body = new Body();
+        var f = new FunctionBuilder(module, body);
+        LocalId sum = f.NewLocal(null, i32, LocalKind.Temp, span);
+        f.SetBlock(f.NewBlock());
+        f.Assign(
+            f.LocalPlace(sum),
+            f.Binop(BinOp.Add, mode, f.Const(builder.IntConstant(i32, int.MaxValue)), f.Const(builder.IntConstant(i32, 1))),
+            span);
+        f.Return(f.Copy(f.LocalPlace(sum)), span);
+        builder.SetBody(main, body);
         return module;
     }
 }
