@@ -8,6 +8,9 @@ internal static class ProgramRunner
     private const string AArch64Target = "aarch64-linux-gnu";
     private const string WindowsTarget = "x86_64-windows-gnu";
     private const string SysrootVariable = "CDELTA_AARCH64_SYSROOT";
+    private const string DefaultSysroot = "/usr/aarch64-linux-gnu";
+    private const string WineBanner = "it looks like wine32 is missing";
+    private const int WineBannerLines = 4;
 
     public static bool CanRun(string target) => Command(target, "program") is not null;
 
@@ -26,12 +29,24 @@ internal static class ProgramRunner
             start.ArgumentList.Add(argument);
         }
 
+        if (target == WindowsTarget)
+        {
+            start.Environment["WINEDEBUG"] = "-all";
+        }
+
         using Process process = Process.Start(start)!;
         Task<string> error = process.StandardError.ReadToEndAsync();
         string output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
-        return (process.ExitCode, output, error.Result);
+        return target == WindowsTarget
+            ? (process.ExitCode, output.Replace("\r\n", "\n"), WithoutWineBanner(error.Result.Replace("\r\n", "\n")))
+            : (process.ExitCode, output, error.Result);
     }
+
+    private static string WithoutWineBanner(string error) =>
+        error.StartsWith(WineBanner, StringComparison.Ordinal)
+            ? string.Join('\n', error.Split('\n').Skip(WineBannerLines))
+            : error;
 
     private static (string executable, string[] arguments)? Command(string target, string program)
     {
@@ -43,7 +58,7 @@ internal static class ProgramRunner
 
         if (target == AArch64Target && host == "x86_64-linux-gnu")
         {
-            return ("qemu-aarch64", ["-L", Environment.GetEnvironmentVariable(SysrootVariable) ?? string.Empty, program]);
+            return ("qemu-aarch64", ["-L", Environment.GetEnvironmentVariable(SysrootVariable) ?? DefaultSysroot, program]);
         }
 
         if (target == WindowsTarget && OperatingSystem.IsLinux())
