@@ -43,6 +43,45 @@ public sealed class ModuleBuilder(Module module)
 
     public ConstId NullConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Null, type, 0, BytesId.None));
 
+    public StructId DeclareStruct(
+        string key,
+        string name,
+        SourceSpan span,
+        Origin origin,
+        IReadOnlyList<FieldDecl> fields,
+        StructLayoutKind layout,
+        int pack,
+        int minSize,
+        IReadOnlyList<string> attributes)
+    {
+        int fieldStart = Module.Fields.Count;
+        Module.Fields.AddRange(fields);
+        int attrStart = Module.Attributes.Count;
+        foreach (string attribute in attributes)
+        {
+            Module.Attributes.Add(new AttributeNode(Module.Intern(attribute), IdRange.Empty));
+        }
+
+        var decl = new StructDecl(
+            Module.Intern(key),
+            Module.Intern(name),
+            span,
+            origin,
+            new IdRange(attrStart, attributes.Count),
+            new IdRange(fieldStart, fields.Count),
+            layout,
+            pack,
+            minSize,
+            StructDecl.NotComputed,
+            StructDecl.NotComputed);
+        var id = new StructId(Module.Structs.Count);
+        Module.Structs.Add(decl);
+        Module.StructsByKey.Add(key, id);
+        return id;
+    }
+
+    public TypeId StructType(StructId id) => Module.Type(new TypeNode(TypeKind.Struct, TypeFlags.None, id.Index, 0));
+
     public FunctionId DeclareFunction(
         string key,
         string name,

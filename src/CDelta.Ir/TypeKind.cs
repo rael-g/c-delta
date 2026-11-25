@@ -35,4 +35,5 @@ public enum TypeKind
     Slice,
     Array,
     Fn,
+    Struct,
 }

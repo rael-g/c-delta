@@ -35,6 +35,12 @@ public sealed class Module(string name)
 
     public List<ParamDecl> Params { get; } = [];
 
+    public List<FieldDecl> Fields { get; } = [];
+
+    public List<StructDecl> Structs { get; } = [];
+
+    public Dictionary<string, StructId> StructsByKey { get; } = [];
+
     public List<FunctionDecl> Functions { get; } = [];
 
     public List<Body?> Bodies { get; } = [];

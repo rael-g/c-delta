@@ -12,6 +12,15 @@ public static class IrVerifier
             Report(bag, module, SourceSpan.None, module.Name, "module stage is " + IrNames.Stage(module.Stage) + ", expected " + IrNames.Stage(stage));
         }
 
+        for (int i = 0; i < module.Structs.Count; i++)
+        {
+            StructDecl declaration = module.Structs[i];
+            if (stage == ModuleStage.Final && declaration.Size == StructDecl.NotComputed)
+            {
+                Report(bag, module, declaration.Span, module.Text(declaration.Key), "a struct has no layout in the final stage");
+            }
+        }
+
         for (int i = 0; i < module.Functions.Count; i++)
         {
             new FunctionVerifier(module, stage, new FunctionId(i), bag).Run();

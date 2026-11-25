@@ -44,6 +44,12 @@ public static partial class IrPrinter
             }
         }
 
+        foreach (StructId declaration in OrderedStructs(module))
+        {
+            text.Append('\n');
+            PrintStruct(module, declaration, text);
+        }
+
         foreach (FunctionId function in OrderedFunctions(module))
         {
             text.Append('\n');
@@ -72,6 +78,8 @@ public static partial class IrPrinter
                 return "array<" + TypeText(module, new TypeId(node.A)) + ", " + node.B + ">";
             case TypeKind.Fn:
                 return "fn" + SigText(module, new SigId(node.A));
+            case TypeKind.Struct:
+                return "struct " + Reference(module.Text(module.Structs[node.A].Key));
             default:
                 return IrTypes.Name(node.Kind);
         }
@@ -155,6 +163,68 @@ public static partial class IrPrinter
             module.Text(module.Functions[a.Index].Key),
             module.Text(module.Functions[b.Index].Key)));
         return ids;
+    }
+
+    public static List<StructId> OrderedStructs(Module module)
+    {
+        var ids = new List<StructId>();
+        for (int i = 0; i < module.Structs.Count; i++)
+        {
+            ids.Add(new StructId(i));
+        }
+
+        ids.Sort((a, b) => string.CompareOrdinal(
+            module.Text(module.Structs[a.Index].Key),
+            module.Text(module.Structs[b.Index].Key)));
+        return ids;
+    }
+
+    private static void PrintStruct(Module module, StructId id, StringBuilder text)
+    {
+        StructDecl declaration = module.Structs[id.Index];
+        for (int i = 0; i < declaration.Attributes.Count; i++)
+        {
+            AttributeNode attribute = module.Attributes[declaration.Attributes.Start + i];
+            text.Append("#[").Append(Reference(module.Text(attribute.Name))).Append("]\n");
+        }
+
+        text.Append("struct ").Append(Reference(module.Text(declaration.Key))).Append(" layout ").Append(declaration.Layout switch
+        {
+            StructLayoutKind.C => "c",
+            StructLayoutKind.Packed => "c.packed(" + declaration.Pack + ")",
+            StructLayoutKind.Auto => "auto",
+            _ => "explicit",
+        });
+        if (declaration.Size != StructDecl.NotComputed)
+        {
+            text.Append(" size ").Append(declaration.Size).Append(" align ").Append(declaration.Alignment);
+        }
+
+        if (declaration.MinSize > 0)
+        {
+            text.Append(" minsize ").Append(declaration.MinSize);
+        }
+
+        PrintOrigin(module, declaration.Origin, text);
+        text.Append(' ').Append(Span(declaration.Span)).Append(" {\n");
+        for (int i = 0; i < declaration.Fields.Count; i++)
+        {
+            FieldDecl field = module.Fields[declaration.Fields.Start + i];
+            text.Append(Indent).Append(module.Text(field.Name)).Append(": ").Append(TypeText(module, field.Type));
+            if (field.BitWidth != FieldDecl.NoBits)
+            {
+                text.Append(" bits ").Append(field.BitWidth);
+            }
+
+            if (field.Offset != FieldDecl.NoOffset)
+            {
+                text.Append(" @").Append(field.Offset);
+            }
+
+            text.Append('\n');
+        }
+
+        text.Append("}\n");
     }
 
     private static void AppendFlag(StringBuilder text, TypeFlags flags, TypeFlags flag, string word)
