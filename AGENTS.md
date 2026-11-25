@@ -21,6 +21,8 @@ the syntax and semantics of C#, and interoperability with C. Then record the dec
 - The subset checker is an allowlist.
 - Lazy by design: when a library or tool solves a problem (Roslyn, libclang, the C compiler,
   MSBuild, NuGet, a C library), use it instead of reimplementing it.
+- Portable projects (see `docs/compiler/architecture.md`) are written in the data-oriented style
+  listed there, because they will be ported to CΔ.
 - Every diagnostic code is registered in `docs/compiler/diagnostics.md` and in
   `CDelta.Diagnostics`; a code is never reused.
 - The documents in `docs/` are normative. A change of behavior changes its document in the same

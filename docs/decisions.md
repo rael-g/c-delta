@@ -129,7 +129,7 @@ generation.**
 
 **D106. Every computed layout is asserted in the generated C.**
 
-**D107. libclang, through ClangSharp, reads C.** It also answers sizes, offsets and constant
+**D107. libclang reads C, through ClangSharp until the port of D119.** It also answers sizes, offsets and constant
 values; nothing of C is reimplemented.
 
 **D108. `zig cc` is the default C toolchain**, for cross compilation with C libraries of every
@@ -150,6 +150,23 @@ assembly for the IDE.
 **D114. The IR has one text format, printed and parsed, used for tests and dumps.**
 
 **D115. kabic becomes the C frontend's tag reader plus projection backends, then is archived.**
+
+**D116. The compiler is ported to CΔ, except a .NET host.** The host keeps what needs Roslyn or
+MSBuild: `Frontend.CSharp`, `Frontend.CSharp.Rules` and `Build.Tasks`. Every other project is
+written in C# until M7 and then ported to CΔ one component at a time. Writing the compiler in the
+CΔ subset from the start is rejected: `Try`, `Defer` and spans as fields cannot run on .NET, and
+the subset still changes before M7.
+
+**D117. The IR is the boundary between the host and the native compiler.** The host lowers to IR
+and passes it to the native core, a CΔ library with an `[Export]` C API that the host calls through
+`[DllImport]`. The IR gains a binary format for that call. The text format of D114 stays the
+format of tests and dumps.
+
+**D118. Portable projects are written in a data-oriented style from the start**, so that porting
+them is mechanical: structs and integer indices into arenas instead of object graphs, errors as
+values, no exceptions for control flow, no LINQ, no reflection, no `async`.
+
+**D119. The ported C frontend imports `clang-c/Index.h` with `[Import]`**, replacing ClangSharp.
 
 ## Repository
 

@@ -15,7 +15,7 @@ defined by what systems languages share, not by C# or by C.
 | Safety | explicit `check` statements, inserted by the core | the build mode is a core decision, not a frontend or backend one |
 | Layout | computed by the core, stored on types | backends and the interpreter read it; nobody recomputes it |
 | Attributes | open list of named, typed constant arguments on every declaration | carries C# attributes, C doc tags and projection hints without changing the model |
-| Serialization | one textual format, printed and parsed, round-trip exact | golden tests, dumps, and tests of the core and backends without a frontend |
+| Serialization | one textual format, printed and parsed, round-trip exact; a binary format from M10 | text for golden tests, dumps, and tests of the core and backends without a frontend; binary for the call from the host to the native core |
 
 ## Stages
 

@@ -109,3 +109,19 @@ it.
 
 Accepted when: the conformance suite passes on every toolchain of every tier 1 target and the
 toolchain differential test passes.
+
+## M10: Self-hosting
+
+The portable projects of [compiler/architecture.md](compiler/architecture.md#host-and-portable-projects)
+become CΔ, one at a time, in this order: `Backend.C`; the IR model, printer, parser and verifier;
+the core passes; the comptime interpreter; `Toolchain` and `Driver`; `Frontend.C` over
+`clang-c/Index.h`; `Backend.CSharp` and the projection backends.
+
+- The binary IR format and the `cdelta-core` C API.
+- While a component exists in both languages, both run in CI and must give identical output on
+  every golden file and conformance case.
+- A C# component is deleted when its CΔ version passes alone.
+
+Accepted when: every portable project is CΔ; the compiler built by itself produces C identical to
+the compiler built by the previous release on the whole conformance suite; the host contains only
+the projects listed as host.
