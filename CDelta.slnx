@@ -22,6 +22,8 @@
     <Project Path="tests/CDelta.Core.Tests/CDelta.Core.Tests.csproj" />
     <Project Path="tests/CDelta.Diagnostics.Tests/CDelta.Diagnostics.Tests.csproj" />
     <Project Path="tests/CDelta.Ir.Tests/CDelta.Ir.Tests.csproj" />
+    <Project Path="tests/CDelta.Driver.Tests/CDelta.Driver.Tests.csproj" />
+    <Project Path="tests/CDelta.Toolchain.Tests/CDelta.Toolchain.Tests.csproj" />
     <Project Path="tests/CDelta.Frontend.CSharp.Tests/CDelta.Frontend.CSharp.Tests.csproj" />
   </Folder>
 </Solution>

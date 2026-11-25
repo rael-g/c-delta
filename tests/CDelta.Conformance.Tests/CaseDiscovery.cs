@@ -28,6 +28,10 @@ internal static class CaseDiscovery
             string stem = path[..^".cs".Length];
             string[] modes = ReadList(stem + ".modes") ?? (File.Exists(stem + ".panic") ? _safeModes : _allModes);
             string[] targets = ReadList(stem + ".targets") ?? [host];
+            if (targetFilter is null)
+            {
+                targets = targets.Where(t => t == host || t == "native").ToArray();
+            }
             foreach (string mode in modes)
             {
                 foreach (string target in targets)
