@@ -23,6 +23,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private readonly Body _body = new();
     private readonly Dictionary<ISymbol, LocalId> _locals = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<(ControlFlowGraph Cfg, CaptureId Id), LocalId> _captures = [];
+    private readonly Dictionary<(ControlFlowGraph Cfg, CaptureId Id), PlaceId> _captureAliases = [];
+    private readonly Dictionary<ControlFlowGraph, HashSet<CaptureId>> _assignedCaptures = [];
     private readonly List<DeferRecord> _defers = [];
     private readonly Dictionary<ControlFlowGraph, List<HashSet<int>>> _dominators = [];
     private Dictionary<int, BlockId> _blocks = [];
@@ -523,6 +525,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
     private void LowerCapture(IFlowCaptureOperation capture)
     {
+        if (AssignedCaptures().Contains(capture.Id) && capture.Value is ILocalReferenceOperation or IParameterReferenceOperation or IFieldReferenceOperation or IArrayElementReferenceOperation)
+        {
+            _captureAliases[(_cfg, capture.Id)] = PlaceOf(capture.Value);
+            return;
+        }
+
         OperandId value = LowerValue(capture.Value);
         if (!_captures.TryGetValue((_cfg, capture.Id), out LocalId local))
         {
@@ -531,6 +539,32 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         _f.Assign(_f.LocalPlace(local), _f.Use(value), SpanOf(capture));
+    }
+
+    private HashSet<CaptureId> AssignedCaptures()
+    {
+        if (_assignedCaptures.TryGetValue(_cfg, out HashSet<CaptureId>? known))
+        {
+            return known;
+        }
+
+        var ids = new HashSet<CaptureId>();
+        foreach (BasicBlock block in _cfg.Blocks)
+        {
+            foreach (IOperation root in block.Operations.Concat(block.BranchValue is null ? [] : [block.BranchValue]))
+            {
+                foreach (IOperation node in root.DescendantsAndSelf())
+                {
+                    if (node is IAssignmentOperation { Target: IFlowCaptureReferenceOperation target })
+                    {
+                        ids.Add(target.Id);
+                    }
+                }
+            }
+        }
+
+        _assignedCaptures[_cfg] = ids;
+        return ids;
     }
 
     private OperandId LowerValue(IOperation operation) =>
@@ -565,6 +599,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _f.Copy(PlaceOf(operation));
             case IInlineArrayAccessOperation:
                 return _f.Copy(PlaceOf(operation));
+            case IIsNullOperation isNull:
+                return LowerIsNull(isNull);
             case ICollectionExpressionOperation collection:
                 return LowerCollectionExpression(collection);
             case IInvocationOperation { TargetMethod: { Name: "GetEnumerator", ContainingType.Name: "RangeExtensions" } } rangeEnumeration:
@@ -738,8 +774,38 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         _ => null,
     };
 
+    private static bool IsNullLiteral(IOperation operation) =>
+        operation.ConstantValue is { HasValue: true, Value: null }
+        || operation is IConversionOperation { Operand: var inner } && IsNullLiteral(inner);
+
+    private OperandId? LowerNullComparison(IBinaryOperation binary)
+    {
+        if (binary.OperatorKind is not (BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals))
+        {
+            return null;
+        }
+
+        IOperation? nullable = TypeMapper.IsNullable(binary.LeftOperand.Type) && IsNullLiteral(binary.RightOperand) ? binary.LeftOperand
+            : TypeMapper.IsNullable(binary.RightOperand.Type) && IsNullLiteral(binary.LeftOperand) ? binary.RightOperand
+            : null;
+        if (nullable is null)
+        {
+            return null;
+        }
+
+        SourceSpan span = SpanOf(binary);
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        OperandId present = Emit(boolean, _f.HasPayload(PlaceOf(nullable)), span);
+        return binary.OperatorKind == BinaryOperatorKind.NotEquals ? present : Emit(boolean, _f.Unop(UnOp.Not, ArithMode.Default, present), span);
+    }
+
     private OperandId LowerBinary(IBinaryOperation binary)
     {
+        if (LowerNullComparison(binary) is { } comparison)
+        {
+            return comparison;
+        }
+
         Location location = binary.Syntax.GetLocation();
         BinOp op = BinaryOperator(binary.OperatorKind)
             ?? throw new UnsupportedConstructException("the operator " + binary.OperatorKind + " is not supported yet", location);
@@ -963,7 +1029,9 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             case IParameterReferenceOperation parameter:
                 return ValuePlace(_locals[parameter.Parameter], parameter.Parameter.RefKind);
             case IFlowCaptureReferenceOperation reference:
-                return _f.LocalPlace(_captures[(_cfg, reference.Id)]);
+                return _captureAliases.TryGetValue((_cfg, reference.Id), out PlaceId alias)
+                    ? alias
+                    : _f.LocalPlace(_captures[(_cfg, reference.Id)]);
             case IParenthesizedOperation parenthesized:
                 return PlaceOf(parenthesized.Operand);
             case IInstanceReferenceOperation:
@@ -1100,9 +1168,17 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return LowerSlice(invocation, span);
         }
 
-        if (TypeMapper.IsNullable(target.ContainingType) && target.Name == "GetValueOrDefault")
+        if (TypeMapper.IsNullable(target.ContainingType))
         {
-            return LowerGetValueOrDefault(invocation, span);
+            switch (target.Name)
+            {
+                case "GetValueOrDefault":
+                    return LowerGetValueOrDefault(invocation, span);
+                case "get_HasValue":
+                    return Emit(_builder.Primitive(TypeKind.Bool), _f.HasPayload(PlaceOf(invocation.Instance!)), span);
+                case "get_Value":
+                    return _f.Copy(_f.Project(PlaceOf(invocation.Instance!), ProjectionKind.Payload, 0));
+            }
         }
 
         var arguments = new List<OperandId>();
@@ -1455,6 +1531,20 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         return Emit(pointerType, _f.Cast(CastKind.PtrPtr, ArithMode.Default, address, pointerType), span);
     }
 
+    private OperandId LowerIsNull(IIsNullOperation isNull)
+    {
+        SourceSpan span = SpanOf(isNull);
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        if (TypeMapper.IsNullable(isNull.Operand.Type))
+        {
+            OperandId present = Emit(boolean, _f.HasPayload(PlaceOf(isNull.Operand)), span);
+            return Emit(boolean, _f.Unop(UnOp.Not, ArithMode.Default, present), span);
+        }
+
+        OperandId value = LowerValue(isNull.Operand);
+        return Emit(boolean, _f.Binop(BinOp.Eq, ArithMode.Default, value, _f.Const(_builder.NullConstant(OperandType(value)))), span);
+    }
+
     private OperandId LowerNullableMember(IPropertyReferenceOperation member)
     {
         SourceSpan span = SpanOf(member);
@@ -1529,6 +1619,18 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private OperandId TestPattern(IPatternOperation pattern, PlaceId place, SourceSpan span)
     {
         TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        if (_module.Types[IrTyper.OfPlace(_module, _body, place).Index].Kind == TypeKind.Optional
+            && pattern is not (IDiscardPatternOperation or INegatedPatternOperation or IBinaryPatternOperation))
+        {
+            if (pattern is IConstantPatternOperation nullTest && IsNullLiteral(nullTest.Value))
+            {
+                OperandId present = Emit(boolean, _f.HasPayload(place), span);
+                return Emit(boolean, _f.Unop(UnOp.Not, ArithMode.Default, present), span);
+            }
+
+            return TestPayload(pattern, place, span);
+        }
+
         switch (pattern)
         {
             case IConstantPatternOperation constant:
@@ -1564,6 +1666,38 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             default:
                 throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported yet", pattern.Syntax.GetLocation());
         }
+    }
+
+    private OperandId TestPayload(IPatternOperation pattern, PlaceId place, SourceSpan span)
+    {
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        LocalId result = NewTemp(boolean);
+        _f.Assign(_f.LocalPlace(result), _f.Use(_f.Const(_builder.BoolConstant(boolean, false))), span);
+        foreach (IOperation node in pattern.DescendantsAndSelf())
+        {
+            ILocalSymbol? bound = node switch
+            {
+                IDeclarationPatternOperation declaration => declaration.DeclaredSymbol as ILocalSymbol,
+                IRecursivePatternOperation recursive => recursive.DeclaredSymbol as ILocalSymbol,
+                _ => null,
+            };
+            if (bound is not null)
+            {
+                LocalId local = LocalOf(bound, span);
+                _f.Assign(_f.LocalPlace(local), _f.Use(Zero(_body.Locals[local.Index].Type, span)), span);
+            }
+        }
+
+        OperandId present = Emit(boolean, _f.HasPayload(place), span);
+        BlockId inner = _f.NewBlock();
+        BlockId join = _f.NewBlock();
+        _f.Branch(present, inner, join, span);
+        _f.SetBlock(inner);
+        OperandId matched = TestPattern(pattern, _f.Project(place, ProjectionKind.Payload, 0), span);
+        _f.Assign(_f.LocalPlace(result), _f.Use(matched), span);
+        _f.Goto(join, span);
+        _f.SetBlock(join);
+        return _f.Copy(_f.LocalPlace(result));
     }
 
     private OperandId TestRecursive(IRecursivePatternOperation pattern, PlaceId place, SourceSpan span)
