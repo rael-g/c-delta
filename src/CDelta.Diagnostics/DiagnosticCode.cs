@@ -40,6 +40,7 @@ public enum DiagnosticCode
     CD1027 = 1027,
     CD1028 = 1028,
     CD1029 = 1029,
+    CD1030 = 1030,
     CD2001 = 2001,
     CD2002 = 2002,
     CD2003 = 2003,

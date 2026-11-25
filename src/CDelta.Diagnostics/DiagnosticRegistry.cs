@@ -42,6 +42,7 @@ public static class DiagnosticRegistry
         [DiagnosticCode.CD1027] = "'TypedReference' constructs are not part of CΔ, and '__arglist' is only for variadic C functions",
         [DiagnosticCode.CD1028] = "'params' arrays are not part of CΔ; use 'params ReadOnlySpan<T>'",
         [DiagnosticCode.CD1029] = "delegates do not combine",
+        [DiagnosticCode.CD1030] = "a function pointer with the default calling convention is written 'delegate*<...>'",
         [DiagnosticCode.CD2001] = "this switch does not cover every value; add the missing members or 'default'",
         [DiagnosticCode.CD2002] = "a capturing lambda cannot outlive the function that created it",
         [DiagnosticCode.CD2003] = "an opaque type can only be used behind a pointer",
