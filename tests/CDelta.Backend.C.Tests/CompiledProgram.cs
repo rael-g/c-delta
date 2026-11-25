@@ -23,24 +23,38 @@ internal static class CompiledProgram
     }
 
     public static string Generate(Module final, bool lineDirectives) =>
-        CBackend.Generate(final, new BackendOptions(lineDirectives, true)).Replace(GoldenFile.RepositoryRoot(), "$ROOT");
+        CBackend.Generate(final, new BackendOptions(lineDirectives, true)).Program.Replace(GoldenFile.RepositoryRoot(), "$ROOT");
 
     public static (int ExitCode, string Error) Run(Module final, OptimizeMode mode)
     {
         string directory = Directory.CreateTempSubdirectory("cdelta-backend").FullName;
         try
         {
-            string source = Path.Combine(directory, "program.c");
-            File.WriteAllText(source, CBackend.Generate(final, new BackendOptions(false, true)));
+            CBackendOutput generated = CBackend.Generate(final, new BackendOptions(false, true));
+            var sources = new List<string>();
+            File.WriteAllText(Path.Combine(directory, "program.c"), generated.Program);
+            sources.Add(Path.Combine(directory, "program.c"));
+            if (generated.Libc is not null)
+            {
+                File.WriteAllText(Path.Combine(directory, "libc.c"), generated.Libc);
+                sources.Add(Path.Combine(directory, "libc.c"));
+            }
+
             var runner = new ProcessRunner();
             var bag = new DiagnosticBag();
             IToolchainProvider? toolchain = ToolchainSelector.Select("auto", HostTarget, runner, Environment.GetEnvironmentVariable, PathSearch.Find, bag);
             Assert.NotNull(toolchain);
-            string objectFile = Path.Combine(directory, "program.o");
+            var objects = new List<string>();
+            foreach (string source in sources)
+            {
+                string objectFile = Path.ChangeExtension(source, ".o");
+                ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectFile, HostTarget, mode, [], []));
+                Assert.True(compiled.ExitCode == 0, compiled.CommandLine + "\n" + compiled.StandardError);
+                objects.Add(objectFile);
+            }
+
             string program = Path.Combine(directory, "program");
-            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectFile, HostTarget, mode, [], []));
-            Assert.True(compiled.ExitCode == 0, compiled.CommandLine + "\n" + compiled.StandardError);
-            ToolResult linked = toolchain.Link(new LinkRequest([objectFile], program, HostTarget, mode, []));
+            ToolResult linked = toolchain.Link(new LinkRequest(objects, program, HostTarget, mode, []));
             Assert.True(linked.ExitCode == 0, linked.CommandLine + "\n" + linked.StandardError);
 
             var start = new ProcessStartInfo(program) { RedirectStandardError = true, UseShellExecute = false };

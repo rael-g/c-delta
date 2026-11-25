@@ -11,19 +11,71 @@ internal static class CPrelude
 
         """;
 
-    public const string LibcIncludes = """
+    public const string LibcProtocol = """
+        void cd_libc_write_stderr(const uint8_t* bytes, size_t length);
+        noreturn void cd_libc_abort(void);
+
+        """;
+
+    public const string LibcUnit = """
+        #include <stdint.h>
+        #include <stddef.h>
+        #include <stdnoreturn.h>
         #include <stdio.h>
         #include <stdlib.h>
+
+        void cd_libc_write_stderr(const uint8_t* bytes, size_t length)
+        {
+            fwrite(bytes, 1, length, stderr);
+        }
+
+        noreturn void cd_libc_abort(void)
+        {
+            abort();
+        }
 
         """;
 
     public const string PanicWithLibc = """
+        static void cd_write_text(const char* text)
+        {
+            size_t length = 0;
+            while (text[length] != 0)
+            {
+                length++;
+            }
+
+            cd_libc_write_stderr((const uint8_t*)text, length);
+        }
+
+        static void cd_write_int(int32_t value)
+        {
+            char digits[16];
+            int position = 16;
+            uint32_t magnitude = value < 0 ? 0u - (uint32_t)value : (uint32_t)value;
+            do
+            {
+                digits[--position] = (char)('0' + magnitude % 10u);
+                magnitude /= 10u;
+            } while (magnitude != 0);
+            if (value < 0)
+            {
+                digits[--position] = '-';
+            }
+
+            cd_libc_write_stderr((const uint8_t*)(digits + position), (size_t)(16 - position));
+        }
+
         static noreturn void cd_default_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)
         {
-            fputs("panic: ", stderr);
-            fwrite(msg, 1, (size_t)msg_len, stderr);
-            fprintf(stderr, "\n  at %s:%d\n", file, (int)line);
-            abort();
+            cd_write_text("panic: ");
+            cd_libc_write_stderr(msg, (size_t)msg_len);
+            cd_write_text("\n  at ");
+            cd_write_text(file);
+            cd_write_text(":");
+            cd_write_int(line);
+            cd_write_text("\n");
+            cd_libc_abort();
         }
 
         static noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)

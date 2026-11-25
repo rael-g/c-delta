@@ -110,24 +110,37 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         List<string> messages)
     {
         bool debugInfo = mode is BuildMode.Debug or BuildMode.ReleaseSafe;
-        string c = CBackend.Generate(final, new BackendOptions(debugInfo, true));
+        CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true));
         string cPath = Path.Combine(intermediate, packageName + ".c");
-        File.WriteAllText(cPath, c);
+        File.WriteAllText(cPath, generated.Program);
+        var sources = new List<string> { cPath };
+        if (generated.Libc is not null)
+        {
+            string libcPath = Path.Combine(intermediate, packageName + ".libc.c");
+            File.WriteAllText(libcPath, generated.Libc);
+            sources.Add(libcPath);
+        }
 
         string objects = Path.Combine(intermediate, "objects");
         Directory.CreateDirectory(objects);
-        string objectPath = Path.Combine(objects, packageName + ".o");
         OptimizeMode optimize = Enum.Parse<OptimizeMode>(mode.ToString());
-        ToolResult compiled = toolchain.Compile(new CompileRequest(cPath, objectPath, target, optimize, [], []));
-        Trace(options, compiled, messages);
-        if (compiled.ExitCode != 0)
+        var objectPaths = new List<string>();
+        foreach (string source in sources)
         {
-            diagnostics.Add(DiagnosticCode.CD0003, new Location(cPath, 0, 0), new Note(null, compiled.StandardError.Trim()));
-            return null;
+            string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
+            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, [], []));
+            Trace(options, compiled, messages);
+            if (compiled.ExitCode != 0)
+            {
+                diagnostics.Add(DiagnosticCode.CD0003, new Location(source, 0, 0), new Note(null, compiled.StandardError.Trim()));
+                return null;
+            }
+
+            objectPaths.Add(objectPath);
         }
 
         string output = options.OutputPath ?? DefaultOutput(packageName, target);
-        ToolResult linked = toolchain.Link(new LinkRequest([objectPath], output, target, optimize, LibrariesOf(final)));
+        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final)));
         Trace(options, linked, messages);
         if (linked.ExitCode != 0)
         {
@@ -137,7 +150,10 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
 
         if (!options.EmitC)
         {
-            File.Delete(cPath);
+            foreach (string source in sources)
+            {
+                File.Delete(source);
+            }
         }
 
         return output;

@@ -5,7 +5,7 @@ namespace CDelta.Backend.C;
 
 public static class CBackend
 {
-    public static string Generate(Module module, BackendOptions options)
+    public static CBackendOutput Generate(Module module, BackendOptions options)
     {
         var names = new CNames(module);
         var state = new CEmitState();
@@ -23,17 +23,20 @@ public static class CBackend
         }
 
         var text = new StringBuilder(CPrelude.Includes);
-        if (state.UsesPanic && options.LinkLibC)
-        {
-            text.Append(CPrelude.LibcIncludes);
-        }
-
         if (state.UsesPanic)
         {
-            text.Append('\n').Append(options.LinkLibC ? CPrelude.PanicWithLibc : CPrelude.PanicWithoutLibc);
+            if (options.LinkLibC)
+            {
+                text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(CPrelude.PanicWithLibc);
+            }
+            else
+            {
+                text.Append('\n').Append(CPrelude.PanicWithoutLibc);
+            }
         }
 
         text.Append('\n').Append(prototypes).Append(definitions);
-        return text.ToString();
+        string? libc = state.UsesPanic && options.LinkLibC ? CPrelude.LibcUnit : null;
+        return new CBackendOutput(text.ToString(), libc);
     }
 }
