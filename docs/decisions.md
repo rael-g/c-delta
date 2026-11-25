@@ -195,6 +195,11 @@ save and restore the trace length, so a trace shows only the error in flight.
 the documents is written to `docs/kanban/questions.md` and the affected work waits for the
 answer.
 
+**D128. `stackalloc` has only its pointer form.** Roslyn converts `stackalloc` to a span only when
+the span is a ref struct, and spans as fields of ordinary structs (D009 and the slice model) matter
+more than that shorthand. A span over stack memory is `new Span<T>(p, n)`; constant data on the
+stack uses collection expressions.
+
 ## Repository
 
 **D201. Documents and code are in English.**

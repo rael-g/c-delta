@@ -83,6 +83,9 @@ It may only be used behind a pointer. `CD2003`
 - `Span<T>` and `ReadOnlySpan<T>` are ordinary structs in CΔ, not `ref struct`: they may be fields
   of any struct. The compiler checks only the obvious escape of stack memory (`CD2006`): returning
   `stackalloc` or the address of a local.
+- Because spans are not ref structs, Roslyn does not convert `stackalloc` to a span (`CS8346`);
+  `stackalloc` has only its pointer form, and a span over it is built with
+  `new Span<T>(pointer, length)`.
 - `Length` is `int`, as in C#. Indexing, slicing (`s[a..b]`, `s[^1]`), `foreach` and list patterns
   are intrinsics; indexing is bounds-checked in safe modes.
 - `fixed (T* p = span)` takes the address of the first element. Nothing is pinned because nothing
@@ -97,7 +100,7 @@ C# arrays are heap objects, so the general `T[]` is removed. Fixed-size data use
 |---|---|
 | Inline array of any element type | `[InlineArray(16)] struct Buf16 { int _e; }` |
 | Inline array of a primitive inside an `unsafe` struct | `fixed byte Name[32];` |
-| Stack array in a function | `Span<int> s = stackalloc int[16];` or `Span<int> s = [1, 2, 3];` |
+| Stack array in a function | `Span<int> s = [1, 2, 3];`, or in an `unsafe` context `int* p = stackalloc int[n];` then `var s = new Span<int>(p, n);` |
 | Global table | `static readonly int[] Primes = [2, 3, 5, 7];` |
 
 A `static readonly` array is static data of constant length, mutable element by element, and

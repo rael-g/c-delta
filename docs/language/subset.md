@@ -144,7 +144,8 @@ User code, including the std, cannot declare them.
 | Collection expressions | Restricted: only targeting `Span<T>`, `ReadOnlySpan<T>`, inline arrays and `static readonly` arrays |
 | Lambdas, anonymous methods, method groups | Kept; see [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
 | Delegate combination (`+`, `-`, `+=`, `-=`) | Removed. `CD1029` |
-| `stackalloc`, `sizeof`, `default`, `nameof`, `typeof` | Kept; `typeof` is comptime only, see [comptime.md](comptime.md) |
+| `stackalloc` | Restricted: only the pointer form `T* p = stackalloc T[n]`; Roslyn itself rejects the span form (`CS8346`) because spans are not ref structs |
+| `sizeof`, `default`, `nameof`, `typeof` | Kept; `typeof` is comptime only, see [comptime.md](comptime.md) |
 | `&`, `*`, `->`, pointer arithmetic, pointer comparison | Kept |
 | `checked(...)`, `unchecked(...)` | Kept |
 | String concatenation | Restricted: only between constants. `CD1021` |

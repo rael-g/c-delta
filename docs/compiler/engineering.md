@@ -173,7 +173,8 @@ never its IL emitter, so only binding matters.
 | string to span | `ReadOnlySpan<byte> s = "abc";` |
 | string to pointer | `byte* p = "abc";` in an `unsafe` context |
 | span as a field | `struct S { public Span<int> Items; }` and `S*` |
-| stackalloc | `Span<int> s = stackalloc int[4];` |
+| stackalloc | `int* p = stackalloc int[4]; var s = new Span<int>(p, 4);` in an `unsafe` context |
+| stackalloc to span is rejected | `Span<int> s = stackalloc int[4];` fails with exactly `CS8346` |
 | collection expression | `Span<int> s = [1, 2, 3];` |
 | span iteration and ranges | `foreach (var x in s)`, `s[1..]`, `s[^1]` |
 | result conversions | `Result<int, E> F() => 1;` and `=> E.A;` |
