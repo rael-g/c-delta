@@ -19,7 +19,7 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer
         new KindRule(DiagnosticCode.CD1004, SyntaxKind.PropertyDeclaration),
         new KindRule(DiagnosticCode.CD1005, SyntaxKind.IndexerDeclaration),
         new KindRule(DiagnosticCode.CD1006, SyntaxKind.EventDeclaration, SyntaxKind.EventFieldDeclaration),
-        new KindRule(DiagnosticCode.CD1007, SyntaxKind.OperatorDeclaration, SyntaxKind.ConversionOperatorDeclaration),
+        new OperatorRule(),
         new KindRule(DiagnosticCode.CD1008, SyntaxKind.DestructorDeclaration),
         new StaticConstructorRule(),
         new KindRule(DiagnosticCode.CD1010, SyntaxKind.TryStatement),

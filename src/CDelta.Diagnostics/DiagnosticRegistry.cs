@@ -19,7 +19,7 @@ public static class DiagnosticRegistry
         [DiagnosticCode.CD1004] = "properties are not part of CΔ; use a field or a method",
         [DiagnosticCode.CD1005] = "indexers are not part of CΔ",
         [DiagnosticCode.CD1006] = "events are not part of CΔ",
-        [DiagnosticCode.CD1007] = "operator and conversion declarations are not part of CΔ",
+        [DiagnosticCode.CD1007] = "implicit conversions and the operators 'true', 'false', '++', '--' and compound assignment are not part of CΔ",
         [DiagnosticCode.CD1008] = "finalizers are not part of CΔ",
         [DiagnosticCode.CD1009] = "static constructors are not part of CΔ; initialize statics with comptime",
         [DiagnosticCode.CD1010] = "'try' is not part of CΔ; return a 'Result'",
