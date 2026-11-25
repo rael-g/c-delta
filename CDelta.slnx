@@ -13,4 +13,7 @@
     <Project Path="src/CDelta.Ir/CDelta.Ir.csproj" />
     <Project Path="src/CDelta.Toolchain/CDelta.Toolchain.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CDelta.Diagnostics.Tests/CDelta.Diagnostics.Tests.csproj" />
+  </Folder>
 </Solution>
