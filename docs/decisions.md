@@ -243,6 +243,9 @@ The core does no flow analysis to elide checks.
 `[DllImport]` prototypes keep the IR's types, the ABI is the same, and the C file stays
 compilable without toolchain flags.
 
+**D141. The development environment grows as the documents need.** A missing tool is added to
+`eng/setup-dev.sh`; tests and checks are never weakened to fit what the container has.
+
 ## Repository
 
 **D201. Documents and code are in English.**

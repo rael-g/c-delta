@@ -12,16 +12,21 @@ Everything runs in the distrobox `dev`. It provides:
 |---|---|---|
 | .NET SDK | 10.0, the feature band pinned by `global.json` | building and testing the compiler |
 | `zig` | 0.15.1 or newer | the default C toolchain |
-| `clang` | 18 or newer | the alternative toolchain, the toolchain differential test |
+| `clang` and its sanitizer runtime | 18 or newer | the alternative toolchain, the toolchain differential test, sanitizers |
 | `gcc` | 13 or newer | the toolchain differential test |
 | `qemu-aarch64` and an aarch64 glibc sysroot | any | running `aarch64-linux-gnu` tests; the sysroot is `CDELTA_AARCH64_SYSROOT`, default `/usr/aarch64-linux-gnu` |
 | `wine` | 9 or newer | running `x86_64-windows-gnu` tests |
+| `git`, `bash` | any | |
 
 `dev` is Ubuntu 24.04. `eng/setup-dev.sh` installs what the base image lacks with `apt`
-(`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `gcc`) and checks every version of the
-table; it is idempotent and changes nothing outside the container, so it writes no profile file.
-`zig` and the .NET SDK are part of the image; the script only checks their versions.
-| `git`, `bash` | any | |
+(`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `libclang-rt-dev`, `gcc`) and checks every
+version of the table; it is idempotent and changes nothing outside the container, so it writes no
+profile file. `zig` and the .NET SDK are part of the image; the script only checks their versions.
+
+When a document requires something the container lacks (a compiler, a runtime, an emulator, a
+sysroot), install it: add it to `eng/setup-dev.sh` and to the table above in the same commit,
+never work around its absence by weakening a test or a check. This covers the development
+environment only; packages the compiler references stay under [Packages](#packages).
 
 These minimum versions are also the ones `CD0002` checks (`msvc`: Visual Studio 2022 17.8 or newer).
 

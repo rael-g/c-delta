@@ -46,6 +46,8 @@ design (D127).
   assumption is wrong, do not choose and do not work around it. Add a question to
   `docs/kanban/questions.md`, mark the task blocked on `docs/kanban/board.md`, and continue with
   work that does not depend on it.
+- A tool missing from the distrobox `dev` is installed, not worked around
+  ([docs/compiler/engineering.md](docs/compiler/engineering.md#environment)).
 - Do not change `docs/` except `docs/kanban/`, typos and broken links. Answers arrive as commits
   that change the documents.
 - A milestone is done when its acceptance criteria pass and `eng/ci.sh` exits `0`.
