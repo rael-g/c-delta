@@ -9,6 +9,7 @@ public readonly record struct FunctionDecl(
     IdRange Params,
     bool Variadic,
     TypeId Return,
+    ParamMode ReturnMode,
     CallConv Conv,
     LinkageKind Linkage,
     StringId ExportName,

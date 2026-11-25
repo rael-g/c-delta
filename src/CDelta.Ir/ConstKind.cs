@@ -8,4 +8,5 @@ public enum ConstKind
     Null,
     Bytes,
     Undef,
+    Aggregate,
 }

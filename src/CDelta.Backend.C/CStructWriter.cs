@@ -79,7 +79,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 .Append(", \"layout of ").Append(display).Append("\");\n");
             text.Append("_Static_assert(_Alignof(").Append(name).Append(") == ").Append(declaration.Alignment)
                 .Append(", \"layout of ").Append(display).Append("\");\n");
-            string[] fieldNames = FieldNames(declaration);
+            string[] fieldNames = FieldNames(module, declaration);
             for (int i = 0; i < declaration.Fields.Count; i++)
             {
                 FieldDecl field = module.Fields[declaration.Fields.Start + i];
@@ -134,7 +134,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
 
     private bool IsVoid(TypeId type) => module.Types[type.Index].Kind == TypeKind.Void;
 
-    private string[] FieldNames(StructDecl declaration)
+    public static string[] FieldNames(Module module, StructDecl declaration)
     {
         string[] result = new string[declaration.Fields.Count];
         var used = new HashSet<string>();
@@ -162,7 +162,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
     private string Definition(StructId id)
     {
         StructDecl declaration = module.Structs[id.Index];
-        string[] fieldNames = FieldNames(declaration);
+        string[] fieldNames = FieldNames(module, declaration);
         var order = new List<int>();
         for (int i = 0; i < declaration.Fields.Count; i++)
         {

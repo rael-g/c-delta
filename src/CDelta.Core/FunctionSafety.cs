@@ -36,6 +36,11 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                     InsertDivisionChecks(statement, rewritten);
                 }
 
+                if (checksOn)
+                {
+                    InsertPlaceChecks(statement, rewritten);
+                }
+
                 rewritten.Add(id);
             }
 
@@ -49,6 +54,140 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 };
             }
         }
+    }
+
+    private void InsertPlaceChecks(Statement statement, List<StatementId> sink)
+    {
+        var places = new List<PlaceId>();
+        var addressed = new List<PlaceId>();
+        if (!statement.Place.IsNone)
+        {
+            places.Add(statement.Place);
+        }
+
+        if (!statement.Rvalue.IsNone)
+        {
+            Rvalue rvalue = body.Rvalues[statement.Rvalue.Index];
+            CollectRvaluePlaces(rvalue, places);
+            if (rvalue.Kind == RvalueKind.Addr)
+            {
+                addressed.Add(rvalue.Place);
+            }
+        }
+
+        if (!statement.Operand.IsNone)
+        {
+            CollectOperandPlace(statement.Operand, places);
+        }
+
+        _f.RedirectStatements(sink);
+        try
+        {
+            foreach (PlaceId place in places)
+            {
+                CheckPlace(place, statement.Span, true);
+            }
+
+            foreach (PlaceId place in addressed)
+            {
+                CheckPlace(place, statement.Span, false);
+            }
+        }
+        finally
+        {
+            _f.RedirectStatements(null);
+        }
+    }
+
+    private void CollectOperandPlace(OperandId operand, List<PlaceId> places)
+    {
+        Operand o = body.Operands[operand.Index];
+        if (o.Kind == OperandKind.Copy)
+        {
+            places.Add(new PlaceId(o.A));
+        }
+    }
+
+    private void CollectRvaluePlaces(Rvalue rvalue, List<PlaceId> places)
+    {
+        if (!rvalue.A.IsNone)
+        {
+            CollectOperandPlace(rvalue.A, places);
+        }
+
+        if (!rvalue.B.IsNone)
+        {
+            CollectOperandPlace(rvalue.B, places);
+        }
+
+        for (int i = 0; i < rvalue.Args.Count && rvalue.Kind is RvalueKind.Call or RvalueKind.Aggregate; i++)
+        {
+            CollectOperandPlace(body.Args[rvalue.Args.Start + i], places);
+        }
+
+        if (!rvalue.Place.IsNone && rvalue.Kind != RvalueKind.Addr)
+        {
+            places.Add(rvalue.Place);
+        }
+    }
+
+    private void CheckPlace(PlaceId id, SourceSpan span, bool checkNull)
+    {
+        Place place = body.Places[id.Index];
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId current;
+        if (place.Base == PlaceBase.DerefLocal)
+        {
+            TypeId pointer = body.Locals[place.Id].Type;
+            TypeNode node = module.Types[pointer.Index];
+            if (checkNull && node.Flags.HasFlag(TypeFlags.Nullable))
+            {
+                OperandId pointerValue = _f.Copy(_f.LocalPlace(new LocalId(place.Id)));
+                OperandId isSet = Emit(boolean, _f.Binop(BinOp.Ne, ArithMode.Default, pointerValue, _f.Const(_builder.NullConstant(pointer))), span);
+                _f.Check(CheckKind.Null, isSet, "null pointer dereference", span);
+            }
+
+            current = IrTyper.Pointee(module, pointer);
+        }
+        else
+        {
+            current = place.Base == PlaceBase.Local ? body.Locals[place.Id].Type : module.Globals[place.Id].Type;
+        }
+
+        for (int i = 0; i < place.Projections.Count; i++)
+        {
+            Projection projection = body.Projections[place.Projections.Start + i];
+            if (projection.Kind == ProjectionKind.Index)
+            {
+                CheckIndex(place, i, current, projection, span);
+            }
+
+            current = IrTyper.Project(module, current, projection);
+        }
+    }
+
+    private void CheckIndex(Place place, int depth, TypeId container, Projection projection, SourceSpan span)
+    {
+        TypeNode node = module.Types[container.Index];
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId usize = _builder.Primitive(TypeKind.USize);
+        OperandId index = new(projection.Value);
+        OperandId asUnsigned = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, index, usize), span);
+        OperandId limit;
+        if (node.Kind == TypeKind.Array)
+        {
+            limit = _f.Const(_builder.IntConstant(usize, node.B));
+        }
+        else
+        {
+            body.Places.Add(place with { Projections = new IdRange(place.Projections.Start, depth) });
+            var prefix = new PlaceId(body.Places.Count - 1);
+            OperandId length = Emit(_builder.Primitive(TypeKind.I32), _f.Len(prefix), span);
+            limit = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, length, usize), span);
+        }
+
+        OperandId inRange = Emit(boolean, _f.Binop(BinOp.Lt, ArithMode.Default, asUnsigned, limit), span);
+        _f.Check(CheckKind.Bounds, inRange, "index out of bounds", span);
     }
 
     private void InsertDivisionChecks(Statement statement, List<StatementId> sink)

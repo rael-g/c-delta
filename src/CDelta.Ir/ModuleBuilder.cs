@@ -19,7 +19,7 @@ public sealed class ModuleBuilder(Module module)
 
     public TypeId ArrayOf(TypeId element, int length) => Module.Type(new TypeNode(TypeKind.Array, TypeFlags.None, element.Index, length));
 
-    public SigId Signature(CallConv conv, IReadOnlyList<SigParam> parameters, TypeId result, bool variadic)
+    public SigId Signature(CallConv conv, IReadOnlyList<SigParam> parameters, TypeId result, bool variadic, ParamMode returnMode = ParamMode.Value)
     {
         int[] encoded = new int[parameters.Count];
         for (int i = 0; i < encoded.Length; i++)
@@ -27,21 +27,66 @@ public sealed class ModuleBuilder(Module module)
             encoded[i] = parameters[i].Encode();
         }
 
-        return Module.Sig(new SigNode(conv, Module.TypeList(encoded), result, variadic));
+        return Module.Sig(new SigNode(conv, Module.TypeList(encoded), result, returnMode, variadic));
     }
 
     public TypeId FunctionPointer(SigId sig) => Module.Type(new TypeNode(TypeKind.Fn, TypeFlags.None, sig.Index, 0));
 
     public ConstId IntConstant(TypeId type, Int128 value) =>
-        Module.Constant(new ConstNode(ConstKind.Int, type, value, BytesId.None));
+        Module.Constant(new ConstNode(ConstKind.Int, type, value, BytesId.None, TypeListId.None));
 
     public ConstId BoolConstant(TypeId type, bool value) =>
-        Module.Constant(new ConstNode(ConstKind.Bool, type, value ? 1 : 0, BytesId.None));
+        Module.Constant(new ConstNode(ConstKind.Bool, type, value ? 1 : 0, BytesId.None, TypeListId.None));
 
     public ConstId BytesConstant(TypeId type, byte[] data) =>
-        Module.Constant(new ConstNode(ConstKind.Bytes, type, 0, Module.InternBytes(data)));
+        Module.Constant(new ConstNode(ConstKind.Bytes, type, 0, Module.InternBytes(data), TypeListId.None));
 
-    public ConstId NullConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Null, type, 0, BytesId.None));
+    public ConstId AggregateConstant(TypeId type, IReadOnlyList<ConstId> items)
+    {
+        int[] encoded = new int[items.Count];
+        for (int i = 0; i < encoded.Length; i++)
+        {
+            encoded[i] = items[i].Index;
+        }
+
+        return Module.Constant(new ConstNode(ConstKind.Aggregate, type, 0, BytesId.None, Module.TypeList(encoded)));
+    }
+
+    public ConstId UndefConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Undef, type, 0, BytesId.None, TypeListId.None));
+
+    public GlobalId DeclareGlobal(
+        string key,
+        string name,
+        SourceSpan span,
+        Origin origin,
+        TypeId type,
+        bool mutable,
+        bool threadLocal,
+        ConstId initializer,
+        LinkageKind linkage,
+        string? exportName)
+    {
+        var decl = new GlobalDecl(
+            Module.Intern(key),
+            Module.Intern(name),
+            span,
+            origin,
+            IdRange.Empty,
+            type,
+            mutable,
+            threadLocal,
+            initializer,
+            linkage,
+            exportName is null ? StringId.None : Module.Intern(exportName),
+            StringId.None,
+            0);
+        var id = new GlobalId(Module.Globals.Count);
+        Module.Globals.Add(decl);
+        Module.GlobalsByKey.Add(key, id);
+        return id;
+    }
+
+    public ConstId NullConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Null, type, 0, BytesId.None, TypeListId.None));
 
     public StructId DeclareStruct(
         string key,
@@ -93,7 +138,8 @@ public sealed class ModuleBuilder(Module module)
         CallConv conv,
         LinkageKind linkage,
         string? exportName,
-        IReadOnlyList<string> attributes)
+        IReadOnlyList<string> attributes,
+        ParamMode returnMode = ParamMode.Value)
     {
         int paramStart = Module.Params.Count;
         Module.Params.AddRange(parameters);
@@ -113,6 +159,7 @@ public sealed class ModuleBuilder(Module module)
             new IdRange(paramStart, parameters.Count),
             variadic,
             result,
+            returnMode,
             conv,
             linkage,
             exportName is null ? StringId.None : Module.Intern(exportName),

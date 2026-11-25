@@ -161,7 +161,46 @@ internal sealed partial class CFunctionWriter(
             + CConstants.StringLiteral(Encoding.UTF8.GetBytes(DisplayPath(span))) + ", " + span.Line + ");";
     }
 
-    private string Place(PlaceId id) => _locals[_body.Places[id.Index].Id];
+    private string Place(PlaceId id)
+    {
+        Place place = _body.Places[id.Index];
+        string text;
+        TypeId current;
+        switch (place.Base)
+        {
+            case PlaceBase.Local:
+                text = _locals[place.Id];
+                current = _body.Locals[place.Id].Type;
+                break;
+            case PlaceBase.Global:
+                text = names.Global(new GlobalId(place.Id));
+                current = module.Globals[place.Id].Type;
+                break;
+            default:
+                text = "(*" + _locals[place.Id] + ")";
+                current = IrTyper.Pointee(module, _body.Locals[place.Id].Type);
+                break;
+        }
+
+        for (int i = 0; i < place.Projections.Count; i++)
+        {
+            Projection projection = _body.Projections[place.Projections.Start + i];
+            if (projection.Kind == ProjectionKind.Field)
+            {
+                StructDecl declaration = module.Structs[module.Types[current.Index].A];
+                text += "." + CStructWriter.FieldNames(module, declaration)[projection.Value];
+            }
+            else
+            {
+                string index = OperandText(new OperandId(projection.Value));
+                text += module.Types[current.Index].Kind == TypeKind.Array ? ".e[" + index + "]" : ".ptr[" + index + "]";
+            }
+
+            current = IrTyper.Project(module, current, projection);
+        }
+
+        return text;
+    }
 
     private string OperandText(OperandId id)
     {
@@ -235,6 +274,26 @@ internal sealed partial class CFunctionWriter(
             case RvalueKind.Call:
                 Statement(destination + " = " + CallText(rvalue) + ";");
                 break;
+            case RvalueKind.Addr:
+                Statement(destination + " = &" + Place(rvalue.Place) + ";");
+                break;
+            case RvalueKind.Aggregate:
+                Statement(destination + " = " + AggregateText(rvalue, cType) + ";");
+                break;
+            case RvalueKind.Len:
+                Statement(destination + " = " + LenText(rvalue) + ";");
+                break;
+            case RvalueKind.SizeOf:
+                Statement(destination + " = ((int32_t)sizeof(" + CTypes.Spell(module, names, rvalue.Type) + "));");
+                break;
+            case RvalueKind.AlignOf:
+                Statement(destination + " = ((int32_t)_Alignof(" + CTypes.Spell(module, names, rvalue.Type) + "));");
+                break;
+            case RvalueKind.OffsetOf:
+                StructDecl owner = module.Structs[module.Types[rvalue.Type.Index].A];
+                Statement(destination + " = ((int32_t)offsetof(" + CTypes.Spell(module, names, rvalue.Type) + ", "
+                    + CStructWriter.FieldNames(module, owner)[rvalue.Aux] + "));");
+                break;
             case RvalueKind.Binop:
                 WriteBinop(rvalue, destination, cType, statement.Span);
                 break;
@@ -247,6 +306,46 @@ internal sealed partial class CFunctionWriter(
         }
     }
 
+    private string AggregateText(Rvalue rvalue, string cType)
+    {
+        TypeNode node = module.Types[rvalue.Type.Index];
+        var text = new StringBuilder("(" + cType + "){ ");
+        if (node.Kind == TypeKind.Array)
+        {
+            text.Append("{ ");
+            for (int i = 0; i < rvalue.Args.Count; i++)
+            {
+                text.Append(i > 0 ? ", " : string.Empty).Append(OperandText(_body.Args[rvalue.Args.Start + i]));
+            }
+
+            return text.Append(" } }").ToString();
+        }
+
+        StructDecl declaration = module.Structs[node.A];
+        string[] fieldNames = CStructWriter.FieldNames(module, declaration);
+        bool first = true;
+        for (int i = 0; i < rvalue.Args.Count; i++)
+        {
+            if (module.Types[module.Fields[declaration.Fields.Start + i].Type.Index].Kind == TypeKind.Void)
+            {
+                continue;
+            }
+
+            text.Append(first ? string.Empty : ", ").Append('.').Append(fieldNames[i]).Append(" = ")
+                .Append(OperandText(_body.Args[rvalue.Args.Start + i]));
+            first = false;
+        }
+
+        return text.Append(" }").ToString();
+    }
+
+    private string LenText(Rvalue rvalue)
+    {
+        TypeId measured = IrTyper.OfPlace(module, _body, rvalue.Place);
+        TypeNode node = module.Types[measured.Index];
+        return node.Kind == TypeKind.Array ? "((int32_t)" + node.B + ")" : Place(rvalue.Place) + ".len";
+    }
+
     private void Statement(string text) => _text.Append(Indent).Append(text).Append('\n');
 
     private void WriteBinop(Rvalue rvalue, string destination, string cType, SourceSpan span)
@@ -255,6 +354,12 @@ internal sealed partial class CFunctionWriter(
         string a = OperandText(rvalue.A);
         string b = OperandText(rvalue.B);
         TypeKind operandKind = KindOf(IrTyper.OfOperand(module, _body, rvalue.A));
+        if (operandKind == TypeKind.Ptr && op < BinOp.Eq)
+        {
+            Statement(destination + " = (" + cType + ")(" + a + " " + (op == BinOp.Add ? "+" : "-") + " " + b + ");");
+            return;
+        }
+
         if (op >= BinOp.Eq)
         {
             Statement(destination + " = (" + a + " " + CompareOperator(op) + " " + b + ");");

@@ -245,19 +245,54 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         Place p = body.Places[place.Index];
-        if (p.Base != PlaceBase.Local || p.Projections.Count != 0)
+        if (p.Base == PlaceBase.Global ? p.Id < 0 || p.Id >= module.Globals.Count : p.Id < 0 || p.Id >= body.Locals.Count)
         {
-            Fail("a place form is not supported at this milestone");
+            Fail("a place names a missing local or global");
             return TypeId.None;
         }
 
-        if (p.Id < 0 || p.Id >= body.Locals.Count)
+        TypeId current;
+        switch (p.Base)
         {
-            Fail("a place names a missing local");
-            return TypeId.None;
+            case PlaceBase.Local:
+                current = body.Locals[p.Id].Type;
+                break;
+            case PlaceBase.Global:
+                current = module.Globals[p.Id].Type;
+                break;
+            default:
+                current = IrTyper.Pointee(module, body.Locals[p.Id].Type);
+                if (current.IsNone)
+                {
+                    Fail("a deref place names a local that is not a pointer");
+                    return TypeId.None;
+                }
+
+                break;
         }
 
-        return body.Locals[p.Id].Type;
+        for (int i = 0; i < p.Projections.Count; i++)
+        {
+            Projection projection = body.Projections[p.Projections.Start + i];
+            if (projection.Kind == ProjectionKind.Index)
+            {
+                TypeId index = OperandType(body, new OperandId(projection.Value));
+                if (index.IsNone || !IrTypes.IsInteger(KindOf(index)))
+                {
+                    Fail("an index is not an integer");
+                    return TypeId.None;
+                }
+            }
+
+            current = IrTyper.Project(module, current, projection);
+            if (current.IsNone)
+            {
+                Fail("a projection does not apply to its type");
+                return TypeId.None;
+            }
+        }
+
+        return current;
     }
 
     private TypeId OperandType(Body body, OperandId operand)
@@ -314,9 +349,75 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 }
 
                 return ValidType(r.Type) ? r.Type : TypeId.None;
+            case RvalueKind.Addr:
+                PlaceType(body, r.Place);
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.Aggregate:
+                return AggregateType(body, r);
+            case RvalueKind.Len:
+                TypeId measured = PlaceType(body, r.Place);
+                if (measured.IsNone || KindOf(measured) is not (TypeKind.Array or TypeKind.Slice))
+                {
+                    Fail("len of something that is not an array or a slice");
+                }
+
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.SizeOf:
+            case RvalueKind.AlignOf:
+            case RvalueKind.OffsetOf:
+                return ValidType(r.Type) ? IrTyper.OfRvalue(module, body, rvalue) : TypeId.None;
             default:
                 return CallType(body, r);
         }
+    }
+
+    private TypeId AggregateType(Body body, Rvalue r)
+    {
+        if (!ValidType(r.Type))
+        {
+            Fail("an aggregate type does not resolve");
+            return TypeId.None;
+        }
+
+        TypeNode node = module.Types[r.Type.Index];
+        var expected = new List<TypeId>();
+        switch (node.Kind)
+        {
+            case TypeKind.Struct:
+                StructDecl declaration = module.Structs[node.A];
+                for (int i = 0; i < declaration.Fields.Count; i++)
+                {
+                    expected.Add(module.Fields[declaration.Fields.Start + i].Type);
+                }
+
+                break;
+            case TypeKind.Array:
+                for (int i = 0; i < node.B; i++)
+                {
+                    expected.Add(new TypeId(node.A));
+                }
+
+                break;
+            default:
+                Fail("an aggregate of a type that is not a struct or an array");
+                return TypeId.None;
+        }
+
+        if (r.Args.Count != expected.Count)
+        {
+            Fail("an aggregate has the wrong number of elements");
+            return r.Type;
+        }
+
+        for (int i = 0; i < expected.Count; i++)
+        {
+            if (OperandType(body, body.Args[r.Args.Start + i]) != expected[i])
+            {
+                Fail("an aggregate element has the wrong type");
+            }
+        }
+
+        return r.Type;
     }
 
     private TypeId BinopType(Body body, Rvalue r)
@@ -329,6 +430,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         var op = (BinOp)r.Op;
+        if (KindOf(left) == TypeKind.Ptr)
+        {
+            return PointerBinop(op, left, right);
+        }
+
         bool shift = op is BinOp.Shl or BinOp.Shr;
         if (!shift && left != right)
         {
@@ -348,6 +454,34 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         return op >= BinOp.Eq ? module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0)) : left;
+    }
+
+    private TypeId PointerBinop(BinOp op, TypeId left, TypeId right)
+    {
+        TypeKind rightKind = KindOf(right);
+        TypeId boolean = module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0));
+        if (op >= BinOp.Eq)
+        {
+            if (op is not (BinOp.Eq or BinOp.Ne) && rightKind != TypeKind.Ptr)
+            {
+                Fail("an ordering comparison of a pointer with a non pointer");
+            }
+
+            return boolean;
+        }
+
+        if (op is BinOp.Add or BinOp.Sub && rightKind == TypeKind.ISize)
+        {
+            return left;
+        }
+
+        if (op == BinOp.Sub && rightKind == TypeKind.Ptr)
+        {
+            return module.Type(new TypeNode(TypeKind.ISize, TypeFlags.None, 0, 0));
+        }
+
+        Fail("an invalid pointer operation");
+        return TypeId.None;
     }
 
     private TypeId UnopType(Body body, Rvalue r)
@@ -563,7 +697,21 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             {
                 case StatementKind.Assign:
                     ReadRvalue(body, statement.Rvalue, state, report);
-                    state[body.Places[statement.Place.Index].Id] = true;
+                    Place destination = body.Places[statement.Place.Index];
+                    ReadPlaceOperands(body, destination, state, report);
+                    if (destination.Base == PlaceBase.Local && destination.Projections.Count == 0)
+                    {
+                        state[destination.Id] = true;
+                    }
+                    else if (destination.Base == PlaceBase.Local && report && !state[destination.Id])
+                    {
+                        Fail("local %" + destination.Id + " is written through a projection before it is assigned");
+                    }
+                    else if (destination.Base == PlaceBase.DerefLocal && report && !state[destination.Id])
+                    {
+                        Fail("local %" + destination.Id + " is dereferenced before it is assigned");
+                    }
+
                     break;
                 case StatementKind.Call:
                     ReadRvalue(body, statement.Rvalue, state, report);
@@ -589,6 +737,12 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
     private void ReadRvalue(Body body, RvalueId id, bool[] state, bool report)
     {
         Rvalue r = body.Rvalues[id.Index];
+        if (!r.Place.IsNone)
+        {
+            ReadPlaceBase(body, body.Places[r.Place.Index], state, report);
+            ReadPlaceOperands(body, body.Places[r.Place.Index], state, report);
+        }
+
         if (!r.A.IsNone)
         {
             ReadOperand(body, r.A, state, report);
@@ -599,9 +753,9 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             ReadOperand(body, r.B, state, report);
         }
 
-        if (r.Kind == RvalueKind.Call)
+        if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate)
         {
-            if (r.Callee == CalleeKind.Indirect)
+            if (r.Kind == RvalueKind.Call && r.Callee == CalleeKind.Indirect)
             {
                 ReadOperand(body, new OperandId(r.CalleeId), state, report);
             }
@@ -609,6 +763,31 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             for (int i = 0; i < r.Args.Count; i++)
             {
                 ReadOperand(body, body.Args[r.Args.Start + i], state, report);
+            }
+        }
+    }
+
+    private void ReadPlaceBase(Body body, Place place, bool[] state, bool report)
+    {
+        if (place.Base == PlaceBase.Global)
+        {
+            return;
+        }
+
+        if (report && !state[place.Id] && place.Base == PlaceBase.DerefLocal)
+        {
+            Fail("local %" + place.Id + " is used before it is assigned");
+        }
+    }
+
+    private void ReadPlaceOperands(Body body, Place place, bool[] state, bool report)
+    {
+        for (int i = 0; i < place.Projections.Count; i++)
+        {
+            Projection projection = body.Projections[place.Projections.Start + i];
+            if (projection.Kind == ProjectionKind.Index)
+            {
+                ReadOperand(body, new OperandId(projection.Value), state, report);
             }
         }
     }
@@ -621,10 +800,16 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             return;
         }
 
-        int local = body.Places[operand.A].Id;
-        if (report && !state[local])
+        Place place = body.Places[operand.A];
+        ReadPlaceOperands(body, place, state, report);
+        if (place.Base == PlaceBase.Global)
         {
-            Fail("local %" + local + " is used before it is assigned");
+            return;
+        }
+
+        if (report && !state[place.Id])
+        {
+            Fail("local %" + place.Id + " is used before it is assigned");
         }
     }
 }

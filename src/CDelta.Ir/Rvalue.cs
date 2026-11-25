@@ -9,4 +9,6 @@ public readonly record struct Rvalue(
     TypeId Type,
     CalleeKind Callee,
     int CalleeId,
-    IdRange Args);
+    IdRange Args,
+    PlaceId Place,
+    int Aux);

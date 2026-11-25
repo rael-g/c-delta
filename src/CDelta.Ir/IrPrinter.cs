@@ -50,6 +50,12 @@ public static partial class IrPrinter
             PrintStruct(module, declaration, text);
         }
 
+        foreach (GlobalId global in OrderedGlobals(module))
+        {
+            text.Append('\n');
+            PrintGlobal(module, global, text);
+        }
+
         foreach (FunctionId function in OrderedFunctions(module))
         {
             text.Append('\n');
@@ -106,7 +112,7 @@ public static partial class IrPrinter
             text.Append(items.Length > 0 ? ", ..." : "...");
         }
 
-        text.Append(") -> ").Append(TypeText(module, node.Return));
+        text.Append(") -> ").Append(IrNames.ParamMode(node.ReturnMode)).Append(TypeText(module, node.Return));
         if (node.Conv != CallConv.Default)
         {
             text.Append(" cc ").Append(IrNames.Conv(node.Conv));
@@ -163,6 +169,70 @@ public static partial class IrPrinter
             module.Text(module.Functions[a.Index].Key),
             module.Text(module.Functions[b.Index].Key)));
         return ids;
+    }
+
+    public static List<GlobalId> OrderedGlobals(Module module)
+    {
+        var ids = new List<GlobalId>();
+        for (int i = 0; i < module.Globals.Count; i++)
+        {
+            ids.Add(new GlobalId(i));
+        }
+
+        ids.Sort((a, b) => string.CompareOrdinal(
+            module.Text(module.Globals[a.Index].Key),
+            module.Text(module.Globals[b.Index].Key)));
+        return ids;
+    }
+
+    private static void PrintGlobal(Module module, GlobalId id, StringBuilder text)
+    {
+        GlobalDecl global = module.Globals[id.Index];
+        for (int i = 0; i < global.Attributes.Count; i++)
+        {
+            AttributeNode attribute = module.Attributes[global.Attributes.Start + i];
+            text.Append("#[").Append(Reference(module.Text(attribute.Name))).Append("]\n");
+        }
+
+        text.Append("global ").Append(Reference(module.Text(global.Key))).Append(": ").Append(TypeText(module, global.Type));
+        if (global.Mutable)
+        {
+            text.Append(" mutable");
+        }
+
+        if (global.ThreadLocal)
+        {
+            text.Append(" threadlocal");
+        }
+
+        switch (global.Linkage)
+        {
+            case LinkageKind.Export:
+                text.Append(" export(").Append(Quote(module.Text(global.ExportName))).Append(')');
+                break;
+            case LinkageKind.Extern:
+                text.Append(" extern");
+                break;
+        }
+
+        if (!global.Section.IsNone)
+        {
+            text.Append(" section ").Append(Quote(module.Text(global.Section)));
+        }
+
+        if (global.Alignment > 0)
+        {
+            text.Append(" align ").Append(global.Alignment);
+        }
+
+        if (!global.Initializer.IsNone)
+        {
+            text.Append(" = ");
+            PrintConstant(module, global.Initializer, text);
+        }
+
+        PrintOrigin(module, global.Origin, text);
+        text.Append(' ').Append(Span(global.Span)).Append('\n');
     }
 
     public static List<StructId> OrderedStructs(Module module)
@@ -267,7 +337,7 @@ public static partial class IrPrinter
             text.Append(function.Params.Count > 0 ? ", ..." : "...");
         }
 
-        text.Append(") -> ").Append(TypeText(module, function.Return));
+        text.Append(") -> ").Append(IrNames.ParamMode(function.ReturnMode)).Append(TypeText(module, function.Return));
         if (function.Conv != CallConv.Default)
         {
             text.Append(" cc ").Append(IrNames.Conv(function.Conv));
@@ -386,7 +456,7 @@ public static partial class IrPrinter
         switch (statement.Kind)
         {
             case StatementKind.Assign:
-                PrintPlace(body, statement.Place, text);
+                PrintPlace(module, body, statement.Place, text);
                 text.Append(" = ");
                 PrintRvalue(module, body, statement.Rvalue, text);
                 break;
@@ -465,13 +535,13 @@ public static partial class IrPrinter
         text.Append("  ").Append(Span(terminator.Span));
     }
 
-    private static void PrintPlace(Body body, PlaceId id, StringBuilder text)
+    private static void PrintPlace(Module module, Body body, PlaceId id, StringBuilder text)
     {
         Place place = body.Places[id.Index];
         string baseText = place.Base switch
         {
             PlaceBase.Local => "%" + place.Id,
-            PlaceBase.Global => "global " + place.Id,
+            PlaceBase.Global => "global " + Reference(module.Text(module.Globals[place.Id].Key)),
             _ => "(*%" + place.Id + ")",
         };
         text.Append(baseText);
@@ -484,7 +554,9 @@ public static partial class IrPrinter
                     text.Append(".field(").Append(projection.Value).Append(')');
                     break;
                 case ProjectionKind.Index:
-                    text.Append("[%").Append(projection.Value).Append(']');
+                    text.Append('[');
+                    PrintOperand(module, body, new OperandId(projection.Value), text);
+                    text.Append(']');
                     break;
                 default:
                     text.Append(".payload(").Append(projection.Value).Append(')');
@@ -500,7 +572,7 @@ public static partial class IrPrinter
         {
             case OperandKind.Copy:
                 text.Append("copy ");
-                PrintPlace(body, new PlaceId(operand.A), text);
+                PrintPlace(module, body, new PlaceId(operand.A), text);
                 break;
             case OperandKind.Const:
                 text.Append("const ");
@@ -519,6 +591,11 @@ public static partial class IrPrinter
     {
         ConstNode constant = module.Constants[id.Index];
         text.Append(TypeText(module, constant.Type)).Append(' ');
+        PrintValue(module, constant, text);
+    }
+
+    private static void PrintValue(Module module, ConstNode constant, StringBuilder text)
+    {
         switch (constant.Kind)
         {
             case ConstKind.Int:
@@ -535,6 +612,21 @@ public static partial class IrPrinter
                 break;
             case ConstKind.Bytes:
                 text.Append("bytes ").Append(QuoteBytes(module.Bytes[constant.Bytes.Index]));
+                break;
+            case ConstKind.Aggregate:
+                text.Append('{');
+                int[] items = module.TypeLists[constant.Items.Index];
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        text.Append(", ");
+                    }
+
+                    PrintValue(module, module.Constants[items[i]], text);
+                }
+
+                text.Append('}');
                 break;
             default:
                 text.Append("undef");
@@ -582,6 +674,37 @@ public static partial class IrPrinter
 
                 PrintOperand(module, body, rvalue.A, text);
                 text.Append(" to ").Append(TypeText(module, rvalue.Type));
+                break;
+            case RvalueKind.Addr:
+                text.Append(rvalue.Aux != 0 ? "addr.mut " : "addr ");
+                PrintPlace(module, body, rvalue.Place, text);
+                break;
+            case RvalueKind.Aggregate:
+                text.Append("aggregate ").Append(TypeText(module, rvalue.Type)).Append('(');
+                for (int i = 0; i < rvalue.Args.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        text.Append(", ");
+                    }
+
+                    PrintOperand(module, body, body.Args[rvalue.Args.Start + i], text);
+                }
+
+                text.Append(')');
+                break;
+            case RvalueKind.Len:
+                text.Append("len ");
+                PrintPlace(module, body, rvalue.Place, text);
+                break;
+            case RvalueKind.SizeOf:
+                text.Append("sizeof ").Append(TypeText(module, rvalue.Type));
+                break;
+            case RvalueKind.AlignOf:
+                text.Append("alignof ").Append(TypeText(module, rvalue.Type));
+                break;
+            case RvalueKind.OffsetOf:
+                text.Append("offsetof ").Append(TypeText(module, rvalue.Type)).Append(' ').Append(rvalue.Aux);
                 break;
             default:
                 text.Append("call ");

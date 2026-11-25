@@ -53,6 +53,39 @@ public sealed class FunctionBuilder(Module module, Body body)
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });
 
+    public RvalueId Addr(PlaceId place, bool mutable) =>
+        AddRvalue(Blank(RvalueKind.Addr) with { Place = place, Aux = mutable ? 1 : 0 });
+
+    public RvalueId Aggregate(TypeId type, IReadOnlyList<OperandId> elements) =>
+        AddRvalue(Blank(RvalueKind.Aggregate) with { Type = type, Args = AddArgs(elements) });
+
+    public RvalueId Len(PlaceId place) => AddRvalue(Blank(RvalueKind.Len) with { Place = place });
+
+    public RvalueId SizeOf(TypeId type) => AddRvalue(Blank(RvalueKind.SizeOf) with { Type = type });
+
+    public RvalueId AlignOf(TypeId type) => AddRvalue(Blank(RvalueKind.AlignOf) with { Type = type });
+
+    public RvalueId OffsetOf(TypeId type, int field) => AddRvalue(Blank(RvalueKind.OffsetOf) with { Type = type, Aux = field });
+
+    public PlaceId GlobalPlace(GlobalId global) => AddPlace(new Place(PlaceBase.Global, global.Index, IdRange.Empty));
+
+    public PlaceId DerefPlace(LocalId pointer) => AddPlace(new Place(PlaceBase.DerefLocal, pointer.Index, IdRange.Empty));
+
+    public PlaceId Project(PlaceId place, ProjectionKind kind, int value)
+    {
+        Place source = Body.Places[place.Index];
+        var projections = new List<Projection>();
+        for (int i = 0; i < source.Projections.Count; i++)
+        {
+            projections.Add(Body.Projections[source.Projections.Start + i]);
+        }
+
+        projections.Add(new Projection(kind, value));
+        int start = Body.Projections.Count;
+        Body.Projections.AddRange(projections);
+        return AddPlace(source with { Projections = new IdRange(start, projections.Count) });
+    }
+
     public void Assign(PlaceId place, RvalueId rvalue, SourceSpan span) =>
         Emit(new Statement(StatementKind.Assign, place, rvalue, OperandId.None, 0, StringId.None, span));
 
@@ -91,7 +124,7 @@ public sealed class FunctionBuilder(Module module, Body body)
         Terminate(new Terminator(TermKind.Panic, message, BlockId.None, BlockId.None, IdRange.Empty, UnreachableMode.Default, span));
 
     private static Rvalue Blank(RvalueKind kind) =>
-        new(kind, 0, ArithMode.Default, OperandId.None, OperandId.None, TypeId.None, CalleeKind.Direct, -1, IdRange.Empty);
+        new(kind, 0, ArithMode.Default, OperandId.None, OperandId.None, TypeId.None, CalleeKind.Direct, -1, IdRange.Empty, PlaceId.None, 0);
 
     private IdRange AddArgs(IReadOnlyList<OperandId> args)
     {

@@ -21,6 +21,24 @@ public static class IrVerifier
             }
         }
 
+        for (int i = 0; i < module.Globals.Count; i++)
+        {
+            GlobalDecl global = module.Globals[i];
+            string name = module.Text(global.Key);
+            if (global.Type.Index < 0 || global.Type.Index >= module.Types.Count)
+            {
+                Report(bag, module, global.Span, name, "the global type does not resolve");
+            }
+            else if (global.Linkage != LinkageKind.Extern && global.Initializer.IsNone && stage != ModuleStage.Lowered)
+            {
+                Report(bag, module, global.Span, name, "a global has no initializer");
+            }
+            else if (!global.Initializer.IsNone && module.Constants[global.Initializer.Index].Type != global.Type)
+            {
+                Report(bag, module, global.Span, name, "the initializer has another type than the global");
+            }
+        }
+
         for (int i = 0; i < module.Functions.Count; i++)
         {
             new FunctionVerifier(module, stage, new FunctionId(i), bag).Run();

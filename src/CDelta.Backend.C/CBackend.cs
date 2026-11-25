@@ -68,7 +68,19 @@ public static class CBackend
             text.Append('\n').Append(structs.Definitions(typeOrder)).Append(structs.Assertions(structOrder));
         }
 
-        text.Append('\n').Append(prototypes).Append(definitions);
+        var globals = new StringBuilder();
+        foreach (GlobalId id in IrPrinter.OrderedGlobals(module))
+        {
+            globals.Append(GlobalText(module, names, id));
+        }
+
+        text.Append('\n').Append(prototypes);
+        if (globals.Length > 0)
+        {
+            text.Append('\n').Append(globals);
+        }
+
+        text.Append(definitions);
         string? libc = state.UsesPanic && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
     }
@@ -84,5 +96,21 @@ public static class CBackend
         }
 
         return false;
+    }
+
+    private static string GlobalText(Module module, CNames names, GlobalId id)
+    {
+        GlobalDecl global = module.Globals[id.Index];
+        string type = CTypes.Spell(module, names, global.Type);
+        string name = names.Global(id);
+        if (global.Linkage == LinkageKind.Extern)
+        {
+            return "extern " + type + " " + name + ";\n";
+        }
+
+        string storage = (global.Linkage == LinkageKind.Internal ? "static " : string.Empty)
+            + (global.ThreadLocal ? "_Thread_local " : string.Empty);
+        string init = global.Initializer.IsNone ? string.Empty : " = " + CConstants.Initializer(module, names, global.Initializer);
+        return storage + type + " " + name + init + ";\n";
     }
 }

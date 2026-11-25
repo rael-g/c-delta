@@ -41,6 +41,10 @@ public sealed class Module(string name)
 
     public Dictionary<string, StructId> StructsByKey { get; } = [];
 
+    public List<GlobalDecl> Globals { get; } = [];
+
+    public Dictionary<string, GlobalId> GlobalsByKey { get; } = [];
+
     public List<FunctionDecl> Functions { get; } = [];
 
     public List<Body?> Bodies { get; } = [];

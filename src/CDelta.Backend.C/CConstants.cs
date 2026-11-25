@@ -20,9 +20,65 @@ internal static class CConstants
             case ConstKind.Null:
                 return "((" + type + ")0)";
             case ConstKind.Bytes:
+                if (module.Types[constant.Type.Index].Kind == TypeKind.Slice)
+                {
+                    return "(" + type + ")" + Initializer(module, names, id);
+                }
+
                 return "((" + type + ")" + StringLiteral(module.Bytes[constant.Bytes.Index]) + ")";
+            case ConstKind.Aggregate:
+                return "(" + type + ")" + Initializer(module, names, id);
             default:
                 throw new NotSupportedException("the constant kind " + constant.Kind + " is not supported at this stage");
+        }
+    }
+
+    public static string Initializer(Module module, CNames names, ConstId id)
+    {
+        ConstNode constant = module.Constants[id.Index];
+        TypeNode node = module.Types[constant.Type.Index];
+        switch (constant.Kind)
+        {
+            case ConstKind.Bytes when node.Kind == TypeKind.Slice:
+                byte[] data = module.Bytes[constant.Bytes.Index];
+                string element = CTypes.Spell(module, names, new TypeId(node.A));
+                return "{ (const " + element + "*)" + StringLiteral(data) + ", " + data.Length + " }";
+            case ConstKind.Aggregate:
+                int[] items = module.TypeLists[constant.Items.Index];
+                var text = new StringBuilder("{ ");
+                if (node.Kind == TypeKind.Array)
+                {
+                    text.Append("{ ");
+                    for (int i = 0; i < items.Length; i++)
+                    {
+                        text.Append(i > 0 ? ", " : string.Empty).Append(Initializer(module, names, new ConstId(items[i])));
+                    }
+
+                    text.Append(" }");
+                }
+                else
+                {
+                    StructDecl declaration = module.Structs[node.A];
+                    string[] fieldNames = CStructWriter.FieldNames(module, declaration);
+                    bool first = true;
+                    for (int i = 0; i < items.Length; i++)
+                    {
+                        if (module.Types[module.Fields[declaration.Fields.Start + i].Type.Index].Kind == TypeKind.Void)
+                        {
+                            continue;
+                        }
+
+                        text.Append(first ? string.Empty : ", ").Append('.').Append(fieldNames[i]).Append(" = ")
+                            .Append(Initializer(module, names, new ConstId(items[i])));
+                        first = false;
+                    }
+                }
+
+                return text.Append(" }").ToString();
+            case ConstKind.Null:
+                return "0";
+            default:
+                return Spell(module, names, id);
         }
     }
 

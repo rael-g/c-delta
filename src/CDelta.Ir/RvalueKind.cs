@@ -7,4 +7,10 @@ public enum RvalueKind
     Unop,
     Cast,
     Call,
+    Addr,
+    Aggregate,
+    Len,
+    SizeOf,
+    AlignOf,
+    OffsetOf,
 }

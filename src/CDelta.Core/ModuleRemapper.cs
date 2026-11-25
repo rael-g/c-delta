@@ -82,14 +82,27 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             mapped[i] = new SigParam(Type(parameter.Type), parameter.Mode).Encode();
         }
 
-        return destination.Sig(new SigNode(node.Conv, destination.TypeList(mapped), Type(node.Return), node.Variadic));
+        return destination.Sig(new SigNode(node.Conv, destination.TypeList(mapped), Type(node.Return), node.ReturnMode, node.Variadic));
     }
 
     public ConstId Constant(ConstId id)
     {
         ConstNode node = source.Constants[id.Index];
         BytesId bytes = node.Bytes.IsNone ? node.Bytes : destination.InternBytes(source.Bytes[node.Bytes.Index]);
-        return destination.Constant(node with { Type = Type(node.Type), Bytes = bytes });
+        TypeListId items = node.Items;
+        if (!items.IsNone)
+        {
+            int[] original = source.TypeLists[items.Index];
+            int[] mapped = new int[original.Length];
+            for (int i = 0; i < original.Length; i++)
+            {
+                mapped[i] = Constant(new ConstId(original[i])).Index;
+            }
+
+            items = destination.TypeList(mapped);
+        }
+
+        return destination.Constant(node with { Type = Type(node.Type), Bytes = bytes, Items = items });
     }
 
     public Origin Origin(Origin origin) =>

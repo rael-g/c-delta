@@ -2,15 +2,62 @@ namespace CDelta.Ir;
 
 public static class IrTyper
 {
-    public static TypeId OfPlace(Module module, Body body, PlaceId place)
+    public static TypeId Pointee(Module module, TypeId pointer)
     {
-        Place p = body.Places[place.Index];
-        if (p.Base != PlaceBase.Local || p.Projections.Count != 0)
+        if (pointer.IsNone || module.Types[pointer.Index].Kind != TypeKind.Ptr)
         {
             return TypeId.None;
         }
 
-        return body.Locals[p.Id].Type;
+        return new TypeId(module.Types[pointer.Index].A);
+    }
+
+    public static TypeId OfPlace(Module module, Body body, PlaceId place)
+    {
+        Place p = body.Places[place.Index];
+        TypeId current;
+        switch (p.Base)
+        {
+            case PlaceBase.Local:
+                current = body.Locals[p.Id].Type;
+                break;
+            case PlaceBase.Global:
+                current = module.Globals[p.Id].Type;
+                break;
+            default:
+                current = Pointee(module, body.Locals[p.Id].Type);
+                break;
+        }
+
+        for (int i = 0; i < p.Projections.Count && !current.IsNone; i++)
+        {
+            Projection projection = body.Projections[p.Projections.Start + i];
+            current = Project(module, current, projection);
+        }
+
+        return current;
+    }
+
+    public static TypeId Project(Module module, TypeId type, Projection projection)
+    {
+        TypeNode node = module.Types[type.Index];
+        switch (projection.Kind)
+        {
+            case ProjectionKind.Field:
+                if (node.Kind != TypeKind.Struct)
+                {
+                    return TypeId.None;
+                }
+
+                StructDecl declaration = module.Structs[node.A];
+                return projection.Value >= 0 && projection.Value < declaration.Fields.Count
+                    ? module.Fields[declaration.Fields.Start + projection.Value].Type
+                    : TypeId.None;
+            case ProjectionKind.Index:
+                return node.Kind is TypeKind.Array or TypeKind.Slice ? new TypeId(node.A) : TypeId.None;
+            default:
+                return TypeId.None;
+        }
     }
 
     public static TypeId OfConstant(Module module, ConstId constant) => module.Constants[constant.Index].Type;
@@ -30,17 +77,45 @@ public static class IrTyper
     public static TypeId OfRvalue(Module module, Body body, RvalueId rvalue)
     {
         Rvalue r = body.Rvalues[rvalue.Index];
+        TypeId boolean = module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0));
+        TypeId i32 = module.Type(new TypeNode(TypeKind.I32, TypeFlags.None, 0, 0));
         switch (r.Kind)
         {
             case RvalueKind.Use:
                 return OfOperand(module, body, r.A);
             case RvalueKind.Binop:
                 var op = (BinOp)r.Op;
-                return op >= BinOp.Eq ? module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0)) : OfOperand(module, body, r.A);
+                if (op >= BinOp.Eq)
+                {
+                    return boolean;
+                }
+
+                TypeId left = OfOperand(module, body, r.A);
+                if (!left.IsNone && module.Types[left.Index].Kind == TypeKind.Ptr && op == BinOp.Sub)
+                {
+                    TypeId right = OfOperand(module, body, r.B);
+                    if (!right.IsNone && module.Types[right.Index].Kind == TypeKind.Ptr)
+                    {
+                        return module.Type(new TypeNode(TypeKind.ISize, TypeFlags.None, 0, 0));
+                    }
+                }
+
+                return left;
             case RvalueKind.Unop:
                 return OfOperand(module, body, r.A);
             case RvalueKind.Cast:
+            case RvalueKind.Aggregate:
                 return r.Type;
+            case RvalueKind.Addr:
+                TypeId target = OfPlace(module, body, r.Place);
+                return target.IsNone
+                    ? TypeId.None
+                    : module.Type(new TypeNode(TypeKind.Ptr, r.Aux == 0 ? TypeFlags.Const : TypeFlags.None, target.Index, 0));
+            case RvalueKind.Len:
+            case RvalueKind.SizeOf:
+            case RvalueKind.AlignOf:
+            case RvalueKind.OffsetOf:
+                return i32;
             case RvalueKind.Call:
                 if (r.Callee == CalleeKind.Direct)
                 {

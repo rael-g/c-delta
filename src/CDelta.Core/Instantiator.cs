@@ -12,6 +12,7 @@ public sealed class Instantiator
     private readonly ModuleBuilder _builder;
     private readonly ModuleRemapper _remap;
     private readonly Dictionary<int, FunctionId> _mapped = [];
+    private readonly Dictionary<int, GlobalId> _globals = [];
     private readonly Queue<FunctionId> _pending = new();
 
     public Instantiator(Module source, IBodyProvider provider, DiagnosticBag diagnostics)
@@ -97,7 +98,8 @@ public sealed class Instantiator
             declaration.Conv,
             declaration.Linkage,
             declaration.ExportName.IsNone ? null : _source.Text(declaration.ExportName),
-            attributes);
+            attributes,
+            declaration.ReturnMode);
         _destination.Functions[created.Index] = _destination.Functions[created.Index] with
         {
             Inline = declaration.Inline,
@@ -106,6 +108,34 @@ public sealed class Instantiator
         };
         _mapped.Add(id.Index, created);
         _pending.Enqueue(id);
+        return created;
+    }
+
+    private GlobalId ReachGlobal(GlobalId id)
+    {
+        if (_globals.TryGetValue(id.Index, out GlobalId existing))
+        {
+            return existing;
+        }
+
+        GlobalDecl declaration = _source.Globals[id.Index];
+        GlobalId created = _builder.DeclareGlobal(
+            _source.Text(declaration.Key),
+            _source.Text(declaration.Name),
+            declaration.Span,
+            _remap.Origin(declaration.Origin),
+            _remap.Type(declaration.Type),
+            declaration.Mutable,
+            declaration.ThreadLocal,
+            declaration.Initializer.IsNone ? ConstId.None : _remap.Constant(declaration.Initializer),
+            declaration.Linkage,
+            declaration.ExportName.IsNone ? null : _source.Text(declaration.ExportName));
+        _destination.Globals[created.Index] = _destination.Globals[created.Index] with
+        {
+            Section = _remap.String(declaration.Section),
+            Alignment = declaration.Alignment,
+        };
+        _globals.Add(id.Index, created);
         return created;
     }
 
@@ -127,7 +157,11 @@ public sealed class Instantiator
             body.Statements.Add(statement with { Message = _remap.String(statement.Message) });
         }
 
-        body.Places.AddRange(source.Places);
+        foreach (Place place in source.Places)
+        {
+            body.Places.Add(place.Base == PlaceBase.Global ? place with { Id = ReachGlobal(new GlobalId(place.Id)).Index } : place);
+        }
+
         body.Projections.AddRange(source.Projections);
         foreach (Operand operand in source.Operands)
         {
