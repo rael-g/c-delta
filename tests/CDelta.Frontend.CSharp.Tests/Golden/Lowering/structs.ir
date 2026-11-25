@@ -58,7 +58,7 @@ bb1:
   %12 = const struct Vec2 {0, 0}  @1:37:18
   %12.field(0) = const i32 1  @1:37:29
   %3 = copy %12  @1:37:14
-  goto bb2  @1:31:16
+  goto bb3  @1:31:16
 bb2:
   %13 = addr %0  @1:38:16
   %14 = copy %1  @1:38:16
@@ -77,6 +77,8 @@ bb2:
   dead %2  @1:38:16
   dead %3  @1:38:16
   return copy %24  @1:38:16
+bb3:
+  goto bb2  @1:31:16
 }
 
 fn "Vec2.#ctor(System.Int32,System.Int32)"(this: ref ptr<struct Vec2>, x: i32, y: i32) -> void origin source(csharp) @1:6:12 {

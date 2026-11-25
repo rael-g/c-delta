@@ -91,7 +91,7 @@ bb3:
   goto bb4  @1:3:16
 bb4:
   %10 = copy %23  @1:12:14
-  goto bb5  @1:3:16
+  goto bb10  @1:3:16
 bb5:
   %24 = binop add default copy %3, copy %4  @1:13:16
   %25 = binop add default copy %24, copy %5  @1:13:16
@@ -136,6 +136,8 @@ bb9:
   dead %9  @1:13:16
   dead %10  @1:13:16
   return copy %48  @1:13:16
+bb10:
+  goto bb5  @1:3:16
 }
 
 #[cdelta.EntryPoint]

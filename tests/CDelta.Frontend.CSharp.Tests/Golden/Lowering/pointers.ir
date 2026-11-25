@@ -106,7 +106,7 @@ bb4:
   goto bb5  @1:9:16
 bb5:
   %7 = copy %29  @1:23:14
-  goto bb6  @1:9:16
+  goto bb10  @1:9:16
 bb6:
   %30 = copy %0  @1:24:16
   %31 = binop add default copy %30, copy %2.field(0)  @1:24:16
@@ -137,4 +137,6 @@ bb9:
   dead %6  @1:24:16
   dead %7  @1:24:16
   return copy %42  @1:24:16
+bb10:
+  goto bb6  @1:9:16
 }

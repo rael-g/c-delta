@@ -202,7 +202,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         if (fallThrough.Destination is { Kind: BasicBlockKind.Exit } || fallThrough.Semantics == ControlFlowBranchSemantics.Return)
         {
             OperandId? value = block.BranchValue is null ? null : LowerValue(block.BranchValue);
-            if (value is not null)
+            if (value is not null && (!fallThrough.LeavingRegions.IsEmpty || ActiveDefers(fallThrough, block).Count > 0))
             {
                 LocalId saved = NewTemp(OperandType(value.Value));
                 _f.Assign(_f.LocalPlace(saved), _f.Use(value.Value), span);
