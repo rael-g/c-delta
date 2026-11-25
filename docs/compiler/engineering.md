@@ -14,8 +14,13 @@ Everything runs in the distrobox `dev`. It provides:
 | `zig` | 0.15.1 or newer | the default C toolchain |
 | `clang` | 18 or newer | the alternative toolchain, the toolchain differential test |
 | `gcc` | 13 or newer | the toolchain differential test |
-| `qemu-aarch64` and an aarch64 glibc sysroot | any | running `aarch64-linux-gnu` tests; the sysroot path is in `CDELTA_AARCH64_SYSROOT` |
+| `qemu-aarch64` and an aarch64 glibc sysroot | any | running `aarch64-linux-gnu` tests; the sysroot is `CDELTA_AARCH64_SYSROOT`, default `/usr/aarch64-linux-gnu` |
 | `wine` | 9 or newer | running `x86_64-windows-gnu` tests |
+
+`dev` is Ubuntu 24.04. `eng/setup-dev.sh` installs what the base image lacks with `apt`
+(`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `gcc`) and checks every version of the
+table; it is idempotent and changes nothing outside the container, so it writes no profile file.
+`zig` and the .NET SDK are part of the image; the script only checks their versions.
 | `git`, `bash` | any | |
 
 These minimum versions are also the ones `CD0002` checks (`msvc`: Visual Studio 2022 17.8 or newer).
@@ -87,8 +92,9 @@ lib/corelib/CDelta.Corelib.dll
 lib/std/**/*.cs
 ```
 
-`cdc` finds them relative to `AppContext.BaseDirectory`, or under `CDELTA_LIB` when that
-variable is set. The analyzer is a project reference of `CDelta.Driver`, loaded in process.
+`cdc` finds them under `<AppContext.BaseDirectory>/lib`. When `CDELTA_LIB` is set it replaces that
+`lib` directory: the corelib is `$CDELTA_LIB/corelib/CDelta.Corelib.dll` and the std
+`$CDELTA_LIB/std/`. The analyzer is a project reference of `CDelta.Driver`, loaded in process.
 
 ## Writing code
 

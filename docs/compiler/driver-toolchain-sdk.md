@@ -22,7 +22,8 @@ Common options: `--target`, `--mode`, `-o`, `--emit-c`, `--dump-ir <stage>`, `--
 `--option name=value`, `--verbose`, `--time`, `--color`.
 
 Given `.cs` files instead of a project, `cdc` builds them as one executable package with the
-default properties, so a single file program needs no project file.
+default properties, so a single file program needs no project file. Its package root is the
+directory of the first file, and its `PackageName` is that file's stem.
 
 | Option | Values | Default |
 |---|---|---|
@@ -50,7 +51,7 @@ value is exit code `2` with a usage line.
   paths of the files.
 - Libraries are `lib<PackageName>.a` or `.so` (`<PackageName>.lib` or `.dll` on Windows,
   `.dylib` on macOS).
-- Inside the intermediate directory: `<PackageName>.c`, `<PackageName>.h`, `ir/` for
+- Inside the intermediate directory: `<PackageName>.c`, `<PackageName>.libc.c`, `<PackageName>.h`, `ir/` for
   `--dump-ir`, `imports/` for import stubs, `objects/` for object files.
 - `cdc run` runs the output with the arguments after `--` and exits with its exit code.
 

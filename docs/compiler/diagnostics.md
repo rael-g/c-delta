@@ -27,7 +27,7 @@ src/Program.cs(12,9): note: 'Close' returns 'Result'; handle it or write '_ ='
 | `CD3xxx` | errors and panics | subset analyzer, except `CD3010` (core) |
 | `CD4xxx` | comptime | core (build only) |
 | `CD5xxx` | generics, interfaces, delegates | subset analyzer, except `CD5005` (core) |
-| `CD6xxx` | C interop | C frontend and subset analyzer |
+| `CD6xxx` | C interop | C frontend and subset analyzer, except `CD6010` (core) |
 | `CD9xxx` | internal compiler errors | driver |
 
 A code is never reused for another meaning. A retired code stays in this table marked retired.
@@ -117,6 +117,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD6007 | this `DllImport` option is not supported | [../language/c-interop.md](../language/c-interop.md#declaring-a-c-function-by-hand) |
 | CD6008 | `[CMacro]` applies only to `static extern` methods | [../language/c-interop.md](../language/c-interop.md#macros) |
 | CD6009 | two imports define the same macro differently | [frontend-c.md](frontend-c.md#the-translation-unit) |
+| CD6010 | two `[DllImport]` declarations of one C function have different signatures | [../language/c-interop.md](../language/c-interop.md#declaring-a-c-function-by-hand) |
 | CD9001 | internal compiler error | [architecture.md](architecture.md#internal-errors) |
 | CD9002 | internal IR verification failure | [ir.md](ir.md#verifier) |
 

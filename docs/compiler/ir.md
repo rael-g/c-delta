@@ -368,7 +368,7 @@ mode        = "default" | "trap" | "wrap" | "assume"
 - `dyn` callees name the method by its index in the interface; `union.make` names the member by
   its index in the union.
 - A `source` line gives the full path, then the display path: the path relative to its package
-  root with `/` separators, prefixed with `<PackageName>/` for packages other than the one being
+  root with `/` separators (with `..` segments for a file outside the root), prefixed with `<PackageName>/` for packages other than the one being
   built. Panic messages and traces use the display path; `#line` uses the full path. Golden tests
   replace the repository root in full paths with `$ROOT` before comparing.
 - Declarations are printed in this order: sources, cimports, then each table (structs, enums,

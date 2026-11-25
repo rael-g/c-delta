@@ -117,7 +117,9 @@ static unsafe class LibC
 - `EntryPoint` gives the C name; `CallingConvention` gives the convention. `CharSet`,
   `SetLastError`, `PreserveSig = false`, `BestFitMapping`, `ThrowOnUnmappableChar` and marshaling
   attributes are rejected (`CD6007`): there is no marshaling, the signature is the ABI.
-- The C backend declares the prototype itself, since there is no header.
+- The C backend declares the prototype itself, since there is no header, unless an imported
+  header already declares that name; then the header's declaration is used.
+- Two `[DllImport]` declarations of the same C function must have the same signature (`CD6010`).
 
 ## Compiling C sources
 

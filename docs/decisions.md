@@ -125,7 +125,9 @@ references.** Backends see only IR.
 **D104. The first backend generates C11, and the C compiler does all optimization and code
 generation.**
 
-**D105. One translation unit per program.**
+**D105. One translation unit per program, plus a second with what needs libc headers.** The
+program's unit includes no header that declares functions, so `[DllImport]` prototypes never
+conflict with libc's (D129).
 
 **D106. Every computed layout is asserted in the generated C.**
 
@@ -199,6 +201,14 @@ answer.
 the span is a ref struct, and spans as fields of ordinary structs (D009 and the slice model) matter
 more than that shorthand. A span over stack memory is `new Span<T>(p, n)`; constant data on the
 stack uses collection expressions.
+
+**D129. The prelude takes from libc only two functions, in their own translation unit.**
+`cd_libc_write_stderr` and `cd_libc_abort` live in `<PackageName>.libc.c`; the rest of the prelude
+is plain C and builtins. A `[DllImport]` whose name an imported header declares uses the header's
+declaration.
+
+**D130. A build from files has the directory of the first file as its package root.** Display
+paths of its sources are relative to it, with `..` segments when a file is outside it.
 
 ## Repository
 

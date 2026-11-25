@@ -8,16 +8,39 @@ it is meant to be read: names are recognizable and `#line` maps every statement 
 | File | Contents |
 |---|---|
 | `<PackageName>.c` | the whole program as one translation unit |
+| `<PackageName>.libc.c` | the two functions that need libc headers, when libc is linked and the program can panic or return an error from `Main` |
 | `<PackageName>.h` | the export header, when there are exports ([../language/c-interop.md](../language/c-interop.md#generated-header)) |
 
 One translation unit for the whole program keeps the backend simple and gives the C compiler
 whole-program optimization. Splitting into several units is a later optimization of build time,
 not of the design.
 
+The program's translation unit includes no header that declares functions, other than the user's
+imports. A `[DllImport]` prototype is written with the IR's types (`int32_t puts(uint8_t*)`),
+which conflicts with a libc header's declaration of the same name (`int puts(const char*)`), so
+what the prelude needs from libc lives in `<PackageName>.libc.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+void cd_libc_write_stderr(const uint8_t* bytes, size_t length) { fwrite(bytes, 1, length, stderr); }
+noreturn void cd_libc_abort(void) { abort(); }
+```
+
+The program's unit declares these two prototypes and does everything else itself: the panic and
+trace texts, including line numbers, are formatted in plain C and written with
+`cd_libc_write_stderr`. Float functions, atomics and traps use compiler builtins
+(`__builtin_fmod`, `__atomic_*`, `__builtin_trap`), never `<math.h>`, `<stdatomic.h>` or
+`<threads.h>`.
+
+A `[DllImport]` function whose C name an imported header also declares gets no prototype: calls go
+through the header's declaration, with arguments cast as for any imported function. Two
+`[DllImport]` declarations of one C name must have identical IR signatures (`CD6010`).
+
 The translation unit is ordered:
 
-1. `#include <stdint.h>`, `<stddef.h>`, `<stdbool.h>`, `<stdalign.h>`, `<stdnoreturn.h>`; and
-   `<stdatomic.h>`, `<threads.h>`, `<math.h>` only if used.
+1. `#include <stdint.h>`, `<stddef.h>`, `<stdbool.h>`, `<stdalign.h>`, `<stdnoreturn.h>`, which
+   declare no functions.
 2. The prelude: only the helpers the program uses (overflow arithmetic, saturating conversions,
    the default panic handler, `alloca`).
 3. The C imports: their defines and `#include` lines, in import order.
@@ -28,7 +51,7 @@ The translation unit is ordered:
 8. Globals, with constant initializers.
 9. Function definitions.
 
-No external runtime file exists. Everything the program needs is in this translation unit or in
+No external runtime file exists. Everything the program needs is in these generated files or in
 libraries the program chose to link.
 
 ## Names
@@ -56,7 +79,7 @@ program uses it; each is `static` (`static inline` for arithmetic).
 | Helper | Contract |
 |---|---|
 | `noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)` | calls the user's `[PanicHandler]` if there is one, else `cd_default_panic` |
-| `noreturn void cd_default_panic(...)` | same parameters; the output below, then `abort()`; without libc `__builtin_trap()` |
+| `noreturn void cd_default_panic(...)` | same parameters; the output below through `cd_libc_write_stderr`, then `cd_libc_abort()`; without libc `__builtin_trap()` |
 | `cd_trace`, `cd_trace_len` | `_Thread_local` ring of 32 `{ const char* file; int32_t line; }` and its count |
 | `void cd_trace_push(const char* file, int32_t line)` | writes at `cd_trace_len % 32`, then increments |
 | `void cd_trace_print(void)` | the trace block below, when `cd_trace_len > 0` |
@@ -72,7 +95,7 @@ as written there.
 
 ### Output of a panic
 
-On standard error, through `fputs` of `<stdio.h>`:
+On standard error, through `cd_libc_write_stderr`:
 
 ```
 panic: <message>
@@ -218,6 +241,6 @@ MSVC receives the equivalent options (`/std:c11`, `/Od`, `/O2`, `/O1`, `/Zi`, `/
 
 ## Delivering C
 
-`EmitC=true` or `cdc build --emit-c` keeps `<PackageName>.c` and `<PackageName>.h`. Together they
-build with any C11 compiler for the same target with no other file, which is how CΔ code is handed
+`EmitC=true` or `cdc build --emit-c` keeps `<PackageName>.c`, `<PackageName>.libc.c` and
+`<PackageName>.h`. Together they build with any C11 compiler for the same target with no other file, which is how CΔ code is handed
 to a C project that does not use `cdc`.

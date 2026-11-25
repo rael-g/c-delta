@@ -16,7 +16,7 @@ The repository builds and tests nothing yet, correctly.
   [compiler/frontend-csharp.md](compiler/frontend-csharp.md#the-corelib) the probes touch.
 - The settings, packages and `.editorconfig` of [compiler/engineering.md](compiler/engineering.md).
 - The Roslyn probes of [compiler/engineering.md](compiler/engineering.md#roslyn-probes).
-- `eng/ci.sh`.
+- `eng/ci.sh` and `eng/setup-dev.sh`.
 
 Accepted when: `eng/ci.sh` passes; the registry test matches the document; every probe passes.
 
