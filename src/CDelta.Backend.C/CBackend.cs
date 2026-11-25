@@ -62,9 +62,10 @@ public static class CBackend
             text.Append('\n').Append(slices);
         }
 
-        if (structOrder.Count > 0)
+        List<(int ArrayType, int Struct)> typeOrder = structs.TypeOrder(structOrder);
+        if (typeOrder.Count > 0)
         {
-            text.Append('\n').Append(structs.Definitions(structOrder)).Append(structs.Assertions(structOrder));
+            text.Append('\n').Append(structs.Definitions(typeOrder)).Append(structs.Assertions(structOrder));
         }
 
         text.Append('\n').Append(prototypes).Append(definitions);

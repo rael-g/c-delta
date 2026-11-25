@@ -69,7 +69,7 @@ public sealed class StructOutputTests
         TypeId i8 = builder.Primitive(TypeKind.I8);
         TypeId i32 = builder.Primitive(TypeKind.I32);
         TypeId f64 = builder.Primitive(TypeKind.F64);
-        FieldDecl Field(string name, TypeId type, int offset) => new(module.Intern(name), type, IdRange.Empty, 0, offset);
+        FieldDecl Field(string name, TypeId type, int offset) => new(module.Intern(name), type, IdRange.Empty, 0, offset, FieldDecl.NoBitOffset);
         builder.DeclareStruct("Union", "Union", SourceSpan.None, Origin.Synthetic, [Field("Int", i32, 0), Field("Real", f64, 0), Field("Byte", i8, 0)], StructLayoutKind.Explicit, 0, 0, []);
         builder.DeclareStruct("Holes", "Holes", SourceSpan.None, Origin.Synthetic, [Field("A", i32, 0), Field("B", i32, 8)], StructLayoutKind.Explicit, 0, 0, []);
         builder.DeclareStruct("Padded", "Padded", SourceSpan.None, Origin.Synthetic, [Field("A", i32, -1)], StructLayoutKind.C, 0, 20, []);

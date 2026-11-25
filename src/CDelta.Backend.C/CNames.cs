@@ -76,6 +76,32 @@ internal sealed class CNames
         return text.ToString();
     }
 
+    public static string MangleSpelling(string spelling)
+    {
+        var text = new StringBuilder();
+        foreach (char c in spelling)
+        {
+            if (c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_')
+            {
+                text.Append(c);
+            }
+            else if (c == '*')
+            {
+                text.Append("_p");
+            }
+            else if (c == ' ')
+            {
+                text.Append('_');
+            }
+            else
+            {
+                text.Append("_x").Append(((int)c).ToString("X2"));
+            }
+        }
+
+        return text.ToString();
+    }
+
     private static string Mangle(string path)
     {
         var text = new StringBuilder();

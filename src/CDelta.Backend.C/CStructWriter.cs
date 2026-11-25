@@ -9,9 +9,31 @@ internal sealed partial class CStructWriter(Module module, CNames names)
     private const string Indent = "    ";
     private const string PaddingPrefix = "cd_pad";
     private const string MinimumSizeField = "cd_min";
+    private const string AlignmentField = "cd_align";
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex Identifier();
+
+    public List<(int ArrayType, int Struct)> TypeOrder(List<StructId> structs)
+    {
+        var order = new List<(int ArrayType, int Struct)>();
+        var visitedStructs = new HashSet<int>();
+        var visitedTypes = new HashSet<int>();
+        foreach (StructId id in structs)
+        {
+            VisitStruct(id, visitedStructs, visitedTypes, order);
+        }
+
+        for (int i = 0; i < module.Types.Count; i++)
+        {
+            if (module.Types[i].Kind == TypeKind.Array)
+            {
+                VisitType(new TypeId(i), visitedStructs, visitedTypes, order);
+            }
+        }
+
+        return order;
+    }
 
     public string ForwardDeclarations(List<StructId> order)
     {
@@ -25,24 +47,21 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         return text.ToString();
     }
 
-    public List<StructId> DependencyOrder()
-    {
-        var order = new List<StructId>();
-        var visited = new HashSet<int>();
-        foreach (StructId id in IrPrinter.OrderedStructs(module))
-        {
-            Visit(id, visited, order);
-        }
+    public List<StructId> DependencyOrder() => IrPrinter.OrderedStructs(module);
 
-        return order;
-    }
-
-    public string Definitions(List<StructId> order)
+    public string Definitions(List<(int ArrayType, int Struct)> order)
     {
         var text = new StringBuilder();
-        foreach (StructId id in order)
+        foreach ((int arrayType, int structIndex) in order)
         {
-            text.Append(Definition(id)).Append('\n');
+            if (arrayType >= 0)
+            {
+                text.Append(CTypes.ArrayDefinition(module, names, module.Types[arrayType]));
+            }
+            else
+            {
+                text.Append(Definition(new StructId(structIndex))).Append('\n');
+            }
         }
 
         return text.ToString();
@@ -78,9 +97,9 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         return text.ToString();
     }
 
-    private void Visit(StructId id, HashSet<int> visited, List<StructId> order)
+    private void VisitStruct(StructId id, HashSet<int> visitedStructs, HashSet<int> visitedTypes, List<(int ArrayType, int Struct)> order)
     {
-        if (!visited.Add(id.Index))
+        if (!visitedStructs.Add(id.Index))
         {
             return;
         }
@@ -88,22 +107,27 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         StructDecl declaration = module.Structs[id.Index];
         for (int i = 0; i < declaration.Fields.Count; i++)
         {
-            VisitType(module.Fields[declaration.Fields.Start + i].Type, visited, order);
+            VisitType(module.Fields[declaration.Fields.Start + i].Type, visitedStructs, visitedTypes, order);
         }
 
-        order.Add(id);
+        order.Add((-1, id.Index));
     }
 
-    private void VisitType(TypeId type, HashSet<int> visited, List<StructId> order)
+    private void VisitType(TypeId type, HashSet<int> visitedStructs, HashSet<int> visitedTypes, List<(int ArrayType, int Struct)> order)
     {
         TypeNode node = module.Types[type.Index];
         switch (node.Kind)
         {
             case TypeKind.Struct:
-                Visit(new StructId(node.A), visited, order);
+                VisitStruct(new StructId(node.A), visitedStructs, visitedTypes, order);
                 break;
             case TypeKind.Array:
-                VisitType(new TypeId(node.A), visited, order);
+                if (visitedTypes.Add(type.Index))
+                {
+                    VisitType(new TypeId(node.A), visitedStructs, visitedTypes, order);
+                    order.Add((type.Index, -1));
+                }
+
                 break;
         }
     }
@@ -120,6 +144,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
             bool valid = Identifier().IsMatch(candidate) && !CKeywords.IsReserved(candidate)
                 && !candidate.StartsWith(PaddingPrefix, StringComparison.Ordinal)
                 && !candidate.StartsWith(MinimumSizeField, StringComparison.Ordinal)
+                && !candidate.StartsWith(AlignmentField, StringComparison.Ordinal)
                 && !used.Contains(candidate);
             result[i] = valid ? candidate : "f" + i;
             used.Add(result[i]);
@@ -130,10 +155,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
 
     private string FieldText(FieldDecl field, string name)
     {
-        TypeNode node = module.Types[field.Type.Index];
-        string declaration = node.Kind == TypeKind.Array
-            ? CTypes.Spell(module, names, new TypeId(node.A)) + " " + name + "[" + node.B + "]"
-            : CTypes.Spell(module, names, field.Type) + " " + name;
+        string declaration = CTypes.Spell(module, names, field.Type) + " " + name;
         return field.BitWidth != FieldDecl.NoBits ? declaration + " : " + field.BitWidth : declaration;
     }
 
@@ -164,7 +186,8 @@ internal sealed partial class CStructWriter(Module module, CNames names)
             foreach (int i in order)
             {
                 FieldDecl field = module.Fields[declaration.Fields.Start + i];
-                body.Append(inner).Append(Indent).Append("struct { ");
+                bool misaligned = field.Offset % CLayout.AlignmentOf(module, field.Type) != 0;
+                body.Append(inner).Append(Indent).Append(misaligned ? "struct __attribute__((packed)) { " : "struct { ");
                 if (field.Offset > 0)
                 {
                     body.Append("uint8_t ").Append(PaddingPrefix).Append(i).Append('[').Append(field.Offset).Append("]; ");
@@ -173,6 +196,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 body.Append(FieldText(field, fieldNames[i])).Append("; };\n");
             }
 
+            body.Append(inner).Append(Indent).Append("_Alignas(").Append(declaration.Alignment).Append(") uint8_t ").Append(AlignmentField).Append(";\n");
             body.Append(inner).Append("};\n");
         }
         else

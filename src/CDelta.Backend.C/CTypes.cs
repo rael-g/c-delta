@@ -16,6 +16,8 @@ internal static class CTypes
                 return qualifiers + element + "*";
             case TypeKind.Slice:
                 return SliceName(module, names, node);
+            case TypeKind.Array:
+                return ArrayName(module, names, node);
             case TypeKind.Struct:
                 return names.Struct(new StructId(node.A));
             case TypeKind.I128 or TypeKind.U128 when module.Target is { NativeInt128: false }:
@@ -25,10 +27,16 @@ internal static class CTypes
         }
     }
 
+    public static string ArrayName(Module module, CNames names, TypeNode node) =>
+        "cd_T_array_" + node.B + "_" + CNames.MangleSpelling(Spell(module, names, new TypeId(node.A)));
+
+    public static string ArrayDefinition(Module module, CNames names, TypeNode node) =>
+        "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " e[" + node.B + "]; } " + ArrayName(module, names, node) + ";\n";
+
     public static string SliceName(Module module, CNames names, TypeNode node)
     {
         string element = Spell(module, names, new TypeId(node.A));
-        string mangled = element.Replace("*", "_p", StringComparison.Ordinal).Replace(' ', '_');
+        string mangled = CNames.MangleSpelling(element);
         return "cd_T_slice_" + (node.Flags.HasFlag(TypeFlags.Const) ? "const_" : string.Empty) + mangled;
     }
 

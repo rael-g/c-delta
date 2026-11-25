@@ -15,7 +15,6 @@ typedef struct cd_T_BitsWide cd_T_BitsWide;
 typedef struct cd_T_BitsWithFields cd_T_BitsWithFields;
 typedef struct cd_T_CTypes cd_T_CTypes;
 typedef struct cd_T_Floats cd_T_Floats;
-typedef struct cd_T_Scalars cd_T_Scalars;
 typedef struct cd_T_Nested cd_T_Nested;
 typedef struct cd_T_NestedTwice cd_T_NestedTwice;
 typedef struct cd_T_Packed1 cd_T_Packed1;
@@ -23,17 +22,20 @@ typedef struct cd_T_Packed2 cd_T_Packed2;
 typedef struct cd_T_Packed4 cd_T_Packed4;
 typedef struct cd_T_PointerAndBool cd_T_PointerAndBool;
 typedef struct cd_T_PointerSized cd_T_PointerSized;
+typedef struct cd_T_Scalars cd_T_Scalars;
 typedef struct cd_T_Slices cd_T_Slices;
 typedef struct cd_T_Wide cd_T_Wide;
 
 typedef struct { int32_t* ptr; int32_t len; } cd_T_slice_int32_t;
 
+typedef struct { int16_t e[3]; } cd_T_array_3_int16_t;
+typedef struct { int64_t e[2]; } cd_T_array_2_int64_t;
 struct cd_T_Arrays
 {
     int8_t f0;
-    int16_t f1[3];
+    cd_T_array_3_int16_t f1;
     uint8_t f2;
-    int64_t f3[2];
+    cd_T_array_2_int64_t f3;
 };
 
 struct cd_T_BitsFull
@@ -234,12 +236,6 @@ _Static_assert(offsetof(cd_T_Floats, f0) == 0, "layout of Floats.f0");
 _Static_assert(offsetof(cd_T_Floats, f1) == 8, "layout of Floats.f1");
 _Static_assert(offsetof(cd_T_Floats, f2) == 16, "layout of Floats.f2");
 _Static_assert(offsetof(cd_T_Floats, f3) == 20, "layout of Floats.f3");
-_Static_assert(sizeof(cd_T_Scalars) == 24, "layout of Scalars");
-_Static_assert(_Alignof(cd_T_Scalars) == 8, "layout of Scalars");
-_Static_assert(offsetof(cd_T_Scalars, f0) == 0, "layout of Scalars.f0");
-_Static_assert(offsetof(cd_T_Scalars, f1) == 4, "layout of Scalars.f1");
-_Static_assert(offsetof(cd_T_Scalars, f2) == 8, "layout of Scalars.f2");
-_Static_assert(offsetof(cd_T_Scalars, f3) == 16, "layout of Scalars.f3");
 _Static_assert(sizeof(cd_T_Nested) == 40, "layout of Nested");
 _Static_assert(_Alignof(cd_T_Nested) == 8, "layout of Nested");
 _Static_assert(offsetof(cd_T_Nested, f0) == 0, "layout of Nested.f0");
@@ -279,6 +275,12 @@ _Static_assert(offsetof(cd_T_PointerSized, f0) == 0, "layout of PointerSized.f0"
 _Static_assert(offsetof(cd_T_PointerSized, f1) == 8, "layout of PointerSized.f1");
 _Static_assert(offsetof(cd_T_PointerSized, f2) == 16, "layout of PointerSized.f2");
 _Static_assert(offsetof(cd_T_PointerSized, f3) == 24, "layout of PointerSized.f3");
+_Static_assert(sizeof(cd_T_Scalars) == 24, "layout of Scalars");
+_Static_assert(_Alignof(cd_T_Scalars) == 8, "layout of Scalars");
+_Static_assert(offsetof(cd_T_Scalars, f0) == 0, "layout of Scalars.f0");
+_Static_assert(offsetof(cd_T_Scalars, f1) == 4, "layout of Scalars.f1");
+_Static_assert(offsetof(cd_T_Scalars, f2) == 8, "layout of Scalars.f2");
+_Static_assert(offsetof(cd_T_Scalars, f3) == 16, "layout of Scalars.f3");
 _Static_assert(sizeof(cd_T_Slices) == 32, "layout of Slices");
 _Static_assert(_Alignof(cd_T_Slices) == 8, "layout of Slices");
 _Static_assert(offsetof(cd_T_Slices, f0) == 0, "layout of Slices.f0");
