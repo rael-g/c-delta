@@ -131,8 +131,18 @@ public sealed class CSharpFrontend : IBodyProvider
 
         Location location = field.Locations.FirstOrDefault() ?? Location.None;
         Module module = Module;
-        TypeId type = _types.Map(field.Type, location);
-        ConstId initializer = StaticInitializer(field, type, location);
+        TypeId type;
+        ConstId initializer;
+        if (field.Type is IArrayTypeSymbol array)
+        {
+            (type, initializer) = ArrayGlobal(field, array, location);
+        }
+        else
+        {
+            type = _types.Map(field.Type, location);
+            initializer = StaticInitializer(field, type, location);
+        }
+
         GlobalId id = Builder.DeclareGlobal(
             field.GetDocumentationCommentId()![2..],
             field.ContainingType.ToDisplayString(_typeFormat) + "." + field.Name,
@@ -146,6 +156,54 @@ public sealed class CSharpFrontend : IBodyProvider
             null);
         _globals.Add(field, id);
         return id;
+    }
+
+    private (TypeId Type, ConstId Initializer) ArrayGlobal(IFieldSymbol field, IArrayTypeSymbol array, Location location)
+    {
+        TypeId element = _types.Map(array.ElementType, location);
+        foreach (SyntaxReference reference in field.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax { Initializer: { } initializer })
+            {
+                continue;
+            }
+
+            SemanticModel model = _compilation.GetSemanticModel(initializer.SyntaxTree);
+            IEnumerable<Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax>? items = initializer.Value switch
+            {
+                Microsoft.CodeAnalysis.CSharp.Syntax.CollectionExpressionSyntax collection =>
+                    collection.Elements.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionElementSyntax>().Select(e => e.Expression),
+                Microsoft.CodeAnalysis.CSharp.Syntax.ArrayCreationExpressionSyntax { Initializer: { } list } => list.Expressions,
+                Microsoft.CodeAnalysis.CSharp.Syntax.ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer.Expressions,
+                _ => null,
+            };
+            if (items is null)
+            {
+                Report(DiagnosticCode.CD4006, initializer.GetLocation(), "this initializer is not a list of constants");
+                break;
+            }
+
+            var constants = new List<ConstId>();
+            foreach (Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax item in items)
+            {
+                Optional<object?> value = model.GetConstantValue(item);
+                if (!value.HasValue)
+                {
+                    Report(DiagnosticCode.CD4006, item.GetLocation(), "this element is not a constant");
+                    constants.Add(ZeroConstant(element));
+                }
+                else
+                {
+                    constants.Add(ConstantOf(value.Value, element, array.ElementType));
+                }
+            }
+
+            TypeId listed = Builder.ArrayOf(element, constants.Count);
+            return (listed, Builder.AggregateConstant(listed, constants));
+        }
+
+        TypeId empty = Builder.ArrayOf(element, 0);
+        return (empty, Builder.AggregateConstant(empty, []));
     }
 
     private ConstId StaticInitializer(IFieldSymbol field, TypeId type, Location location)

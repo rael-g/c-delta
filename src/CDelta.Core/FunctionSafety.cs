@@ -48,6 +48,13 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 }
             }
 
+            if (checksOn && block.Terminator is Terminator ending && !ending.Operand.IsNone)
+            {
+                InsertPlaceChecks(
+                    new Statement(StatementKind.Check, PlaceId.None, RvalueId.None, ending.Operand, 0, StringId.None, ending.Span),
+                    rewritten);
+            }
+
             block.Statements.Clear();
             block.Statements.AddRange(rewritten);
             if (block.Terminator is Terminator { Kind: TermKind.Unreachable, Mode: UnreachableMode.Default } terminator)

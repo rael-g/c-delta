@@ -280,8 +280,11 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         switch (operation)
         {
+            case IPropertyReferenceOperation { Instance.Type: IArrayTypeSymbol } length when length.Property.Name == "Length":
+                return Emit(_builder.Primitive(TypeKind.I32), _f.Len(PlaceOf(length.Instance)), SpanOf(operation));
             case ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
-                or IFieldReferenceOperation or IInstanceReferenceOperation or IDeclarationExpressionOperation:
+                or IFieldReferenceOperation or IInstanceReferenceOperation or IDeclarationExpressionOperation
+                or IArrayElementReferenceOperation:
                 return _f.Copy(PlaceOf(operation));
             case IOperation { Kind: OperationKind.None } when IsPointerForm(operation):
                 return _f.Copy(PlaceOf(operation));
@@ -613,6 +616,10 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return PlaceOf(declaration.Expression);
             case IDiscardOperation discard:
                 return _f.LocalPlace(NewTemp(discard.Type!, discard.Syntax.GetLocation()));
+            case IArrayElementReferenceOperation element:
+                PlaceId array = PlaceOf(element.ArrayReference);
+                OperandId position = LowerValue(element.Indices[0]);
+                return _f.Project(array, ProjectionKind.Index, position.Index);
             case IFieldReferenceOperation field when field.Field.IsStatic:
                 return _f.GlobalPlace(frontend.DeclareGlobal(field.Field));
             case IFieldReferenceOperation field:
