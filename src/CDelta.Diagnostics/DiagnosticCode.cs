@@ -47,6 +47,7 @@ public enum DiagnosticCode
     CD2005 = 2005,
     CD2006 = 2006,
     CD2007 = 2007,
+    CD2008 = 2008,
     CD3001 = 3001,
     CD3002 = 3002,
     CD3003 = 3003,

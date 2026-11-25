@@ -13,6 +13,11 @@ internal sealed class FieldVisibilityRule : SubsetRule
         context.RegisterSyntaxNodeAction(
             node =>
             {
+                if (Syntax.Has(node.Node, SyntaxKind.ConstKeyword))
+                {
+                    return;
+                }
+
                 if (!Syntax.Has(node.Node, SyntaxKind.PublicKeyword) || Syntax.Has(node.Node, SyntaxKind.ProtectedKeyword)
                     || Syntax.Has(node.Node, SyntaxKind.InternalKeyword) || Syntax.Has(node.Node, SyntaxKind.PrivateKeyword))
                 {

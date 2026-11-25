@@ -49,6 +49,7 @@ public static class DiagnosticRegistry
         [DiagnosticCode.CD2005] = "'[ThreadStatic]' applies only to static fields",
         [DiagnosticCode.CD2006] = "this returns memory of the current stack frame",
         [DiagnosticCode.CD2007] = "this string literal is not valid UTF-16 and cannot be encoded as UTF-8",
+        [DiagnosticCode.CD2008] = "a reference or pointer cannot be taken to a field that is not aligned",
         [DiagnosticCode.CD3001] = "'Try' needs the function to return a 'Result'",
         [DiagnosticCode.CD3002] = "the error set returned here lacks errors 'Try' can propagate",
         [DiagnosticCode.CD3003] = "'ErrDefer' needs the function to return a 'Result'",
