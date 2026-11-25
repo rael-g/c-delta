@@ -48,7 +48,8 @@ design (D127).
   work that does not depend on it.
 - A tool missing from the distrobox `dev` is installed, not worked around
   ([docs/compiler/engineering.md](docs/compiler/engineering.md#environment)).
-- Do not change `docs/` except `docs/kanban/`, typos and broken links. Answers arrive as commits
+- Do not change `docs/` except `docs/kanban/`, typos, broken links and the binding support table
+  of `docs/compiler/frontend-csharp.md`. Answers arrive as commits
   that change the documents.
 - A milestone is done when its acceptance criteria pass and `eng/ci.sh` exits `0`.
 

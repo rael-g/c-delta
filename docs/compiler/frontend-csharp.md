@@ -48,6 +48,24 @@ null`; nothing in it is ever executed.
 | Generic delegates | `Action<...>`, `Func<...>` up to 16 parameters |
 | CΔ | everything in [../language/intrinsics-attributes.md](../language/intrinsics-attributes.md) |
 
+### Binding support
+
+Some members exist only because Roslyn requires them to bind a construct the subset keeps. They
+carry the exact BCL signature, are never called by lowering, and are listed here:
+
+| Construct | Members |
+|---|---|
+| `foreach` over a static array | `System.Collections.IEnumerable`, `System.Collections.IEnumerator` |
+| extension methods | `System.Runtime.CompilerServices.ExtensionAttribute` |
+| inline array element access | `Unsafe.As<TFrom, TTo>(ref TFrom)`, `Unsafe.Add<T>(ref T, int)`, `MemoryMarshal.CreateSpan<T>(ref T, int)`, `MemoryMarshal.CreateReadOnlySpan<T>(ref readonly T, int)` |
+| `fixed` over a span | `Span<T>.GetPinnableReference()`, `ReadOnlySpan<T>.GetPinnableReference()` |
+| a static array converted to a span | the implicit conversions `T[]` to `Span<T>` and to `ReadOnlySpan<T>` |
+| `x.GetValueOrDefault()` | `Nullable<T>.GetValueOrDefault()`, `Nullable<T>.GetValueOrDefault(T)` |
+
+When Roslyn needs another member to bind a kept construct, adding it with its BCL signature and a
+row here is implementation, not design: the same commit adds the member, the row and a probe that
+binds the construct. A member that would make Roslyn accept a removed construct is design.
+
 Roslyn decides from fields whether a struct is unmanaged, which decides where `T*` is allowed. The
 corelib declares these private fields, never read by the compiler, which takes layouts from the
 IR:
