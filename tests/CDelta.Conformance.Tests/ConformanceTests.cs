@@ -77,6 +77,11 @@ public sealed partial class ConformanceTests
 
         int expectedExit = File.Exists(stem + ".exitcode") ? int.Parse(File.ReadAllText(stem + ".exitcode").Trim()) : 0;
         Assert.Equal(expectedExit, exitCode);
+        if (File.Exists(stem + ".stderr"))
+        {
+            Assert.Equal(File.ReadAllText(stem + ".stderr"), standardError);
+        }
+
         if (File.Exists(stem + ".stdout"))
         {
             Assert.Equal(File.ReadAllText(stem + ".stdout"), standardOutput);

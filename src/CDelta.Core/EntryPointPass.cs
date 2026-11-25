@@ -103,8 +103,23 @@ public static class EntryPointPass
 
         f.Goto(done, SourceSpan.None);
         f.SetBlock(failed);
+        EmitReport(module, builder, f, value, resultType);
         f.Assign(f.LocalPlace(exitCode), f.Use(f.Const(builder.IntConstant(cInt, FailureExitCode))), SourceSpan.None);
         f.Goto(done, SourceSpan.None);
         f.SetBlock(done);
+    }
+
+    private static void EmitReport(Module module, ModuleBuilder builder, FunctionBuilder f, LocalId value, TypeId resultType)
+    {
+        TypeId u16 = builder.Primitive(TypeKind.U16);
+        TypeId text = builder.SliceOf(builder.Primitive(TypeKind.U8), true);
+        LocalId error = f.NewLocal(null, new TypeId(module.Types[resultType.Index].B), LocalKind.Temp, SourceSpan.None);
+        f.Assign(f.LocalPlace(error), f.Err(f.LocalPlace(value)), SourceSpan.None);
+        LocalId code = f.NewLocal(null, u16, LocalKind.Temp, SourceSpan.None);
+        f.Assign(f.LocalPlace(code), f.Errcode(f.Copy(f.LocalPlace(error))), SourceSpan.None);
+        LocalId name = f.NewLocal(null, text, LocalKind.Temp, SourceSpan.None);
+        PlaceId entry = f.Project(f.GlobalPlace(module.GlobalsByKey[ErrorCodesPass.NameTableKey]), ProjectionKind.Index, f.Copy(f.LocalPlace(code)).Index);
+        f.Assign(f.LocalPlace(name), f.Use(f.Copy(entry)), SourceSpan.None);
+        f.IntrinsicStatement(f.Intrinsic(IrTyper.ErrorReportIntrinsic, [f.Copy(f.LocalPlace(name))]), SourceSpan.None);
     }
 }

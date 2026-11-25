@@ -25,6 +25,7 @@ bb2:
   %4 = cast error.error copy %3 to anyerror  @1:3:3
   %5 = intrinsic error.name(copy %4)  @1:3:3
   %4 = const anyerror error Other  @1:3:3
+  intrinsic error.report(copy %5)  @1:3:3
   trace.push  @1:3:3
   %7 = result.err result<void, anyerror> copy %4  @1:3:3
   return copy %7  @1:3:3

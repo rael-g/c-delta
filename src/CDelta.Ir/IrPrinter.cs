@@ -522,6 +522,9 @@ public static partial class IrPrinter
             case StatementKind.Call:
                 PrintRvalue(module, body, statement.Rvalue, text);
                 break;
+            case StatementKind.Intrinsic:
+                PrintRvalue(module, body, statement.Rvalue, text);
+                break;
             case StatementKind.Check:
                 text.Append("check ").Append(IrNames.Check((CheckKind)statement.Aux)).Append(' ');
                 PrintOperand(module, body, statement.Operand, text);

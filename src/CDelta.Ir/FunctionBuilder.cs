@@ -115,6 +115,9 @@ public sealed class FunctionBuilder(Module module, Body body)
     public void CallStatement(RvalueId call, SourceSpan span) =>
         Emit(new Statement(StatementKind.Call, PlaceId.None, call, OperandId.None, 0, StringId.None, span));
 
+    public void IntrinsicStatement(RvalueId intrinsic, SourceSpan span) =>
+        Emit(new Statement(StatementKind.Intrinsic, PlaceId.None, intrinsic, OperandId.None, 0, StringId.None, span));
+
     public void Check(CheckKind kind, OperandId condition, string message, SourceSpan span) =>
         Emit(new Statement(StatementKind.Check, PlaceId.None, RvalueId.None, condition, (int)kind, module.Intern(message), span));
 

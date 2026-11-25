@@ -10,6 +10,10 @@ internal sealed class CEmitState
 
     public bool UsesTrace { get; set; }
 
+    public bool UsesReport { get; set; }
+
+    public bool UsesTracePush { get; set; }
+
     public SortedSet<int> ErrorFromEnums { get; } = [];
 
     public SortedSet<int> ErrorToEnums { get; } = [];

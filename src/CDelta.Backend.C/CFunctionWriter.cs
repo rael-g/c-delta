@@ -346,8 +346,21 @@ internal sealed partial class CFunctionWriter(
             case StatementKind.Call:
                 _text.Append(Indent).Append(CallText(_body.Rvalues[statement.Rvalue.Index])).Append(";\n");
                 break;
+            case StatementKind.Intrinsic:
+                if (options.LinkLibC)
+                {
+                    state.UsesReport = true;
+                    string reported = OperandText(_body.Args[_body.Rvalues[statement.Rvalue.Index].Args.Start]);
+                    Statement("{");
+                    Statement(CTypes.Spell(module, names, IrTyper.OfOperand(module, _body, _body.Args[_body.Rvalues[statement.Rvalue.Index].Args.Start])) + " name = " + reported + ";");
+                    Statement("cd_report_error(name.ptr, name.len);");
+                    Statement("}");
+                }
+
+                break;
             case StatementKind.TracePush:
                 state.UsesTrace = true;
+                state.UsesTracePush = true;
                 Statement("cd_trace_push(" + CConstants.StringLiteral(Encoding.UTF8.GetBytes(DisplayPath(statement.Span))) + ", " + statement.Span.Line + ");");
                 break;
             case StatementKind.TraceSave:

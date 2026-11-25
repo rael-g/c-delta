@@ -3,6 +3,7 @@ namespace CDelta.Ir;
 public static class IrTyper
 {
     public const string ErrorNameIntrinsic = "error.name";
+    public const string ErrorReportIntrinsic = "error.report";
 
     public static TypeId Pointee(Module module, TypeId pointer)
     {
@@ -150,6 +151,11 @@ public static class IrTyper
             case RvalueKind.Errcode:
                 return module.Type(new TypeNode(TypeKind.U16, TypeFlags.None, 0, 0));
             case RvalueKind.Intrinsic:
+                if (module.Strings[r.Aux] == ErrorReportIntrinsic)
+                {
+                    return module.Type(new TypeNode(TypeKind.Void, TypeFlags.None, 0, 0));
+                }
+
                 return module.Strings[r.Aux] == ErrorNameIntrinsic
                     ? module.Type(new TypeNode(TypeKind.Slice, TypeFlags.Const, module.Type(new TypeNode(TypeKind.U8, TypeFlags.None, 0, 0)).Index, 0))
                     : TypeId.None;

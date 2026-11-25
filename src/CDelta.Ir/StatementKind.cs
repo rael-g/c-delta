@@ -7,6 +7,7 @@ public enum StatementKind
     Check,
     Live,
     Dead,
+    Intrinsic,
     TracePush,
     TraceSave,
     TraceRestore,

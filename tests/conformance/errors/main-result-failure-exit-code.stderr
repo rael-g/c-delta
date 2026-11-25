@@ -1,0 +1,4 @@
+error: Missing
+error return trace:
+  main-result-failure-exit-code.cs:5
+  main-result-failure-exit-code.cs:9

@@ -149,6 +149,14 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
                 RequireBool(body, statement.Operand);
                 break;
+            case StatementKind.Intrinsic:
+                if (body.Rvalues[statement.Rvalue.Index].Kind != RvalueKind.Intrinsic)
+                {
+                    Fail("an intrinsic statement holds something else");
+                }
+
+                RvalueType(body, statement.Rvalue);
+                break;
             case StatementKind.TracePush:
                 break;
             default:
@@ -414,11 +422,6 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 if (!coded.IsNone && KindOf(coded) is not (TypeKind.ErrorSet or TypeKind.AnyError))
                 {
                     Fail("errcode of something that is not an error");
-                }
-
-                if (stage != ModuleStage.Final)
-                {
-                    Fail("errcode before the final stage");
                 }
 
                 return IrTyper.OfRvalue(module, body, rvalue);
@@ -869,6 +872,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
                     break;
                 case StatementKind.Call:
+                case StatementKind.Intrinsic:
                     ReadRvalue(body, statement.Rvalue, state, report);
                     break;
                 case StatementKind.Check:

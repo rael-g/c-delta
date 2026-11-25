@@ -34,19 +34,49 @@ public static class CBackend
             text.Append('\n').Append(CPrelude.Alloca);
         }
 
-        if (state.UsesTrace)
+        if (state.UsesReport && options.LinkLibC)
         {
-            text.Append('\n').Append(CPrelude.TraceRing);
+            state.UsesTrace = true;
         }
 
-        if (state.UsesPanic && handler is null)
+        if (state.UsesTrace)
+        {
+            bool printed = options.LinkLibC && (state.UsesPanic && handler is null || state.UsesReport);
+            text.Append('\n').Append(CPrelude.TraceCounter);
+            if (state.UsesTracePush || printed)
+            {
+                text.Append(CPrelude.TraceRing);
+            }
+
+            if (state.UsesTracePush)
+            {
+                text.Append(CPrelude.TracePush);
+            }
+        }
+
+        bool defaultPanic = state.UsesPanic && handler is null;
+        bool report = state.UsesReport && options.LinkLibC;
+        if (options.LinkLibC && (defaultPanic || report))
+        {
+            text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(CPrelude.LibcWriters);
+            if (state.UsesTrace)
+            {
+                text.Append(CPrelude.TracePrint);
+            }
+        }
+
+        if (report)
+        {
+            text.Append('\n').Append(CPrelude.ReportError);
+        }
+
+        if (defaultPanic)
         {
             if (options.LinkLibC)
             {
                 string withLibc = CPrelude.PanicWithLibc
-                    .Replace("@@TRACE_FUNCTION@@\n", state.UsesTrace ? CPrelude.TracePrint : string.Empty)
                     .Replace("    @@TRACE_CALL@@\n", state.UsesTrace ? "    cd_trace_print();\n" : string.Empty);
-                text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(withLibc);
+                text.Append('\n').Append(withLibc);
             }
             else
             {
@@ -128,7 +158,7 @@ public static class CBackend
         }
 
         text.Append(definitions);
-        string? libc = state.UsesPanic && handler is null && options.LinkLibC ? CPrelude.LibcUnit : null;
+        string? libc = (defaultPanic || report) && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
     }
 

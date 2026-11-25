@@ -104,6 +104,9 @@ internal sealed class BodyParser(
                 RvalueId call = ParseCall(cursor);
                 _f.CallStatement(call, SpanParser.Parse(cursor));
                 return;
+            case "intrinsic":
+                _f.IntrinsicStatement(ParseRvalue(cursor), SpanParser.Parse(cursor));
+                return;
             case "check":
                 cursor.ExpectWord("check");
                 CheckKind kind = IrNames.ParseCheck(cursor.ReadWord()) ?? throw cursor.Error("unknown check");

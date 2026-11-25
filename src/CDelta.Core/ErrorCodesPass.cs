@@ -7,7 +7,7 @@ namespace CDelta.Core;
 public static class ErrorCodesPass
 {
     private const int MaxErrorNames = 65535;
-    private const string NameTableKey = "synthetic:errornames";
+    public const string NameTableKey = "synthetic:error_names";
 
     public static void Run(Module module, DiagnosticBag diagnostics)
     {
@@ -44,6 +44,11 @@ public static class ErrorCodesPass
         }
 
         GlobalId? table = null;
+        if (EntryReturnsResult(module))
+        {
+            table = DeclareTable(module, new ModuleBuilder(module));
+        }
+
         for (int i = 0; i < module.Bodies.Count; i++)
         {
             if (module.Bodies[i] is { } body)
@@ -51,6 +56,20 @@ public static class ErrorCodesPass
                 table = ReplaceNames(module, body, table);
             }
         }
+    }
+
+    private static bool EntryReturnsResult(Module module)
+    {
+        for (int i = 0; i < module.Functions.Count; i++)
+        {
+            if (RootsPass.HasAttribute(module, module.Functions[i], RootsPass.EntryPointAttribute)
+                && module.Types[module.Functions[i].Return.Index].Kind == TypeKind.Result)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static GlobalId? ReplaceNames(Module module, Body body, GlobalId? table)
