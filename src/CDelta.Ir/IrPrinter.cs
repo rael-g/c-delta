@@ -44,6 +44,12 @@ public static partial class IrPrinter
             }
         }
 
+        foreach (EnumId declaration in OrderedEnums(module))
+        {
+            text.Append('\n');
+            PrintEnum(module, declaration, text);
+        }
+
         foreach (StructId declaration in OrderedStructs(module))
         {
             text.Append('\n');
@@ -86,6 +92,8 @@ public static partial class IrPrinter
                 return "fn" + SigText(module, new SigId(node.A));
             case TypeKind.Struct:
                 return "struct " + Reference(module.Text(module.Structs[node.A].Key));
+            case TypeKind.Enum:
+                return "enum " + Reference(module.Text(module.Enums[node.A].Key));
             default:
                 return IrTypes.Name(node.Kind);
         }
@@ -169,6 +177,40 @@ public static partial class IrPrinter
             module.Text(module.Functions[a.Index].Key),
             module.Text(module.Functions[b.Index].Key)));
         return ids;
+    }
+
+    public static List<EnumId> OrderedEnums(Module module)
+    {
+        var ids = new List<EnumId>();
+        for (int i = 0; i < module.Enums.Count; i++)
+        {
+            ids.Add(new EnumId(i));
+        }
+
+        ids.Sort((a, b) => string.CompareOrdinal(
+            module.Text(module.Enums[a.Index].Key),
+            module.Text(module.Enums[b.Index].Key)));
+        return ids;
+    }
+
+    private static void PrintEnum(Module module, EnumId id, StringBuilder text)
+    {
+        EnumDecl declaration = module.Enums[id.Index];
+        text.Append("enum ").Append(Reference(module.Text(declaration.Key))).Append(": ").Append(TypeText(module, declaration.Underlying));
+        if (declaration.Exhaustive)
+        {
+            text.Append(" exhaustive");
+        }
+
+        PrintOrigin(module, declaration.Origin, text);
+        text.Append(' ').Append(Span(declaration.Span)).Append(" {\n");
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            EnumMember member = module.EnumMembers[declaration.Members.Start + i];
+            text.Append(Indent).Append(module.Text(member.Name)).Append(" = ").Append(member.Value.ToString()).Append('\n');
+        }
+
+        text.Append("}\n");
     }
 
     public static List<GlobalId> OrderedGlobals(Module module)

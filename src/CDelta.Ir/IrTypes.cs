@@ -2,6 +2,12 @@ namespace CDelta.Ir;
 
 public static class IrTypes
 {
+    public static TypeKind ScalarKind(Module module, TypeId type)
+    {
+        TypeNode node = module.Types[type.Index];
+        return node.Kind == TypeKind.Enum ? ScalarKind(module, module.Enums[node.A].Underlying) : node.Kind;
+    }
+
     public static bool IsInteger(TypeKind kind) => kind is >= TypeKind.I8 and <= TypeKind.USize
         or >= TypeKind.CChar and <= TypeKind.CULongLong;
 

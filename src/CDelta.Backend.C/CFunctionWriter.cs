@@ -213,7 +213,7 @@ internal sealed partial class CFunctionWriter(
         };
     }
 
-    private TypeKind KindOf(TypeId type) => module.Types[type.Index].Kind;
+    private TypeKind KindOf(TypeId type) => IrTypes.ScalarKind(module, type);
 
     private void WriteStatement(Statement statement)
     {
@@ -484,6 +484,10 @@ internal sealed partial class CFunctionWriter(
         switch (kind)
         {
             case CastKind.PtrPtr:
+            case CastKind.PtrInt:
+            case CastKind.IntPtr:
+            case CastKind.IntEnum:
+            case CastKind.EnumInt:
                 Statement(destination + " = (" + cType + ")" + a + ";");
                 return;
             case CastKind.IntInt:

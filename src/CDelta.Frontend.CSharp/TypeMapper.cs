@@ -15,6 +15,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
     private readonly Dictionary<INamedTypeSymbol, StructId> _structs = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<INamedTypeSymbol, EnumId> _enums = new(SymbolEqualityComparer.Default);
 
     public StructId StructOf(INamedTypeSymbol type, Location location)
     {
@@ -57,6 +58,52 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return id;
     }
 
+    public EnumId EnumOf(INamedTypeSymbol type, Location location)
+    {
+        if (_enums.TryGetValue(type, out EnumId existing))
+        {
+            return existing;
+        }
+
+        bool source = type.Locations.Any(l => l.IsInSource);
+        bool exhaustive = source && !type.GetAttributes().Any(a =>
+            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "CDelta.NonExhaustiveAttribute");
+        var members = new List<(string Name, Int128 Value)>();
+        foreach (IFieldSymbol field in type.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsConst && field.ConstantValue is not null)
+            {
+                members.Add((field.Name, ToInt128(field.ConstantValue)));
+            }
+        }
+
+        TypeId underlying = Map(type.EnumUnderlyingType!, location);
+        EnumId id = builder.DeclareEnum(
+            type.GetDocumentationCommentId()![2..],
+            type.ToDisplayString(_nameFormat),
+            spanOf(type.Locations.FirstOrDefault() ?? Location.None),
+            Origin.FromSource(builder.Module.Intern(Language)),
+            underlying,
+            exhaustive,
+            members);
+        _enums.Add(type, id);
+        return id;
+    }
+
+    public static Int128 ToInt128(object value) => value switch
+    {
+        sbyte v => v,
+        byte v => v,
+        short v => v,
+        ushort v => v,
+        int v => v,
+        uint v => v,
+        long v => v,
+        ulong v => v,
+        char v => v,
+        _ => throw new ArgumentException("not an integer constant"),
+    };
+
     public int FieldIndex(INamedTypeSymbol type, IFieldSymbol field)
     {
         int index = 0;
@@ -89,6 +136,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.Pointer(element, TypeFlags.Nullable | TypeFlags.Many);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
                 return builder.StructType(StructOf(named, location));
+            case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
+                return builder.EnumType(EnumOf(enumeration, location));
         }
 
         TypeKind? kind = type.SpecialType switch

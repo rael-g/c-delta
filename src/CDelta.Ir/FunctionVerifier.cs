@@ -173,7 +173,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 break;
             case TermKind.Switch:
                 TypeId selector = OperandType(body, terminator.Operand);
-                if (selector.IsNone || !IrTypes.IsInteger(KindOf(selector)))
+                if (selector.IsNone || !IrTypes.IsInteger(IrTypes.ScalarKind(module, selector)))
                 {
                     Fail("switch on a non integer");
                 }
@@ -277,7 +277,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             if (projection.Kind == ProjectionKind.Index)
             {
                 TypeId index = OperandType(body, new OperandId(projection.Value));
-                if (index.IsNone || !IrTypes.IsInteger(KindOf(index)))
+                if (index.IsNone || !IrTypes.IsInteger(IrTypes.ScalarKind(module, index)))
                 {
                     Fail("an index is not an integer");
                     return TypeId.None;
@@ -441,7 +441,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             Fail("binary operation on different types");
         }
 
-        TypeKind kind = KindOf(left);
+        TypeKind kind = IrTypes.ScalarKind(module, left);
         bool boolOp = kind == TypeKind.Bool && op is BinOp.And or BinOp.Or or BinOp.Xor or BinOp.Eq or BinOp.Ne;
         if (!IrTypes.IsInteger(kind) && !boolOp)
         {
@@ -493,7 +493,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         var op = (UnOp)r.Op;
-        TypeKind kind = KindOf(operand);
+        TypeKind kind = IrTypes.ScalarKind(module, operand);
         bool valid = op == UnOp.Not ? kind == TypeKind.Bool : IrTypes.IsInteger(kind);
         if (!valid)
         {

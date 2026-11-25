@@ -11,10 +11,20 @@ internal sealed class CNames
     private readonly string[] _functionNames;
     private readonly string[] _structNames;
     private readonly string[] _globalNames;
+    private readonly string[] _enumNames;
     private readonly HashSet<string> _taken = [];
 
     public CNames(Module module)
     {
+        _enumNames = new string[module.Enums.Count];
+        for (int i = 0; i < module.Enums.Count; i++)
+        {
+            EnumDecl declaration = module.Enums[i];
+            string name = TypePrefix + Mangle(module.Text(declaration.Name));
+            _enumNames[i] = name + "__" + CHash.Hash8(module.Text(declaration.Key));
+            _taken.Add(_enumNames[i]);
+        }
+
         _globalNames = new string[module.Globals.Count];
         var globalsByName = new Dictionary<string, int>();
         for (int i = 0; i < module.Globals.Count; i++)
@@ -74,6 +84,8 @@ internal sealed class CNames
     public string Function(FunctionId id) => _functionNames[id.Index];
 
     public string Struct(StructId id) => _structNames[id.Index];
+
+    public string Enum(EnumId id) => _enumNames[id.Index];
 
     public string Global(GlobalId id) => _globalNames[id.Index];
 

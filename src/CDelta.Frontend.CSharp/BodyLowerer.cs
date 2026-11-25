@@ -512,6 +512,11 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         TypeKind targetKind = _module.Types[targetType.Index].Kind;
         SourceSpan span = SpanOf(conversion);
         ArithMode mode = conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion);
+        if (sourceKind == TypeKind.Enum || targetKind == TypeKind.Enum)
+        {
+            return LowerEnumConversion(operand, sourceType, targetType, conversion, span);
+        }
+
         if (IrTypes.IsInteger(sourceKind) && IrTypes.IsInteger(targetKind))
         {
             return Emit(targetType, _f.Cast(CastKind.IntInt, mode, operand, targetType), span);
@@ -533,6 +538,33 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         throw new UnsupportedConstructException("the conversion from " + source.ToDisplayString() + " to " + target.ToDisplayString() + " is not supported yet", location);
+    }
+
+    private OperandId LowerEnumConversion(OperandId operand, TypeId sourceType, TypeId targetType, IConversionOperation conversion, SourceSpan span)
+    {
+        TypeKind sourceKind = _module.Types[sourceType.Index].Kind;
+        TypeKind targetKind = _module.Types[targetType.Index].Kind;
+        if (sourceKind == TypeKind.Enum)
+        {
+            TypeId underlying = _module.Enums[_module.Types[sourceType.Index].A].Underlying;
+            operand = Emit(underlying, _f.Cast(CastKind.EnumInt, ArithMode.Wrap, operand, underlying), span);
+            sourceType = underlying;
+        }
+
+        if (targetKind != TypeKind.Enum)
+        {
+            return sourceType == targetType
+                ? operand
+                : Emit(targetType, _f.Cast(CastKind.IntInt, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetType), span);
+        }
+
+        TypeId targetUnderlying = _module.Enums[_module.Types[targetType.Index].A].Underlying;
+        if (sourceType != targetUnderlying)
+        {
+            operand = Emit(targetUnderlying, _f.Cast(CastKind.IntInt, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetUnderlying), span);
+        }
+
+        return Emit(targetType, _f.Cast(CastKind.IntEnum, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetType), span);
     }
 
     private OperandId LowerStringToPointer(string text, ITypeSymbol target, IConversionOperation conversion, Location location)

@@ -112,7 +112,7 @@ internal static class CConstants
 
     private static string Integer(Module module, ConstNode constant, string type)
     {
-        TypeKind kind = module.Types[constant.Type.Index].Kind;
+        TypeKind kind = IrTypes.ScalarKind(module, constant.Type);
         Int128 value = constant.Value;
         if (kind is TypeKind.I128 or TypeKind.U128)
         {

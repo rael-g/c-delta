@@ -47,6 +47,18 @@ public static class CBackend
             text.Append('\n').Append(structs.ForwardDeclarations(structOrder));
         }
 
+        var enums = new StringBuilder();
+        foreach (EnumId id in IrPrinter.OrderedEnums(module))
+        {
+            EnumDecl declaration = module.Enums[id.Index];
+            enums.Append("typedef ").Append(CTypes.Spell(module, names, declaration.Underlying)).Append(' ').Append(names.Enum(id)).Append(";\n");
+        }
+
+        if (enums.Length > 0)
+        {
+            text.Append('\n').Append(enums);
+        }
+
         var emitted = new HashSet<string>();
         var slices = new StringBuilder();
         foreach (TypeNode node in module.Types)

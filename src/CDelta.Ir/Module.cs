@@ -37,6 +37,12 @@ public sealed class Module(string name)
 
     public List<FieldDecl> Fields { get; } = [];
 
+    public List<EnumMember> EnumMembers { get; } = [];
+
+    public List<EnumDecl> Enums { get; } = [];
+
+    public Dictionary<string, EnumId> EnumsByKey { get; } = [];
+
     public List<StructDecl> Structs { get; } = [];
 
     public Dictionary<string, StructId> StructsByKey { get; } = [];

@@ -5,6 +5,7 @@ namespace CDelta.Core;
 internal sealed class ModuleRemapper(Module source, Module destination)
 {
     private readonly Dictionary<int, StructId> _structs = [];
+    private readonly Dictionary<int, EnumId> _enums = [];
 
     public StringId String(StringId id) => id.IsNone ? id : destination.Intern(source.Text(id));
 
@@ -26,9 +27,39 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 return destination.Type(node with { A = Sig(new SigId(node.A)).Index });
             case TypeKind.Struct:
                 return destination.Type(node with { A = Struct(new StructId(node.A)).Index });
+            case TypeKind.Enum:
+                return destination.Type(node with { A = Enum(new EnumId(node.A)).Index });
             default:
                 return destination.Type(node);
         }
+    }
+
+    public EnumId Enum(EnumId id)
+    {
+        if (_enums.TryGetValue(id.Index, out EnumId existing))
+        {
+            return existing;
+        }
+
+        EnumDecl declaration = source.Enums[id.Index];
+        var members = new List<(string Name, Int128 Value)>();
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            EnumMember member = source.EnumMembers[declaration.Members.Start + i];
+            members.Add((source.Text(member.Name), member.Value));
+        }
+
+        var builder = new ModuleBuilder(destination);
+        EnumId created = builder.DeclareEnum(
+            source.Text(declaration.Key),
+            source.Text(declaration.Name),
+            declaration.Span,
+            Origin(declaration.Origin),
+            Type(declaration.Underlying),
+            declaration.Exhaustive,
+            members);
+        _enums.Add(id.Index, created);
+        return created;
     }
 
     public StructId Struct(StructId id)

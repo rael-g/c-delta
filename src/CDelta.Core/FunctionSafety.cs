@@ -42,6 +42,10 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 }
 
                 rewritten.Add(id);
+                if (statement.Kind == StatementKind.Assign)
+                {
+                    InsertEnumCheck(statement, rewritten);
+                }
             }
 
             block.Statements.Clear();
@@ -53,6 +57,41 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                     Terminator = terminator with { Mode = checksOn ? UnreachableMode.Trap : UnreachableMode.Assume },
                 };
             }
+        }
+    }
+
+    private void InsertEnumCheck(Statement statement, List<StatementId> sink)
+    {
+        Rvalue rvalue = body.Rvalues[statement.Rvalue.Index];
+        if (rvalue.Kind != RvalueKind.Cast || (CastKind)rvalue.Op != CastKind.IntEnum || rvalue.Mode != ArithMode.Trap)
+        {
+            return;
+        }
+
+        EnumDecl declaration = module.Enums[module.Types[rvalue.Type.Index].A];
+        if (!declaration.Exhaustive)
+        {
+            return;
+        }
+
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        _f.RedirectStatements(sink);
+        try
+        {
+            OperandId value = Emit(declaration.Underlying, _f.Cast(CastKind.EnumInt, ArithMode.Wrap, _f.Copy(statement.Place), declaration.Underlying), statement.Span);
+            OperandId valid = _f.Const(_builder.BoolConstant(boolean, false));
+            for (int i = 0; i < declaration.Members.Count; i++)
+            {
+                EnumMember member = module.EnumMembers[declaration.Members.Start + i];
+                OperandId matches = Emit(boolean, _f.Binop(BinOp.Eq, ArithMode.Default, value, _f.Const(_builder.IntConstant(declaration.Underlying, member.Value))), statement.Span);
+                valid = Emit(boolean, _f.Binop(BinOp.Or, ArithMode.Default, valid, matches), statement.Span);
+            }
+
+            _f.Check(CheckKind.Enum, valid, "invalid enum value", statement.Span);
+        }
+        finally
+        {
+            _f.RedirectStatements(null);
         }
     }
 

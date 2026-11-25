@@ -91,6 +91,37 @@ public sealed class ModuleBuilder(Module module)
 
     public ConstId NullConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Null, type, 0, BytesId.None, TypeListId.None));
 
+    public EnumId DeclareEnum(
+        string key,
+        string name,
+        SourceSpan span,
+        Origin origin,
+        TypeId underlying,
+        bool exhaustive,
+        IReadOnlyList<(string Name, Int128 Value)> members)
+    {
+        int start = Module.EnumMembers.Count;
+        foreach ((string memberName, Int128 value) in members)
+        {
+            Module.EnumMembers.Add(new EnumMember(Module.Intern(memberName), value));
+        }
+
+        var id = new EnumId(Module.Enums.Count);
+        Module.Enums.Add(new EnumDecl(
+            Module.Intern(key),
+            Module.Intern(name),
+            span,
+            origin,
+            IdRange.Empty,
+            underlying,
+            exhaustive,
+            new IdRange(start, members.Count)));
+        Module.EnumsByKey.Add(key, id);
+        return id;
+    }
+
+    public TypeId EnumType(EnumId id) => Module.Type(new TypeNode(TypeKind.Enum, TypeFlags.None, id.Index, 0));
+
     public StructId DeclareStruct(
         string key,
         string name,

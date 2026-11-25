@@ -25,6 +25,8 @@ public sealed class TypeLayouts(Module module, Target target)
                 return new TypeSizes(element.Size * node.B, element.Alignment);
             case TypeKind.Struct:
                 return OfStruct(new StructId(node.A));
+            case TypeKind.Enum:
+                return Of(module.Enums[node.A].Underlying);
             default:
                 return new TypeSizes(PrimitiveLayout.Size(node.Kind, target), PrimitiveLayout.Alignment(node.Kind, target));
         }

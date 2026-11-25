@@ -36,4 +36,5 @@ public enum TypeKind
     Array,
     Fn,
     Struct,
+    Enum,
 }
