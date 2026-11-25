@@ -16,8 +16,30 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
 
     public void ClearPending() => _pendingRecords.Clear();
 
+    private static readonly Dictionary<string, IrTypeKind> _namedTypedefs = new()
+    {
+        ["int8_t"] = IrTypeKind.I8,
+        ["int16_t"] = IrTypeKind.I16,
+        ["int32_t"] = IrTypeKind.I32,
+        ["int64_t"] = IrTypeKind.I64,
+        ["uint8_t"] = IrTypeKind.U8,
+        ["uint16_t"] = IrTypeKind.U16,
+        ["uint32_t"] = IrTypeKind.U32,
+        ["uint64_t"] = IrTypeKind.U64,
+        ["size_t"] = IrTypeKind.USize,
+        ["uintptr_t"] = IrTypeKind.USize,
+        ["ptrdiff_t"] = IrTypeKind.ISize,
+        ["intptr_t"] = IrTypeKind.ISize,
+        ["ssize_t"] = IrTypeKind.ISize,
+    };
+
     public TypeId Translate(CXType type)
     {
+        if (NamedTypedef(type) is { } named)
+        {
+            return builder.Primitive(named);
+        }
+
         CXType canonical = type.CanonicalType;
         switch (canonical.kind)
         {
@@ -77,6 +99,23 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
             default:
                 throw new UnsupportedTypeException("type " + canonical.kind);
         }
+    }
+
+    private static IrTypeKind? NamedTypedef(CXType type)
+    {
+        CXType current = type;
+        while (current.kind == CXTypeKind.CXType_Elaborated)
+        {
+            current = current.NamedType;
+        }
+
+        if (current.kind != CXTypeKind.CXType_Typedef)
+        {
+            return null;
+        }
+
+        string name = current.Declaration.Spelling.ToString();
+        return _namedTypedefs.TryGetValue(name, out IrTypeKind kind) ? kind : null;
     }
 
     public SigId TranslateSignature(CXType function)
