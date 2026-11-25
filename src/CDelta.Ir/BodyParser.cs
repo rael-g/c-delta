@@ -1,0 +1,353 @@
+namespace CDelta.Ir;
+
+internal sealed class BodyParser(
+    Module module,
+    TypeParser types,
+    string[] lines,
+    int start,
+    int end)
+{
+    private readonly Body _body = new();
+    private FunctionBuilder _f = null!;
+
+    public Body Run()
+    {
+        _f = new FunctionBuilder(module, _body);
+        int blockCount = 0;
+        for (int i = start; i < end; i++)
+        {
+            if (IsBlockLabel(lines[i]))
+            {
+                blockCount++;
+            }
+        }
+
+        for (int i = start; i < end; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("local ", StringComparison.Ordinal))
+            {
+                ParseLocal(lines[i], i);
+            }
+        }
+
+        for (int i = 0; i < blockCount; i++)
+        {
+            _f.NewBlock();
+        }
+
+        int block = -1;
+        for (int i = start; i < end; i++)
+        {
+            string line = lines[i];
+            if (line.TrimStart().StartsWith("local ", StringComparison.Ordinal) || line.Trim().Length == 0)
+            {
+                continue;
+            }
+
+            if (IsBlockLabel(line))
+            {
+                block++;
+                _f.SetBlock(new BlockId(block));
+                continue;
+            }
+
+            ParseInstruction(new IrCursor(line, i + 1));
+        }
+
+        return _body;
+    }
+
+    private static bool IsBlockLabel(string line) =>
+        line.StartsWith("bb", StringComparison.Ordinal) && line.TrimEnd().EndsWith(':');
+
+    private void ParseLocal(string line, int index)
+    {
+        var cursor = new IrCursor(line, index + 1);
+        cursor.ExpectWord("local");
+        cursor.Expect('%');
+        cursor.ReadInt();
+        string? name = null;
+        if (cursor.Peek != ':')
+        {
+            name = cursor.ReadWord();
+        }
+
+        cursor.Expect(':');
+        TypeId type = types.ParseType(cursor);
+        string kind = cursor.ReadWord();
+        SourceSpan span = cursor.Peek == '@' ? SpanParser.Parse(cursor) : SourceSpan.None;
+        _f.NewLocal(name, type, kind switch
+        {
+            "param" => LocalKind.Param,
+            "user" => LocalKind.User,
+            _ => LocalKind.Temp,
+        }, span);
+    }
+
+    private void ParseInstruction(IrCursor cursor)
+    {
+        string word = cursor.PeekWord();
+        char first = cursor.Peek;
+        if (first == '%' || first == '(' || word == "global")
+        {
+            PlaceId place = ParsePlace(cursor);
+            cursor.Expect('=');
+            RvalueId value = ParseRvalue(cursor);
+            _f.Assign(place, value, SpanParser.Parse(cursor));
+            return;
+        }
+
+        switch (word)
+        {
+            case "call":
+                cursor.ExpectWord("call");
+                RvalueId call = ParseCall(cursor);
+                _f.CallStatement(call, SpanParser.Parse(cursor));
+                return;
+            case "check":
+                cursor.ExpectWord("check");
+                CheckKind kind = IrNames.ParseCheck(cursor.ReadWord()) ?? throw cursor.Error("unknown check");
+                OperandId condition = ParseOperand(cursor);
+                string message = cursor.ReadString();
+                _f.Check(kind, condition, message, SpanParser.Parse(cursor));
+                return;
+            case "live":
+            case "dead":
+                cursor.ReadWord();
+                cursor.Expect('%');
+                var local = new LocalId(cursor.ReadInt());
+                SourceSpan span = SpanParser.Parse(cursor);
+                if (word == "live")
+                {
+                    _f.Live(local, span);
+                }
+                else
+                {
+                    _f.Dead(local, span);
+                }
+
+                return;
+            default:
+                ParseTerminator(cursor, word);
+                return;
+        }
+    }
+
+    private void ParseTerminator(IrCursor cursor, string word)
+    {
+        cursor.ReadWord();
+        switch (word)
+        {
+            case "goto":
+                BlockId target = ParseBlock(cursor);
+                _f.Goto(target, SpanParser.Parse(cursor));
+                return;
+            case "branch":
+                OperandId condition = ParseOperand(cursor);
+                cursor.Expect('?');
+                BlockId then = ParseBlock(cursor);
+                cursor.Expect(':');
+                BlockId otherwise = ParseBlock(cursor);
+                _f.Branch(condition, then, otherwise, SpanParser.Parse(cursor));
+                return;
+            case "switch":
+                OperandId value = ParseOperand(cursor);
+                cursor.Expect('[');
+                var cases = new List<SwitchCase>();
+                while (!cursor.TryChar(']'))
+                {
+                    ConstId constant = types.ParseConstant(cursor);
+                    cursor.ExpectText("->");
+                    cases.Add(new SwitchCase(constant, ParseBlock(cursor)));
+                }
+
+                cursor.ExpectWord("default");
+                BlockId fallback = ParseBlock(cursor);
+                _f.Switch(value, cases, fallback, SpanParser.Parse(cursor));
+                return;
+            case "return":
+                OperandId result = cursor.Peek == '@' ? OperandId.None : ParseOperand(cursor);
+                _f.Return(result, SpanParser.Parse(cursor));
+                return;
+            case "unreachable":
+                string mode = cursor.ReadWord();
+                _f.Unreachable(mode switch
+                {
+                    "trap" => UnreachableMode.Trap,
+                    "assume" => UnreachableMode.Assume,
+                    _ => UnreachableMode.Default,
+                }, SpanParser.Parse(cursor));
+                return;
+            case "panic":
+                OperandId message = ParseOperand(cursor);
+                _f.Panic(message, SpanParser.Parse(cursor));
+                return;
+            default:
+                throw cursor.Error("unknown instruction " + word);
+        }
+    }
+
+    private BlockId ParseBlock(IrCursor cursor)
+    {
+        cursor.ExpectText("bb");
+        return new BlockId(cursor.ReadInt());
+    }
+
+    private PlaceId ParsePlace(IrCursor cursor)
+    {
+        PlaceId place;
+        if (cursor.TryWord("global"))
+        {
+            string key = cursor.ReadReference();
+            place = _f.GlobalPlace(module.GlobalsByKey[key]);
+        }
+        else if (cursor.TryText("(*%"))
+        {
+            place = _f.DerefPlace(new LocalId(cursor.ReadInt()));
+            cursor.Expect(')');
+        }
+        else
+        {
+            cursor.Expect('%');
+            place = _f.LocalPlace(new LocalId(cursor.ReadInt()));
+        }
+
+        while (true)
+        {
+            if (cursor.TryText(".field("))
+            {
+                place = _f.Project(place, ProjectionKind.Field, cursor.ReadInt());
+                cursor.Expect(')');
+            }
+            else if (cursor.TryText(".payload("))
+            {
+                place = _f.Project(place, ProjectionKind.Payload, cursor.ReadInt());
+                cursor.Expect(')');
+            }
+            else if (cursor.TryChar('['))
+            {
+                OperandId index = ParseOperand(cursor);
+                cursor.Expect(']');
+                place = _f.Project(place, ProjectionKind.Index, index.Index);
+            }
+            else
+            {
+                return place;
+            }
+        }
+    }
+
+    private OperandId ParseOperand(IrCursor cursor)
+    {
+        string word = cursor.ReadWord();
+        switch (word)
+        {
+            case "copy":
+                return _f.Copy(ParsePlace(cursor));
+            case "const":
+                return _f.Const(types.ParseConstant(cursor));
+            case "undef":
+                return _f.Undef(types.ParseType(cursor));
+            default:
+                throw cursor.Error("unknown operand " + word);
+        }
+    }
+
+    private RvalueId ParseRvalue(IrCursor cursor)
+    {
+        string word = cursor.PeekWord();
+        switch (word)
+        {
+            case "binop":
+                cursor.ReadWord();
+                BinOp op = IrNames.ParseBinOp(cursor.ReadWord()) ?? throw cursor.Error("unknown binop");
+                ArithMode mode = IrNames.HasMode(op) ? IrNames.ParseMode(cursor.ReadWord()) : ArithMode.Default;
+                OperandId left = ParseOperand(cursor);
+                cursor.Expect(',');
+                return _f.Binop(op, mode, left, ParseOperand(cursor));
+            case "unop":
+                cursor.ReadWord();
+                UnOp unary = IrNames.ParseUnOp(cursor.ReadWord()) ?? throw cursor.Error("unknown unop");
+                ArithMode unaryMode = unary == UnOp.Neg ? IrNames.ParseMode(cursor.ReadWord()) : ArithMode.Default;
+                return _f.Unop(unary, unaryMode, ParseOperand(cursor));
+            case "cast":
+                cursor.ReadWord();
+                CastKind cast = IrNames.ParseCast(cursor.ReadWord()) ?? throw cursor.Error("unknown cast");
+                ArithMode castMode = IrNames.HasMode(cast) ? IrNames.ParseMode(cursor.ReadWord()) : ArithMode.Default;
+                OperandId operand = ParseOperand(cursor);
+                cursor.ExpectWord("to");
+                return _f.Cast(cast, castMode, operand, types.ParseType(cursor));
+            case "addr":
+            case "addr.mut":
+                cursor.ReadWord();
+                return _f.Addr(ParsePlace(cursor), word == "addr.mut");
+            case "aggregate":
+                cursor.ReadWord();
+                TypeId type = types.ParseType(cursor);
+                cursor.Expect('(');
+                var elements = new List<OperandId>();
+                while (!cursor.TryChar(')'))
+                {
+                    if (elements.Count > 0)
+                    {
+                        cursor.Expect(',');
+                    }
+
+                    elements.Add(ParseOperand(cursor));
+                }
+
+                return _f.Aggregate(type, elements);
+            case "len":
+                cursor.ReadWord();
+                return _f.Len(ParsePlace(cursor));
+            case "sizeof":
+                cursor.ReadWord();
+                return _f.SizeOf(types.ParseType(cursor));
+            case "alignof":
+                cursor.ReadWord();
+                return _f.AlignOf(types.ParseType(cursor));
+            case "offsetof":
+                cursor.ReadWord();
+                TypeId owner = types.ParseType(cursor);
+                return _f.OffsetOf(owner, cursor.ReadInt());
+            case "call":
+                cursor.ReadWord();
+                return ParseCall(cursor);
+            default:
+                return _f.Use(ParseOperand(cursor));
+        }
+    }
+
+    private RvalueId ParseCall(IrCursor cursor)
+    {
+        string kind = cursor.ReadWord();
+        FunctionId callee = FunctionId.None;
+        OperandId indirect = OperandId.None;
+        if (kind == "direct")
+        {
+            string key = cursor.ReadReference();
+            if (!module.FunctionsByKey.TryGetValue(key, out callee))
+            {
+                throw cursor.Error("unknown function " + key);
+            }
+        }
+        else
+        {
+            indirect = ParseOperand(cursor);
+        }
+
+        cursor.Expect('(');
+        var arguments = new List<OperandId>();
+        while (!cursor.TryChar(')'))
+        {
+            if (arguments.Count > 0)
+            {
+                cursor.Expect(',');
+            }
+
+            arguments.Add(ParseOperand(cursor));
+        }
+
+        return kind == "direct" ? _f.CallDirect(callee, arguments) : _f.CallIndirect(indirect, arguments);
+    }
+}

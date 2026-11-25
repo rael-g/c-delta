@@ -94,4 +94,74 @@ public static class IrNames
     public static bool HasMode(BinOp op) => op is Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.Mul;
 
     public static bool HasMode(CastKind kind) => kind is CastKind.IntInt or CastKind.FloatInt or CastKind.IntEnum;
+
+    public static BinOp? ParseBinOp(string word)
+    {
+        foreach (BinOp op in new[] { Ir.BinOp.Add, Ir.BinOp.Sub, Ir.BinOp.Mul, Ir.BinOp.Div, Ir.BinOp.Rem, Ir.BinOp.Shl, Ir.BinOp.Shr, Ir.BinOp.And, Ir.BinOp.Or, Ir.BinOp.Xor, Ir.BinOp.Eq, Ir.BinOp.Ne, Ir.BinOp.Lt, Ir.BinOp.Le, Ir.BinOp.Gt, Ir.BinOp.Ge })
+        {
+            if (BinOp(op) == word)
+            {
+                return op;
+            }
+        }
+
+        return null;
+    }
+
+    public static UnOp? ParseUnOp(string word)
+    {
+        foreach (UnOp op in new[] { Ir.UnOp.Neg, Ir.UnOp.Not, Ir.UnOp.BitNot })
+        {
+            if (UnOp(op) == word)
+            {
+                return op;
+            }
+        }
+
+        return null;
+    }
+
+    public static ArithMode ParseMode(string word) => word switch
+    {
+        "trap" => ArithMode.Trap,
+        "wrap" => ArithMode.Wrap,
+        "assume" => ArithMode.Assume,
+        _ => ArithMode.Default,
+    };
+
+    public static CastKind? ParseCast(string word)
+    {
+        foreach (CastKind kind in new[] { CastKind.IntInt, CastKind.IntFloat, CastKind.FloatInt, CastKind.FloatFloat, CastKind.IntEnum, CastKind.EnumInt, CastKind.PtrInt, CastKind.IntPtr, CastKind.PtrPtr, CastKind.Bitcast, CastKind.ArraySlice, CastKind.SlicePtr })
+        {
+            if (Cast(kind) == word)
+            {
+                return kind;
+            }
+        }
+
+        return null;
+    }
+
+    public static CheckKind? ParseCheck(string word)
+    {
+        foreach (CheckKind kind in new[] { CheckKind.Bounds, CheckKind.Null, CheckKind.Optional, CheckKind.ResultValue, CheckKind.ResultError, CheckKind.Enum, CheckKind.Align, CheckKind.DivZero, CheckKind.Overlap })
+        {
+            if (Check(kind) == word)
+            {
+                return kind;
+            }
+        }
+
+        return null;
+    }
+
+    public static CallConv ParseConv(string word) => word switch
+    {
+        "cdecl" => CallConv.Cdecl,
+        "stdcall" => CallConv.Stdcall,
+        "fastcall" => CallConv.Fastcall,
+        "thiscall" => CallConv.Thiscall,
+        "vectorcall" => CallConv.Vectorcall,
+        _ => CallConv.Default,
+    };
 }

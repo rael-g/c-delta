@@ -1,0 +1,66 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/static-arrays.cs" "static-arrays.cs"
+
+global Tables.Bytes: array<u8, 3> = array<u8, 3> {1, 2, 3} origin source(csharp) @1:4:35
+
+global Tables.Primes: array<i32, 5> = array<i32, 5> {2, 3, 5, 7, 11} origin source(csharp) @1:3:34
+
+#[cdelta.EntryPoint]
+fn Program.Main() -> i32 origin source(csharp) @1:9:16 {
+  local %0 sum: i32 user @1:9:16
+  local %1 i: i32 user @1:9:16
+  local %2: i32 temp
+  local %3: i32 temp
+  local %4: bool temp
+  local %5: i32 temp
+  local %6: i32 temp
+  local %7: i32 temp
+  local %8: i32 temp
+  local %9: i32 temp
+  local %10: i32 temp
+  local %11: i32 temp
+  local %12: i32 temp
+  local %13: i32 temp
+  local %14: i32 temp
+  local %15: i32 temp
+  local %16: i32 temp
+  local %17: i32 temp
+bb0:
+  live %0  @1:9:16
+  %0 = const i32 0  @1:11:13
+  goto bb1  @1:9:16
+bb1:
+  live %1  @1:9:16
+  %1 = const i32 0  @1:12:18
+  goto bb2  @1:9:16
+bb2:
+  %2 = copy %1  @1:12:25
+  %3 = len global Tables.Primes  @1:12:29
+  %4 = binop lt copy %2, copy %3  @1:12:25
+  branch copy %4 ? bb3 : bb5  @1:12:25
+bb3:
+  %5 = copy %0  @1:14:13
+  %6 = binop add default copy %5, copy global Tables.Primes[copy %1]  @1:14:13
+  %0 = copy %6  @1:14:13
+  %7 = copy %1  @1:12:51
+  %8 = binop add default copy %7, const i32 1  @1:12:51
+  %1 = copy %8  @1:12:51
+  goto bb2  @1:9:16
+bb4:
+  global Tables.Primes[const i32 0] = const i32 10  @1:17:9
+  %9 = copy %0  @1:18:16
+  %10 = binop add default copy %9, copy global Tables.Primes[const i32 0]  @1:18:16
+  %11 = copy %10  @1:18:16
+  %12 = cast int.int wrap copy global Tables.Bytes[const i32 2] to i32  @1:18:41
+  %13 = binop add default copy %11, copy %12  @1:18:16
+  %14 = copy %13  @1:18:16
+  %15 = len global Tables.Bytes  @1:18:59
+  %16 = binop add default copy %14, copy %15  @1:18:16
+  %17 = copy %16  @1:18:16
+  dead %0  @1:18:16
+  return copy %17  @1:18:16
+bb5:
+  dead %1  @1:12:25
+  goto bb4  @1:12:25
+}

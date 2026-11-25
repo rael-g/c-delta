@@ -1,0 +1,196 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/patterns.cs" "patterns.cs"
+
+struct Point layout c origin source(csharp) @1:1:8 {
+  X: i32
+  Y: i32
+}
+
+fn "Program.Describe(System.Int32)"(value: i32) -> i32 origin source(csharp) @1:9:16 {
+  local %0 value: i32 param @1:9:16
+  local %1 other: i32 user @1:9:16
+  local %2: bool temp
+  local %3: bool temp
+  local %4: bool temp
+  local %5: i32 temp
+  local %6: bool temp
+  local %7: bool temp
+  local %8: bool temp
+  local %9: i32 temp
+  local %10: bool temp
+  local %11: bool temp
+  local %12: bool temp
+  local %13: bool temp
+  local %14: i32 temp
+  local %15: i32 temp
+bb0:
+  live %1  @1:9:16
+  %2 = binop gt copy %0, const i32 0  @1:11:13
+  %3 = binop lt copy %0, const i32 10  @1:11:13
+  %4 = binop and copy %2, copy %3  @1:11:13
+  branch copy %4 ? bb1 : bb2  @1:11:13
+bb1:
+  %5 = const i32 1  @1:11:43
+  dead %1  @1:11:43
+  return copy %5  @1:11:43
+bb2:
+  %6 = binop eq copy %0, const i32 10  @1:12:13
+  %7 = binop eq copy %0, const i32 20  @1:12:13
+  %8 = binop or copy %6, copy %7  @1:12:13
+  branch copy %8 ? bb3 : bb4  @1:12:13
+bb3:
+  %9 = const i32 2  @1:12:39
+  dead %1  @1:12:39
+  return copy %9  @1:12:39
+bb4:
+  %10 = binop eq copy %0, const i32 0  @1:13:13
+  %11 = unop not copy %10  @1:13:13
+  %1 = copy %0  @1:13:13
+  %12 = binop and copy %11, const bool true  @1:13:13
+  branch copy %12 ? bb5 : bb7  @1:13:13
+bb5:
+  %13 = binop gt copy %1, const i32 100  @1:13:45
+  branch copy %13 ? bb6 : bb7  @1:13:45
+bb6:
+  %14 = const i32 3  @1:13:65
+  dead %1  @1:13:65
+  return copy %14  @1:13:65
+bb7:
+  %15 = const i32 0  @1:14:16
+  dead %1  @1:14:16
+  return copy %15  @1:14:16
+}
+
+fn "Program.Grade(System.Int32)"(score: i32) -> i32 origin source(csharp) @1:17:16 {
+  local %0 score: i32 param @1:17:16
+  local %1: i32 temp
+  local %2: bool temp
+  local %3: i32 temp
+  local %4: bool temp
+  local %5: bool temp
+  local %6: i32 temp
+bb0:
+  %1 = copy %0  @1:17:36
+  %2 = binop ge copy %1, const i32 90  @1:19:9
+  branch copy %2 ? bb1 : bb2  @1:19:9
+bb1:
+  %3 = const i32 4  @1:19:18
+  goto bb10  @1:17:16
+bb2:
+  %4 = binop ge copy %1, const i32 80  @1:20:9
+  branch copy %4 ? bb3 : bb4  @1:20:9
+bb3:
+  %3 = const i32 3  @1:20:18
+  goto bb11  @1:17:16
+bb4:
+  %5 = binop ge copy %1, const i32 70  @1:21:9
+  branch copy %5 ? bb5 : bb6  @1:21:9
+bb5:
+  %3 = const i32 2  @1:21:18
+  goto bb12  @1:17:16
+bb6:
+  branch const bool true ? bb7 : bb13  @1:22:9
+bb7:
+  %3 = const i32 1  @1:22:14
+  goto bb14  @1:17:16
+bb8:
+  unreachable default  @1:17:36
+bb9:
+  %6 = copy %3  @1:17:36
+  return copy %6  @1:17:36
+bb10:
+  goto bb9  @1:17:16
+bb11:
+  goto bb9  @1:17:16
+bb12:
+  goto bb9  @1:17:16
+bb13:
+  goto bb8  @1:22:9
+bb14:
+  goto bb9  @1:17:16
+}
+
+#[cdelta.EntryPoint]
+fn Program.Main() -> i32 origin source(csharp) @1:32:16 {
+  local %0 origin: struct Point user @1:32:16
+  local %1 right: struct Point user @1:32:16
+  local %2: i32 temp
+  local %3: i32 temp
+  local %4: i32 temp
+  local %5: i32 temp
+  local %6: i32 temp
+  local %7: i32 temp
+  local %8: i32 temp
+  local %9: i32 temp
+  local %10: i32 temp
+  local %11: i32 temp
+  local %12: i32 temp
+  local %13: struct Point temp
+  local %14: i32 temp
+  local %15: i32 temp
+  local %16: i32 temp
+  local %17: i32 temp
+  local %18: struct Point temp
+  local %19: i32 temp
+  local %20: i32 temp
+  local %21: i32 temp
+  local %22: i32 temp
+bb0:
+  live %0  @1:32:16
+  live %1  @1:32:16
+  %0.field(0) = const i32 0  @1:35:9
+  %0.field(1) = const i32 0  @1:36:9
+  %1.field(0) = const i32 5  @1:38:9
+  %1.field(1) = const i32 1  @1:39:9
+  %2 = call direct "Program.Describe(System.Int32)"(const i32 5)  @1:40:16
+  %3 = copy %2  @1:40:16
+  %4 = call direct "Program.Describe(System.Int32)"(const i32 20)  @1:40:30
+  %5 = binop add default copy %3, copy %4  @1:40:16
+  %6 = copy %5  @1:40:16
+  %7 = call direct "Program.Describe(System.Int32)"(const i32 500)  @1:40:45
+  %8 = binop add default copy %6, copy %7  @1:40:16
+  %9 = copy %8  @1:40:16
+  %10 = call direct "Program.Grade(System.Int32)"(const i32 85)  @1:40:61
+  %11 = binop add default copy %9, copy %10  @1:40:16
+  %12 = copy %11  @1:40:16
+  %13 = copy %0  @1:40:73
+  %14 = call direct "Program.Where(Point)"(copy %13)  @1:40:73
+  %15 = binop div copy %14, const i32 100  @1:40:73
+  %16 = binop add default copy %12, copy %15  @1:40:16
+  %17 = copy %16  @1:40:16
+  %18 = copy %1  @1:40:95
+  %19 = call direct "Program.Where(Point)"(copy %18)  @1:40:95
+  %20 = binop div copy %19, const i32 100  @1:40:95
+  %21 = binop add default copy %17, copy %20  @1:40:16
+  %22 = copy %21  @1:40:16
+  dead %0  @1:40:16
+  dead %1  @1:40:16
+  return copy %22  @1:40:16
+}
+
+fn "Program.Where(Point)"(p: struct Point) -> i32 origin source(csharp) @1:25:16 {
+  local %0 p: struct Point param @1:25:16
+  local %1: bool temp
+  local %2: bool temp
+  local %3: bool temp
+  local %4: bool temp
+  local %5: bool temp
+  local %6: bool temp
+bb0:
+  %1 = binop eq copy %0.field(0), const i32 0  @1:27:13
+  %2 = binop and const bool true, copy %1  @1:27:13
+  %3 = binop eq copy %0.field(1), const i32 0  @1:27:13
+  %4 = binop and copy %2, copy %3  @1:27:13
+  branch copy %4 ? bb1 : bb2  @1:27:13
+bb1:
+  return const i32 100  @1:27:41
+bb2:
+  %5 = binop gt copy %0.field(0), const i32 0  @1:28:13
+  %6 = binop and const bool true, copy %5  @1:28:13
+  branch copy %6 ? bb3 : bb4  @1:28:13
+bb3:
+  return const i32 200  @1:28:37
+bb4:
+  return const i32 300  @1:29:16
+}

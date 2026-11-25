@@ -1,0 +1,132 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/enums.cs" "enums.cs"
+
+enum Color: i32 exhaustive origin source(csharp) @1:1:6 {
+  Red = 0
+  Green = 5
+  Blue = 6
+}
+
+enum Options: i32 origin source(csharp) @1:9:6 {
+  None = 0
+  A = 1
+  B = 2
+  C = 4
+}
+
+#[cdelta.EntryPoint]
+fn Program.Main() -> i32 origin source(csharp) @1:34:16 {
+  local %0 green: enum Color user @1:34:16
+  local %1 number: i32 user @1:34:16
+  local %2 both: enum Options user @1:34:16
+  local %3 hasC: bool user @1:34:16
+  local %4 back: enum Color user @1:34:16
+  local %5: enum Options temp
+  local %6: bool temp
+  local %7: enum Color temp
+  local %8: i32 temp
+  local %9: i32 temp
+  local %10: i32 temp
+  local %11: enum Color temp
+  local %12: i32 temp
+  local %13: i32 temp
+  local %14: i32 temp
+  local %15: i32 temp
+  local %16: i32 temp
+  local %17: i32 temp
+  local %18: i32 temp
+  local %19: bool temp
+  local %20: i32 temp
+  local %21: i32 temp
+  local %22: i32 temp
+bb0:
+  live %0  @1:34:16
+  live %1  @1:34:16
+  live %2  @1:34:16
+  live %3  @1:34:16
+  live %4  @1:34:16
+  %0 = const enum Color 5  @1:36:15
+  %1 = const i32 6  @1:37:13
+  %2 = const enum Options 5  @1:38:17
+  %5 = binop and copy %2, const enum Options 4  @1:39:22
+  %6 = binop ne copy %5, const enum Options 0  @1:39:21
+  %3 = copy %6  @1:39:14
+  %4 = const enum Color 6  @1:40:15
+  goto bb1  @1:34:16
+bb1:
+  %7 = copy %0  @1:41:16
+  %8 = call direct "Program.Weight(Color)"(copy %7)  @1:41:16
+  %9 = binop add default copy %8, copy %1  @1:41:16
+  %10 = copy %9  @1:41:16
+  %11 = copy %4  @1:41:41
+  %12 = call direct "Program.Weight(Color)"(copy %11)  @1:41:41
+  %13 = binop add default copy %10, copy %12  @1:41:16
+  %14 = copy %13  @1:41:16
+  branch copy %3 ? bb2 : bb3  @1:41:57
+bb2:
+  %15 = const i32 1000  @1:41:64
+  goto bb4  @1:34:16
+bb3:
+  %15 = const i32 0  @1:41:71
+  goto bb4  @1:34:16
+bb4:
+  %16 = binop add default copy %14, copy %15  @1:41:16
+  %17 = binop sub default copy %16, const i32 1000  @1:41:16
+  %18 = copy %17  @1:41:16
+  goto bb9  @1:34:16
+bb5:
+  %19 = binop eq copy %0, const enum Color 5  @1:41:84
+  branch copy %19 ? bb6 : bb7  @1:41:84
+bb6:
+  %20 = const i32 1  @1:41:107
+  goto bb8  @1:34:16
+bb7:
+  %20 = const i32 0  @1:41:111
+  goto bb8  @1:34:16
+bb8:
+  %21 = binop add default copy %18, copy %20  @1:41:16
+  %22 = copy %21  @1:41:16
+  dead %0  @1:41:16
+  dead %1  @1:41:16
+  dead %2  @1:41:16
+  dead %3  @1:41:16
+  dead %4  @1:41:16
+  return copy %22  @1:41:16
+bb9:
+  goto bb5  @1:34:16
+}
+
+fn "Program.Weight(Color)"(color: enum Color) -> i32 origin source(csharp) @1:19:16 {
+  local %0 color: enum Color param @1:19:16
+  local %1: enum Color temp
+  local %2: bool temp
+  local %3: i32 temp
+  local %4: bool temp
+  local %5: i32 temp
+  local %6: bool temp
+  local %7: i32 temp
+bb0:
+  %1 = copy %0  @1:21:17
+  %2 = binop eq copy %1, const enum Color 0  @1:23:18
+  branch copy %2 ? bb1 : bb2  @1:23:18
+bb1:
+  %3 = const i32 1  @1:24:24
+  return copy %3  @1:24:24
+bb2:
+  %4 = binop eq copy %1, const enum Color 5  @1:25:18
+  branch copy %4 ? bb3 : bb4  @1:25:18
+bb3:
+  %5 = const i32 10  @1:26:24
+  return copy %5  @1:26:24
+bb4:
+  %6 = binop eq copy %1, const enum Color 6  @1:27:18
+  branch copy %6 ? bb5 : bb7  @1:27:18
+bb5:
+  %7 = const i32 100  @1:28:24
+  return copy %7  @1:28:24
+bb6:
+  return const i32 0  @1:31:16
+bb7:
+  goto bb6  @1:27:18
+}

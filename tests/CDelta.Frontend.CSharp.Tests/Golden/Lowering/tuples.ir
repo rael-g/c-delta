@@ -1,0 +1,93 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/tuples.cs" "tuples.cs"
+
+struct "tuple<i32,i32>" layout c origin source(csharp) @0:0:0 {
+  Item1: i32
+  Item2: i32
+}
+
+#[cdelta.EntryPoint]
+fn Program.Main() -> i32 origin source(csharp) @1:8:16 {
+  local %0 stats: struct "tuple<i32,i32>" user @1:8:16
+  local %1 count: i32 user @1:8:16
+  local %2 total: i32 user @1:8:16
+  local %3 x: i32 user @1:8:16
+  local %4 y: i32 user @1:8:16
+  local %5 pair: struct "tuple<i32,i32>" user @1:8:16
+  local %6: struct "tuple<i32,i32>" temp
+  local %7: struct "tuple<i32,i32>" temp
+  local %8: struct "tuple<i32,i32>" temp
+  local %9: struct "tuple<i32,i32>" temp
+  local %10: struct "tuple<i32,i32>" temp
+  local %11: struct "tuple<i32,i32>" temp
+  local %12: i32 temp
+  local %13: i32 temp
+  local %14: i32 temp
+  local %15: i32 temp
+  local %16: i32 temp
+  local %17: i32 temp
+  local %18: i32 temp
+  local %19: i32 temp
+  local %20: i32 temp
+  local %21: i32 temp
+  local %22: i32 temp
+  local %23: i32 temp
+  local %24: i32 temp
+bb0:
+  live %0  @1:8:16
+  live %1  @1:8:16
+  live %2  @1:8:16
+  live %3  @1:8:16
+  live %4  @1:8:16
+  live %5  @1:8:16
+  %6 = call direct "Program.Stats(System.Int32,System.Int32,System.Int32)"(const i32 1, const i32 2, const i32 3)  @1:10:21
+  %0 = copy %6  @1:10:13
+  %7 = call direct "Program.Stats(System.Int32,System.Int32,System.Int32)"(const i32 10, const i32 20, const i32 30)  @1:11:34
+  %8 = copy %7  @1:11:9
+  %1 = copy %8.field(0)  @1:11:9
+  %2 = copy %8.field(1)  @1:11:9
+  %9 = aggregate struct "tuple<i32,i32>"(const i32 4, const i32 5)  @1:12:22
+  %10 = copy %9  @1:12:9
+  %3 = copy %10.field(0)  @1:12:9
+  %4 = copy %10.field(1)  @1:12:9
+  %11 = aggregate struct "tuple<i32,i32>"(const i32 7, const i32 8)  @1:13:20
+  %5 = copy %11  @1:13:13
+  %12 = copy %5.field(0)  @1:14:9
+  %13 = binop add default copy %12, const i32 1  @1:14:9
+  %5.field(0) = copy %13  @1:14:9
+  %14 = copy %0.field(0)  @1:15:16
+  %15 = binop add default copy %14, copy %0.field(1)  @1:15:16
+  %16 = binop add default copy %15, copy %1  @1:15:16
+  %17 = binop add default copy %16, copy %2  @1:15:16
+  %18 = binop add default copy %17, copy %3  @1:15:16
+  %19 = binop add default copy %18, copy %4  @1:15:16
+  %20 = copy %19  @1:15:16
+  %21 = binop add default copy %20, copy %5.field(0)  @1:15:16
+  %22 = copy %21  @1:15:16
+  %23 = binop add default copy %22, copy %5.field(1)  @1:15:16
+  %24 = copy %23  @1:15:16
+  dead %0  @1:15:16
+  dead %1  @1:15:16
+  dead %2  @1:15:16
+  dead %3  @1:15:16
+  dead %4  @1:15:16
+  dead %5  @1:15:16
+  return copy %24  @1:15:16
+}
+
+fn "Program.Stats(System.Int32,System.Int32,System.Int32)"(a: i32, b: i32, c: i32) -> struct "tuple<i32,i32>" origin source(csharp) @1:3:35 {
+  local %0 a: i32 param @1:3:35
+  local %1 b: i32 param @1:3:35
+  local %2 c: i32 param @1:3:35
+  local %3: i32 temp
+  local %4: i32 temp
+  local %5: i32 temp
+  local %6: struct "tuple<i32,i32>" temp
+bb0:
+  %3 = binop add default copy %0, copy %1  @1:5:20
+  %4 = binop add default copy %3, copy %2  @1:5:20
+  %5 = copy %4  @1:5:16
+  %6 = aggregate struct "tuple<i32,i32>"(const i32 3, copy %5)  @1:5:16
+  return copy %6  @1:5:16
+}
