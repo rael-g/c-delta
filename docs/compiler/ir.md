@@ -198,7 +198,7 @@ Rvalue   := Operand
           | union.make(Type, member, Operand)
           | closure.make(Function, Operand context)
           | dyn.make(Impl, Operand self)
-          | len(Place) | tag(Place) | haspayload(Place) | errcode(Operand)
+          | len(Place) | tag(Place) | haspayload(Place) | err(Place) | errcode(Operand)
           | slice(Place, Operand start, Operand end)
           | alloca(Type, Operand count, init)
           | sizeof(Type) | alignof(Type) | offsetof(Type, field)
@@ -216,7 +216,8 @@ Rvalue   := Operand
   assumed impossible). The core rewrites `default` to `trap` or `assume` by build mode and safety
   overrides. Other operations have no mode.
 - `cast kind`: `int.int`, `int.float`, `float.int`, `float.float`, `int.enum`, `enum.int`,
-  `ptr.int`, `int.ptr`, `ptr.ptr`, `bitcast`, `slice.ptr`. `slice.ptr` gives the pointer a slice
+  `ptr.int`, `int.ptr`, `ptr.ptr`, `bitcast`, `slice.ptr`, `enum.error`, `error.enum`,
+  `error.error`. `slice.ptr` gives the pointer a slice
   holds, as `ptr<T> nullable many` (`const` for a `const` slice).
 - `Callee`: `direct(Function<args>)`, `indirect(Operand)` for function pointers,
   `closure(Operand)`, `dyn(Operand, method)`, `constrained(param T, Interface.method)` (Lowered
@@ -224,6 +225,41 @@ Rvalue   := Operand
 - Constants: integers (128 bits of two's complement with a type, the widest IR integer), floats (bit pattern), `bool`, `null`,
   bytes (static data, with or without NUL), aggregates, pointers to globals with an offset,
   function references, error codes, `undef`.
+
+Errors and results:
+
+- A value of type `errorset{names}` or `anyerror` is one error. The frontend writes
+  `errorset(E)` for an enum `E` used as a set: `errorset` of its member names, sorted ordinally.
+  `error.Name` constants are symbolic (`const errorset{A, B} error A`) in every stage; the
+  numbers come from the `errorname` items the core adds in `Final`
+  ([core-passes.md](core-passes.md#4-error-codes)). An error value is never the success code `0`.
+- `cast enum.error` turns a value of an enum `E` into the error of the same member name, typed
+  `errorset(E)`; `cast error.enum` turns an `errorset(E)` value back into the member of `E` with
+  that name. Neither looks at the enum's declared values. A value of a non-exhaustive `E` that
+  names no member gets a `check enum` before `enum.error`.
+- `cast error.error` changes the set of an error value to a set that contains all its names, or
+  to `anyerror`; the core rejects any other target. It changes no bits.
+- `errcode` gives the `u16` code of an error value; it is valid only in `Final`.
+
+| Source | IR |
+|---|---|
+| a `T` converted to `Result<T>` or `Result<T, E>` | `result.ok type v` |
+| `default` of a result type, `return default;` | `result.ok type` with the zero constant of `T`; `result.ok type` with no operand when `T` is `void` |
+| an `E` converted to `Result<T, E>` | `cast enum.error`, then `result.err type e`; a constant member folds to an `error` constant |
+| `Fail(e)` | `cast enum.error`, then `cast error.error` to `anyerror`: the corelib `Error` is `anyerror` |
+| `Error` converted to `Result` or `Result<T>` | `result.err type e` |
+| `r.IsError` | `haspayload r`, then `unop not` |
+| `r.Value` | the place `r.payload(0)` |
+| `r.Error` on `Result<T, E>` | `err r`, then `cast error.enum` to `E` |
+| `r.Error` on `Result` or `Result<T>` | `err r`, which is already `anyerror` |
+| `r.TryGet(out v, out e)` | `trace.save`; `branch` on `haspayload r`; success: `v` gets `r.payload(0)`, the result is `true`; error: `v` gets the zero constant of `T`, `e` gets `r.Error` as above, `trace.restore`, the result is `false` |
+| `Catch(r, d)` | `trace.save`; `branch` on `haspayload r`; success: `r.payload(0)`; error: `trace.restore`, then `d` |
+| `Try(r)` in a function returning `result<U, F>` | `branch` on `haspayload r`; success: `r.payload(0)`; error: `err r`, `cast error.error` to `F` (or `anyerror`), the deferred bodies, `trace.push`, `return result.err` |
+| `error.Name` | `intrinsic error.name(e)`, of type `slice<u8> const`; the core replaces it by an index into the name table |
+
+- On a `result` place, `haspayload` is true on success and `payload(0)` is the `T`; `err` gives
+  the error, typed with the result's error set. A `result` of one type never converts to another
+  except through these reads, as `Try` does.
 
 ### Statements and terminators
 
@@ -408,7 +444,7 @@ rvalue      = operand
             | "union.make" type int operand
             | "closure.make" ref [targs] "," operand
             | "dyn.make" ref "," operand
-            | ("len" | "tag" | "haspayload") place | "errcode" operand
+            | ("len" | "tag" | "haspayload" | "err") place | "errcode" operand
             | "slice" place "," operand "," operand
             | "alloca" type "," operand "," ("zero" | "undef" | "fill")
             | ("sizeof" | "alignof") type | "offsetof" type int
@@ -419,7 +455,8 @@ callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
             | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" string
 mode        = "default" | "trap" | "wrap" | "assume"
 castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
-            | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr"
+            | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr" | "enum.error"
+            | "error.enum" | "error.error"
 ```
 
 - A field written `@n` has byte offset `n`: required for `layout explicit`, printed for every field

@@ -134,6 +134,7 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | tuple | a canonical anonymous struct per element type list |
 | `Nullable<T>` | `optional<T>` |
 | `Result`, `Result<T>`, `Result<T, E>` | `result<void, anyerror>`, `result<T, anyerror>`, `result<T, errorset(E)>` |
+| `Error` | `anyerror` |
 | `Span<T>`, `ReadOnlySpan<T>` | `slice<T>`, `slice<T> const` |
 | `T*`, `ref T`, `in T` | `ptr<T>` with the matching flags; a `ref`, `in` or `out` parameter also has its mode |
 | method | `Function`; instance methods get `this` as the first parameter ([ir.md](ir.md#functions)) |
@@ -196,9 +197,10 @@ exactly the semantics of [../language/memory.md](../language/memory.md#defer).
 ### `Try`
 
 `Try(r)` splits its block: evaluate `r` into a temp, `branch haspayload`. The success edge reads
-the payload. The error edge runs every active deferred body up to the method's outermost region,
-then returns `result.err` of the method's return type with the same error code. Whether the error
-sets are compatible was already checked by `CD3002`.
+the payload. The error edge reads `err`, casts it with `error.error` to the error set of the
+method's return type, runs every active deferred body up to the method's outermost region, then
+returns `result.err` of the method's return type. Whether the error sets are compatible was
+already checked by `CD3002`. The other result forms are in [ir.md](ir.md#places-operands-and-values).
 
 ### Error return trace
 

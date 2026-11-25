@@ -78,9 +78,12 @@ An interpreter over IR, inside the core, used for comptime regions, static initi
 
 ## 4. Error codes
 
-Collect the member names of every error set used by a reachable `result` type, `Fail` or `errcode`;
-sort them ordinally; number them from `1`. More than 65535 names is `CD3010`. If `Error.Name` is
-reachable, emit the name table global.
+Collect the member names of every reachable `errorset` type and `error` constant; sort them
+ordinally; number them from `1`; add one `errorname` item per name. More than 65535 names is
+`CD3010`. If an `intrinsic error.name` is reachable, emit the name table global, a
+`slice<u8> const` per code with index `0` unused, and replace each `error.name(e)` with the
+element at `errcode e`. Every `cast error.error` is checked here: a target set that lacks a name
+of the source set is a compiler bug, since `CD3002` already rejected it in the source.
 
 ## 5. Entry point and test runner
 
@@ -136,7 +139,7 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 | `bounds` | element access of slices and arrays (`0 <= i < len`); `slice` rvalues (`0 <= start <= end <= len`); an `aggregate` of a slice type (`len >= 0`) |
 | `null` | dereference of a nullable pointer; calls through function pointers, closures and dyn values |
 | `optional` | every read of `payload(0)` of an optional, `haspayload` true; none is elided |
-| `result.value`, `result.error` | `result` payload or error read outside `Try` and `TryGet` |
+| `result.value`, `result.error` | every read of `payload(0)` of a result (success) and every `err` (error), including those `Try`, `Catch` and `TryGet` emit after their own branch; the C compiler folds the repeated test |
 | `enum` | integer to exhaustive enum conversion in `trap` mode |
 | `align` | pointer casts to a type of larger alignment |
 | `divzero` | integer division and remainder, in every mode, checks on or off |

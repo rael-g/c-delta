@@ -98,6 +98,7 @@ program uses it; each is `static` (`static inline` for arithmetic).
 | `<to> cd_f2i_wrap_<from>_<to>(<from> v)` | saturating conversion, `NaN` to `0` |
 | `<to> cd_f2i_trap_<from>_<to>(<from> v, const char* file, int32_t line)` | panics "float cast out of range" when not representable |
 | `cd_alloca(n, a)` | a macro, since the memory must belong to the caller's frame: `n` bytes aligned to `a`, through `__builtin_alloca` (`_alloca` on MSVC) of `n + a - 1` bytes with the address rounded up |
+| `uint16_t cd_err_from_<E>(<E> v)`, `<E> cd_err_to_<E>(uint16_t code)` | one pair per enum used by `enum.error` or `error.enum`: a `switch` from each member's value to its error number and back |
 
 `<from>` and `<to>` are the IR type names (`f64`, `i32`). Integer overflow checks are written in
 place with `__builtin_add_overflow`, `__builtin_sub_overflow` and `__builtin_mul_overflow` and a
@@ -149,7 +150,8 @@ then the exit code `1`. The error name table is always emitted when `Main` retur
 | `closure(sig)` | `struct { R (*fn)(void* ctx, params); void* ctx; }` |
 | `dyn<I>` | `struct { void* self; const cd_T_vtable_<I>* vt; }` |
 | `optional<T>` | `typedef struct { T value; bool has; } cd_T_optional_<T>`; `payload(0)` is `value` |
-| `result<T, E>` | `struct { T value; uint16_t err; }`; `uint16_t` alone when `T` is `void` |
+| `result<T, E>` | `typedef struct { T value; uint16_t err; } cd_T_result_<T>`, shared by every error set; `uint16_t` alone when `T` is `void`; `haspayload` is `err == 0`, `err` reads the field |
+| `errorset{...}`, `anyerror` | `uint16_t`; an `error` constant is its number from the `errorname` items; `error.error` casts are nothing |
 | `struct` | `struct` with the fields in IR order and `_Alignas` where the IR alignment exceeds natural |
 | explicit layout | `union` of one `struct` per field, each with a leading `char` padding array of the field's offset; a member struct whose field offset is not a multiple of the field's alignment is packed (`__attribute__((packed))`, `#pragma pack(1)` on MSVC), and the union has `_Alignas` of the IR alignment |
 | `union` (tagged) | `struct { tag_t tag; union { ... } as; }` |

@@ -264,6 +264,12 @@ and unmanaged function pointers mean the same thing; the plain form needs no
 `[UnmanagedCallersOnly]` on callbacks. The unmanaged form remains only to name a non-default
 calling convention.
 
+**D145. Errors are symbolic values in the IR; enums become errors through casts by member name.**
+The frontend cannot know the program-wide numbers, and an enum's declared values are not error
+codes, so the IR names errors until the core numbers them. A `result` is read with the same
+projections as an optional, and every read is checked in safe modes, leaving the redundant test
+after a branch to the C compiler.
+
 ## Repository
 
 **D201. Documents and code are in English.**
