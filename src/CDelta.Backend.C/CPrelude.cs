@@ -104,11 +104,6 @@ internal static class CPrelude
             cd_libc_abort();
         }
 
-        static noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)
-        {
-            cd_default_panic(msg, msg_len, file, line);
-        }
-
         """;
 
     public const string PanicWithoutLibc = """
@@ -121,10 +116,18 @@ internal static class CPrelude
             __builtin_trap();
         }
 
+        """;
+
+    public const string PanicDirect = """
         static noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)
         {
             cd_default_panic(msg, msg_len, file, line);
         }
+
+        """;
+
+    public const string PanicPrototype = """
+        static noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line);
 
         """;
 }

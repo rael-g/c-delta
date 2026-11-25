@@ -708,6 +708,13 @@ internal sealed partial class CFunctionWriter(
             case TermKind.Unreachable:
                 Statement(terminator.Mode == UnreachableMode.Assume ? "__builtin_unreachable();" : PanicCall(Unreachable, terminator.Span));
                 break;
+            case TermKind.Panic:
+                state.UsesPanic = true;
+                Statement("{");
+                Statement(CTypes.Spell(module, names, IrTyper.OfOperand(module, _body, terminator.Operand)) + " message = " + OperandText(terminator.Operand) + ";");
+                Statement("cd_panic(message.ptr, message.len, " + CConstants.StringLiteral(Encoding.UTF8.GetBytes(DisplayPath(terminator.Span))) + ", " + terminator.Span.Line + ");");
+                Statement("}");
+                break;
             default:
                 throw new NotSupportedException("the terminator " + terminator.Kind + " is not supported at this stage");
         }

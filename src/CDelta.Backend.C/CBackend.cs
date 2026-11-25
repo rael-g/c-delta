@@ -22,6 +22,7 @@ public static class CBackend
             }
         }
 
+        FunctionId? handler = PanicHandler(module);
         var text = new StringBuilder(CPrelude.Includes);
         if (state.UsesUnusedMarker)
         {
@@ -33,7 +34,7 @@ public static class CBackend
             text.Append('\n').Append(CPrelude.Alloca);
         }
 
-        if (state.UsesPanic)
+        if (state.UsesPanic && handler is null)
         {
             if (options.LinkLibC)
             {
@@ -43,6 +44,12 @@ public static class CBackend
             {
                 text.Append('\n').Append(CPrelude.PanicWithoutLibc);
             }
+
+            text.Append('\n').Append(CPrelude.PanicDirect);
+        }
+        else if (state.UsesPanic)
+        {
+            text.Append('\n').Append(CPrelude.PanicPrototype);
         }
 
         if (module.Target is { NativeInt128: false } && UsesInt128(module))
@@ -97,14 +104,49 @@ public static class CBackend
         }
 
         text.Append('\n').Append(prototypes);
+        if (state.UsesPanic && handler is { } panicHandler)
+        {
+            text.Append('\n').Append(PanicDispatch(module, names, panicHandler));
+        }
+
         if (globals.Length > 0)
         {
             text.Append('\n').Append(globals);
         }
 
         text.Append(definitions);
-        string? libc = state.UsesPanic && options.LinkLibC ? CPrelude.LibcUnit : null;
+        string? libc = state.UsesPanic && handler is null && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
+    }
+
+    private const string PanicHandlerAttribute = "cdelta.PanicHandler";
+
+    private static FunctionId? PanicHandler(Module module)
+    {
+        for (int i = 0; i < module.Functions.Count; i++)
+        {
+            FunctionDecl function = module.Functions[i];
+            for (int a = 0; a < function.Attributes.Count; a++)
+            {
+                if (module.Text(module.Attributes[function.Attributes.Start + a].Name) == PanicHandlerAttribute)
+                {
+                    return new FunctionId(i);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string PanicDispatch(Module module, CNames names, FunctionId handler)
+    {
+        FunctionDecl function = module.Functions[handler.Index];
+        string slice = CTypes.Spell(module, names, module.Params[function.Params.Start].Type);
+        return "static noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)\n{\n"
+            + "    " + slice + " message = { msg, msg_len };\n"
+            + "    " + slice + " path = { (const uint8_t*)file, (int32_t)__builtin_strlen(file) };\n"
+            + "    " + names.Function(handler) + "(message, path, line);\n"
+            + "    __builtin_trap();\n}\n";
     }
 
     private static bool UsesInt128(Module module)

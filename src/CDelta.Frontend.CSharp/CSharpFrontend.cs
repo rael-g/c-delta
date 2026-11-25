@@ -15,6 +15,8 @@ public sealed class CSharpFrontend : IBodyProvider
 {
     private const string Language = "csharp";
     private const string EntryPointAttribute = "cdelta.EntryPoint";
+    private const string PanicHandlerAttribute = "cdelta.PanicHandler";
+    private const string PanicHandlerType = "CDelta.PanicHandlerAttribute";
     private const string MainName = "Main";
 
     private static readonly SymbolDisplayFormat _typeFormat = new(
@@ -91,6 +93,11 @@ public sealed class CSharpFrontend : IBodyProvider
         foreach (IMethodSymbol method in EntryPointCandidates())
         {
             roots.Add(Declare(method, [EntryPointAttribute]));
+        }
+
+        foreach (IMethodSymbol method in PanicHandlerCandidates())
+        {
+            roots.Add(Declare(method, [PanicHandlerAttribute]));
         }
 
         return roots;
@@ -306,6 +313,36 @@ public sealed class CSharpFrontend : IBodyProvider
         FileLinePositionSpan span = location.GetLineSpan();
         var at = new CDelta.Diagnostics.Location(span.Path, span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1);
         _diagnostics.Add(code, at, new Note(null, note));
+    }
+
+    private IEnumerable<IMethodSymbol> PanicHandlerCandidates() =>
+        MethodsOfAssembly()
+            .Where(m => m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == PanicHandlerType))
+            .OrderBy(m => m.GetDocumentationCommentId(), StringComparer.Ordinal)
+            .Take(1);
+
+    private IEnumerable<IMethodSymbol> MethodsOfAssembly()
+    {
+        var pending = new Stack<INamespaceOrTypeSymbol>();
+        pending.Push(_compilation.Assembly.GlobalNamespace);
+        var found = new List<IMethodSymbol>();
+        while (pending.Count > 0)
+        {
+            foreach (ISymbol member in pending.Pop().GetMembers())
+            {
+                switch (member)
+                {
+                    case INamespaceOrTypeSymbol container:
+                        pending.Push(container);
+                        break;
+                    case IMethodSymbol method:
+                        found.Add(method);
+                        break;
+                }
+            }
+        }
+
+        return found;
     }
 
     private IEnumerable<IMethodSymbol> EntryPointCandidates()

@@ -223,6 +223,20 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return;
         }
 
+        if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw && ThrownIntrinsic(block.BranchValue) is { } thrown)
+        {
+            if (thrown.TargetMethod.Name == "Panic")
+            {
+                _f.Panic(Snapshot(LowerValue(thrown.Arguments[0].Value), span), span);
+            }
+            else
+            {
+                _f.Unreachable(UnreachableMode.Default, span);
+            }
+
+            return;
+        }
+
         if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw && (block.BranchValue is null || block.BranchValue.IsImplicit
             || block.BranchValue is IObjectCreationOperation { Type.Name: "SwitchExpressionException" or "InvalidOperationException" }))
         {
@@ -236,6 +250,19 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         _f.Goto(EdgeTarget(fallThrough, block, span), span);
+    }
+
+    private static IInvocationOperation? ThrownIntrinsic(IOperation? value)
+    {
+        while (value is IConversionOperation conversion)
+        {
+            value = conversion.Operand;
+        }
+
+        return value is IInvocationOperation { TargetMethod: { ContainingType: { Name: "Intrinsics" } container, Name: "Panic" or "Unreachable" } } invocation
+            && container.ToDisplayString() == "CDelta.Intrinsics"
+            ? invocation
+            : null;
     }
 
     private bool LeavesInlinedRegion(ControlFlowBranch branch)
@@ -650,6 +677,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return Emit(_builder.Primitive(TypeKind.I32), _f.SizeOf(frontend.Types.Map(sizeOf.TypeOperand, location)), SpanOf(operation));
             case IParenthesizedOperation parenthesized:
                 return LowerExpression(parenthesized.Operand);
+            case IUtf8StringOperation utf8:
+                return LowerTextBytes(utf8.Value, SpanOf(utf8));
             case IBinaryOperation binary:
                 return LowerBinary(binary);
             case IUnaryOperation unary:
@@ -1018,6 +1047,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return _f.Const(_builder.NullConstant(frontend.Types.Map(target, location)));
         }
 
+        if (conversion.Operand.ConstantValue is { HasValue: true, Value: string literal }
+            && source?.SpecialType == SpecialType.System_String && TypeMapper.IsReadOnlySpan(target))
+        {
+            return LowerTextBytes(literal, SpanOf(conversion));
+        }
+
         if (conversion.Operand.ConstantValue is { HasValue: true, Value: string text } && source?.SpecialType == SpecialType.System_String)
         {
             return LowerStringToPointer(text, target, conversion, location);
@@ -1116,6 +1151,13 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         return Emit(targetType, _f.Cast(CastKind.IntEnum, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetType), span);
+    }
+
+    private OperandId LowerTextBytes(string text, SourceSpan span)
+    {
+        byte[] encoded = new UTF8Encoding(false, true).GetBytes(text);
+        TypeId slice = _builder.SliceOf(_builder.Primitive(TypeKind.U8), true);
+        return _f.Const(_builder.BytesConstant(slice, encoded));
     }
 
     private OperandId LowerStringToPointer(string text, ITypeSymbol target, IConversionOperation conversion, Location location)
