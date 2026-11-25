@@ -34,11 +34,19 @@ public static class CBackend
             text.Append('\n').Append(CPrelude.Alloca);
         }
 
+        if (state.UsesTrace)
+        {
+            text.Append('\n').Append(CPrelude.TraceRing);
+        }
+
         if (state.UsesPanic && handler is null)
         {
             if (options.LinkLibC)
             {
-                text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(CPrelude.PanicWithLibc);
+                string withLibc = CPrelude.PanicWithLibc
+                    .Replace("@@TRACE_FUNCTION@@\n", state.UsesTrace ? CPrelude.TracePrint : string.Empty)
+                    .Replace("@@TRACE_CALL@@\n", state.UsesTrace ? "cd_trace_print();\n" : string.Empty);
+                text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(withLibc);
             }
             else
             {
@@ -74,6 +82,11 @@ public static class CBackend
         if (enums.Length > 0)
         {
             text.Append('\n').Append(enums);
+        }
+
+        if (state.ErrorEnums.Count > 0)
+        {
+            text.Append('\n').Append(ErrorHelpers(module, names, state));
         }
 
         var emitted = new HashSet<string>();
@@ -117,6 +130,33 @@ public static class CBackend
         text.Append(definitions);
         string? libc = state.UsesPanic && handler is null && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
+    }
+
+    private static string ErrorHelpers(Module module, CNames names, CEmitState state)
+    {
+        var text = new StringBuilder();
+        foreach (int index in state.ErrorEnums)
+        {
+            EnumDecl declaration = module.Enums[index];
+            string type = names.Enum(new EnumId(index));
+            text.Append("static uint16_t cd_err_from_").Append(type).Append('(').Append(type).Append(" value)\n{\n    switch (value)\n    {\n");
+            var reverse = new StringBuilder();
+            for (int i = 0; i < declaration.Members.Count; i++)
+            {
+                EnumMember member = module.EnumMembers[declaration.Members.Start + i];
+                int code = module.ErrorNames[module.Text(member.Name)];
+                string literal = CConstants.EnumLiteral(module, declaration, member.Value, type);
+                text.Append("    case ").Append(literal).Append(": return ").Append(code).Append(";\n");
+                reverse.Append("    case ").Append(code).Append(": return ").Append(literal).Append(";\n");
+            }
+
+            text.Append("    default: return 0;\n    }\n}\n\n");
+            text.Append("static ").Append(type).Append(" cd_err_to_").Append(type).Append("(uint16_t code)\n{\n    switch (code)\n    {\n");
+            text.Append(reverse);
+            text.Append("    default: return (").Append(type).Append(")0;\n    }\n}\n\n");
+        }
+
+        return text.ToString();
     }
 
     private const string PanicHandlerAttribute = "cdelta.PanicHandler";

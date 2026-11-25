@@ -177,6 +177,11 @@ public sealed class Instantiator
         foreach (Rvalue rvalue in source.Rvalues)
         {
             Rvalue copy = rvalue with { Type = _remap.Type(rvalue.Type) };
+            if (rvalue.Kind == RvalueKind.Intrinsic)
+            {
+                copy = copy with { Aux = _remap.String(new StringId(rvalue.Aux)).Index };
+            }
+
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Direct)
             {
                 copy = copy with { CalleeId = Reach(new FunctionId(rvalue.CalleeId)).Index };

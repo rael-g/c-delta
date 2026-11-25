@@ -346,11 +346,29 @@ internal sealed partial class CFunctionWriter(
             case StatementKind.Call:
                 _text.Append(Indent).Append(CallText(_body.Rvalues[statement.Rvalue.Index])).Append(";\n");
                 break;
+            case StatementKind.TracePush:
+                state.UsesTrace = true;
+                Statement("cd_trace_push(" + CConstants.StringLiteral(Encoding.UTF8.GetBytes(DisplayPath(statement.Span))) + ", " + statement.Span.Line + ");");
+                break;
+            case StatementKind.TraceSave:
+                state.UsesTrace = true;
+                Statement(_locals[statement.Aux] + " = cd_trace_len;");
+                break;
+            case StatementKind.TraceRestore:
+                state.UsesTrace = true;
+                Statement("cd_trace_len = " + _locals[statement.Aux] + ";");
+                break;
             case StatementKind.Check:
                 _text.Append(Indent).Append("if (__builtin_expect(!(").Append(OperandText(statement.Operand)).Append("), 0)) ")
                     .Append(PanicCall(module.Text(statement.Message), statement.Span)).Append('\n');
                 break;
         }
+    }
+
+    private string ErrorHelper(string direction, TypeId enumType)
+    {
+        state.ErrorEnums.Add(module.Types[enumType.Index].A);
+        return "cd_err_" + direction + "_" + names.Enum(new EnumId(module.Types[enumType.Index].A));
     }
 
     private string CallText(Rvalue rvalue)
@@ -410,7 +428,19 @@ internal sealed partial class CFunctionWriter(
                 WriteAlloca(rvalue, destination);
                 break;
             case RvalueKind.HasPayload:
-                Statement(destination + " = " + Place(rvalue.Place) + ".has;");
+                Statement(destination + " = " + HasPayloadText(rvalue.Place) + ";");
+                break;
+            case RvalueKind.ResultOk:
+                Statement(destination + " = " + (IsVoidResult(rvalue.Type) ? "0" : "(" + cType + "){ .value = " + OperandText(rvalue.A) + ", .err = 0 }") + ";");
+                break;
+            case RvalueKind.ResultErr:
+                Statement(destination + " = " + (IsVoidResult(rvalue.Type) ? OperandText(rvalue.A) : "(" + cType + "){ .err = " + OperandText(rvalue.A) + " }") + ";");
+                break;
+            case RvalueKind.Err:
+                Statement(destination + " = " + Place(rvalue.Place) + (IsVoidResult(IrTyper.OfPlace(module, _body, rvalue.Place)) ? string.Empty : ".err") + ";");
+                break;
+            case RvalueKind.Errcode:
+                Statement(destination + " = " + OperandText(rvalue.A) + ";");
                 break;
             case RvalueKind.OptionalSome:
                 Statement(destination + " = (" + cType + "){ " + OperandText(rvalue.A) + ", true };");
@@ -439,6 +469,19 @@ internal sealed partial class CFunctionWriter(
                 WriteCast(rvalue, destination, cType, statement.Span);
                 break;
         }
+    }
+
+    private bool IsVoidResult(TypeId result) => module.Types[module.Types[result.Index].A].Kind == TypeKind.Void;
+
+    private string HasPayloadText(PlaceId place)
+    {
+        TypeId type = IrTyper.OfPlace(module, _body, place);
+        if (module.Types[type.Index].Kind != TypeKind.Result)
+        {
+            return Place(place) + ".has";
+        }
+
+        return "(" + Place(place) + (IsVoidResult(type) ? string.Empty : ".err") + " == 0)";
     }
 
     private void WriteSlice(Rvalue rvalue, string destination, string cType)
@@ -655,6 +698,15 @@ internal sealed partial class CFunctionWriter(
                 return;
             case CastKind.SlicePtr:
                 Statement(destination + " = " + a + ".ptr;");
+                return;
+            case CastKind.ErrorError:
+                Statement(destination + " = " + a + ";");
+                return;
+            case CastKind.EnumError:
+                Statement(destination + " = " + ErrorHelper("from", IrTyper.OfOperand(module, _body, rvalue.A)) + "(" + a + ");");
+                return;
+            case CastKind.ErrorEnum:
+                Statement(destination + " = " + ErrorHelper("to", rvalue.Type) + "(" + a + ");");
                 return;
             case CastKind.IntInt:
                 break;

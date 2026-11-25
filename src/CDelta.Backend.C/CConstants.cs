@@ -17,6 +17,8 @@ internal static class CConstants
                 return Integer(module, constant, type);
             case ConstKind.Bool:
                 return constant.Value != 0 ? "true" : "false";
+            case ConstKind.Error:
+                return "((uint16_t)" + module.ErrorNames[module.Strings[(int)constant.Value]] + ")";
             case ConstKind.Null:
                 return "((" + type + ")0)";
             case ConstKind.Bytes:
@@ -121,6 +123,9 @@ internal static class CConstants
 
         return text.Append('"').ToString();
     }
+
+    public static string EnumLiteral(Module module, EnumDecl declaration, Int128 value, string type) =>
+        Integer(module, new ConstNode(ConstKind.Int, declaration.Underlying, value, BytesId.None, TypeListId.None), type);
 
     private static string Integer(Module module, ConstNode constant, string type)
     {

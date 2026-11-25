@@ -62,6 +62,49 @@ internal static class CPrelude
 
         """;
 
+    public const string TraceRing = """
+        #define CD_TRACE_CAPACITY 32u
+
+        typedef struct { const char* file; int32_t line; } cd_trace_entry;
+
+        static _Thread_local cd_trace_entry cd_trace[CD_TRACE_CAPACITY];
+        static _Thread_local uint32_t cd_trace_len;
+
+        static void cd_trace_push(const char* file, int32_t line)
+        {
+            cd_trace[cd_trace_len % CD_TRACE_CAPACITY].file = file;
+            cd_trace[cd_trace_len % CD_TRACE_CAPACITY].line = line;
+            cd_trace_len++;
+        }
+
+        """;
+
+    public const string TracePrint = """
+        static void cd_trace_print(void)
+        {
+            if (cd_trace_len == 0)
+            {
+                return;
+            }
+
+            uint32_t first = cd_trace_len > CD_TRACE_CAPACITY ? cd_trace_len - CD_TRACE_CAPACITY : 0;
+            cd_write_text("error return trace:\n");
+            for (uint32_t i = first; i < cd_trace_len; i++)
+            {
+                cd_write_text("  ");
+                cd_write_text(cd_trace[i % CD_TRACE_CAPACITY].file);
+                cd_write_text(":");
+                cd_write_int(cd_trace[i % CD_TRACE_CAPACITY].line);
+                cd_write_text("\n");
+            }
+        }
+
+        """;
+
+    public const string TraceFunctionToken = "@@TRACE_FUNCTION@@\n";
+
+    public const string TraceCallToken = "@@TRACE_CALL@@\n";
+
     public const string PanicWithLibc = """
         static void cd_write_text(const char* text)
         {
@@ -92,6 +135,7 @@ internal static class CPrelude
             cd_libc_write_stderr((const uint8_t*)(digits + position), (size_t)(16 - position));
         }
 
+        @@TRACE_FUNCTION@@
         static noreturn void cd_default_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)
         {
             cd_write_text("panic: ");
@@ -101,6 +145,7 @@ internal static class CPrelude
             cd_write_text(":");
             cd_write_int(line);
             cd_write_text("\n");
+            @@TRACE_CALL@@
             cd_libc_abort();
         }
 

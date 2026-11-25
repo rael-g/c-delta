@@ -6,6 +6,8 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
 {
     private const string DivisionByZero = "division by zero";
     private const string IntegerOverflow = "integer overflow";
+    private const string UnwrapError = "attempt to unwrap error";
+    private const string ReadErrorOfSuccess = "attempt to read error of success";
 
     private readonly ModuleBuilder _builder = new(module);
     private readonly FunctionBuilder _f = new(module, body);
@@ -229,7 +231,14 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
             if (projection.Kind == ProjectionKind.Payload && isRead)
             {
                 OperandId present = Emit(boolean, _f.HasPayload(PrefixPlace(place, i)), span);
-                _f.Check(CheckKind.Optional, present, "optional has no value", span);
+                if (module.Types[current.Index].Kind == TypeKind.Result)
+                {
+                    _f.Check(CheckKind.ResultValue, present, UnwrapError, span);
+                }
+                else
+                {
+                    _f.Check(CheckKind.Optional, present, "optional has no value", span);
+                }
             }
 
             current = IrTyper.Project(module, current, projection);
@@ -261,6 +270,12 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
             OperandId inside = Emit(boolean, _f.Binop(BinOp.Le, ArithMode.Default, end, limit), span);
             OperandId valid = Emit(boolean, _f.Binop(BinOp.And, ArithMode.Default, ordered, inside), span);
             _f.Check(CheckKind.Bounds, valid, "slice out of bounds", span);
+        }
+        else if (rvalue.Kind == RvalueKind.Err)
+        {
+            OperandId succeeded = Emit(boolean, _f.HasPayload(rvalue.Place), span);
+            OperandId failed = Emit(boolean, _f.Unop(UnOp.Not, ArithMode.Default, succeeded), span);
+            _f.Check(CheckKind.ResultError, failed, ReadErrorOfSuccess, span);
         }
         else if (rvalue.Kind == RvalueKind.Aggregate && module.Types[rvalue.Type.Index].Kind == TypeKind.Slice)
         {

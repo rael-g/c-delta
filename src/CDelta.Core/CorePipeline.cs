@@ -15,6 +15,7 @@ public static class CorePipeline
             return null;
         }
 
+        ErrorCodesPass.Run(instantiated, diagnostics);
         EntryPointPass.Run(instantiated);
         SafetyPass.Run(instantiated, options, diagnostics);
         DiagnosticBag verification = IrVerifier.Verify(instantiated, ModuleStage.Final);

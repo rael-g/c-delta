@@ -6,6 +6,7 @@ public sealed class TypeLayouts(Module module, Target target)
 {
     private const int BitsPerByte = 8;
     private const int SliceLengthSize = 4;
+    private const int ErrorCodeSize = 2;
 
     private readonly HashSet<int> _inProgress = [];
 
@@ -26,6 +27,14 @@ public sealed class TypeLayouts(Module module, Target target)
             case TypeKind.Optional:
                 TypeSizes payload = Of(new TypeId(node.A));
                 return new TypeSizes(AlignUp(payload.Size + 1, payload.Alignment), payload.Alignment);
+            case TypeKind.Result:
+                TypeSizes value = Of(new TypeId(node.A));
+                int alignment = Math.Max(value.Alignment, ErrorCodeSize);
+                int errorOffset = AlignUp(value.Size, ErrorCodeSize);
+                return new TypeSizes(AlignUp(errorOffset + ErrorCodeSize, alignment), alignment);
+            case TypeKind.ErrorSet:
+            case TypeKind.AnyError:
+                return new TypeSizes(ErrorCodeSize, ErrorCodeSize);
             case TypeKind.Struct:
                 return OfStruct(new StructId(node.A));
             case TypeKind.Enum:

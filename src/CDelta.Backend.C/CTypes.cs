@@ -20,6 +20,11 @@ internal static class CTypes
                 return ArrayName(module, names, node);
             case TypeKind.Optional:
                 return OptionalName(module, names, node);
+            case TypeKind.Result:
+                return module.Types[node.A].Kind == TypeKind.Void ? "uint16_t" : ResultName(module, names, node);
+            case TypeKind.ErrorSet:
+            case TypeKind.AnyError:
+                return "uint16_t";
             case TypeKind.Struct:
                 return names.Struct(new StructId(node.A));
             case TypeKind.Enum:
@@ -42,6 +47,12 @@ internal static class CTypes
 
     public static string OptionalDefinition(Module module, CNames names, TypeNode node) =>
         "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " value; bool has; } " + OptionalName(module, names, node) + ";\n";
+
+    public static string ResultName(Module module, CNames names, TypeNode node) =>
+        "cd_T_result_" + CNames.MangleSpelling(Spell(module, names, new TypeId(node.A)));
+
+    public static string ResultDefinition(Module module, CNames names, TypeNode node) =>
+        "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " value; uint16_t err; } " + ResultName(module, names, node) + ";\n";
 
     public static string SliceName(Module module, CNames names, TypeNode node)
     {

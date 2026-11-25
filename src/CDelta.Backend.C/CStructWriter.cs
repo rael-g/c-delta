@@ -26,7 +26,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
 
         for (int i = 0; i < module.Types.Count; i++)
         {
-            if (module.Types[i].Kind is TypeKind.Array or TypeKind.Optional)
+            if (IsAggregateType(module.Types[i]))
             {
                 VisitType(new TypeId(i), visitedStructs, visitedTypes, order);
             }
@@ -52,14 +52,27 @@ internal sealed partial class CStructWriter(Module module, CNames names)
     public string Definitions(List<(int ArrayType, int Struct)> order)
     {
         var text = new StringBuilder();
+        var defined = new HashSet<string>();
         foreach ((int arrayType, int structIndex) in order)
         {
             if (arrayType >= 0)
             {
                 TypeNode node = module.Types[arrayType];
-                text.Append(node.Kind == TypeKind.Optional
-                    ? CTypes.OptionalDefinition(module, names, node)
-                    : CTypes.ArrayDefinition(module, names, node));
+                if (node.Kind == TypeKind.Result && IsVoid(new TypeId(node.A)))
+                {
+                    continue;
+                }
+
+                string definition = node.Kind switch
+                {
+                    TypeKind.Optional => CTypes.OptionalDefinition(module, names, node),
+                    TypeKind.Result => CTypes.ResultDefinition(module, names, node),
+                    _ => CTypes.ArrayDefinition(module, names, node),
+                };
+                if (defined.Add(definition))
+                {
+                    text.Append(definition);
+                }
             }
             else
             {
@@ -126,6 +139,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 break;
             case TypeKind.Array:
             case TypeKind.Optional:
+            case TypeKind.Result:
                 if (visitedTypes.Add(type.Index))
                 {
                     VisitType(new TypeId(node.A), visitedStructs, visitedTypes, order);
@@ -135,6 +149,9 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 break;
         }
     }
+
+    private static bool IsAggregateType(TypeNode node) =>
+        node.Kind is TypeKind.Array or TypeKind.Optional or TypeKind.Result;
 
     private bool IsVoid(TypeId type) => module.Types[type.Index].Kind == TypeKind.Void;
 

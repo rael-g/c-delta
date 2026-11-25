@@ -24,6 +24,11 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             case TypeKind.Optional:
             case TypeKind.Array:
                 return destination.Type(node with { A = Type(new TypeId(node.A)).Index });
+            case TypeKind.Result:
+                return destination.Type(node with { A = Type(new TypeId(node.A)).Index, B = Type(new TypeId(node.B)).Index });
+            case TypeKind.ErrorSet:
+                int[] names = source.TypeLists[node.A].Select(index => destination.Intern(source.Strings[index]).Index).ToArray();
+                return destination.Type(node with { A = destination.TypeList(names).Index });
             case TypeKind.Fn:
                 return destination.Type(node with { A = Sig(new SigId(node.A)).Index });
             case TypeKind.Struct:
@@ -134,7 +139,8 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             items = destination.TypeList(mapped);
         }
 
-        return destination.Constant(node with { Type = Type(node.Type), Bytes = bytes, Items = items });
+        Int128 value = node.Kind == ConstKind.Error ? destination.Intern(source.Strings[(int)node.Value]).Index : node.Value;
+        return destination.Constant(node with { Type = Type(node.Type), Value = value, Bytes = bytes, Items = items });
     }
 
     public Origin Origin(Origin origin) =>

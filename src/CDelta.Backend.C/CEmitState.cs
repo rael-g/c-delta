@@ -7,4 +7,8 @@ internal sealed class CEmitState
     public bool UsesUnusedMarker { get; set; }
 
     public bool UsesAlloca { get; set; }
+
+    public bool UsesTrace { get; set; }
+
+    public SortedSet<int> ErrorEnums { get; } = [];
 }
