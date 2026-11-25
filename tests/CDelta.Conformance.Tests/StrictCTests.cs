@@ -35,6 +35,16 @@ public sealed class StrictCTests
             string target = HostTarget.Resolve() ?? "x86_64-linux-gnu";
             string isolated = Path.Combine(directory, "case.cs");
             File.Copy(source, isolated);
+            string sourceHeaders = Path.Combine(Path.GetDirectoryName(source)!, "headers");
+            if (Directory.Exists(sourceHeaders))
+            {
+                Directory.CreateDirectory(Path.Combine(directory, "headers"));
+                foreach (string header in Directory.GetFiles(sourceHeaders))
+                {
+                    File.Copy(header, Path.Combine(directory, "headers", Path.GetFileName(header)));
+                }
+            }
+
             var options = new CompilerOptions([isolated], target, Mode, Path.Combine(directory, "reference"), "clang", true, null, false, false);
             BuildResult result = new BuildPipeline(new ProcessRunner(), Environment.GetEnvironmentVariable).Build(options);
             Assert.True(result.ExitCode == 0, string.Join("\n", result.Messages));
@@ -56,6 +66,12 @@ public sealed class StrictCTests
                 else
                 {
                     arguments.Add("-fsyntax-only");
+                }
+
+                string headers = Path.Combine(directory, "headers");
+                if (Directory.Exists(headers))
+                {
+                    arguments.Add("-I" + headers);
                 }
 
                 arguments.AddRange(result.GeneratedC);
