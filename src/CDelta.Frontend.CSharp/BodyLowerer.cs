@@ -13,6 +13,9 @@ namespace CDelta.Frontend.CSharp;
 
 internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 {
+    private const int EnumeratorItems = 0;
+    private const int EnumeratorIndex = 1;
+
     private readonly Module _module = frontend.Module;
     private readonly ModuleBuilder _builder = frontend.Builder;
     private readonly Body _body = new();
@@ -407,8 +410,20 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         return sets;
     }
 
-    private void InlineFinally(ControlFlowRegion region, SourceSpan span) =>
-        InlineCfg(_cfg, region.FirstBlockOrdinal, region.LastBlockOrdinal, span);
+    private void InlineFinally(ControlFlowRegion region, SourceSpan span)
+    {
+        if (!DisposesThroughInterface(region))
+        {
+            InlineCfg(_cfg, region.FirstBlockOrdinal, region.LastBlockOrdinal, span);
+        }
+    }
+
+    private bool DisposesThroughInterface(ControlFlowRegion region) =>
+        _cfg.Blocks
+            .Where(block => block.Ordinal >= region.FirstBlockOrdinal && block.Ordinal <= region.LastBlockOrdinal)
+            .SelectMany(block => block.Operations.Concat(block.BranchValue is null ? [] : [block.BranchValue]))
+            .SelectMany(operation => operation.DescendantsAndSelf())
+            .Any(operation => operation.Type is { Name: "IDisposable", TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface });
 
     private void InlineCfg(ControlFlowGraph cfg, int first, int last, SourceSpan span)
     {
@@ -529,12 +544,47 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         switch (operation)
         {
-            case IPropertyReferenceOperation { Instance.Type: IArrayTypeSymbol } length when length.Property.Name == "Length":
-                return Emit(_builder.Primitive(TypeKind.I32), _f.Len(PlaceOf(length.Instance)), SpanOf(operation));
+            case IPropertyReferenceOperation length when length.Property.Name == "Length"
+                && (length.Instance?.Type is IArrayTypeSymbol || TypeMapper.IsSpanLike(length.Instance?.Type)):
+                return Emit(_builder.Primitive(TypeKind.I32), _f.Len(PlaceOf(length.Instance!)), SpanOf(operation));
+            case IFieldReferenceOperation { Field.IsFixedSizeBuffer: true } buffer:
+                PlaceId bufferPlace = PlaceOf(buffer);
+                TypeId bufferType = IrTyper.OfPlace(_module, _body, bufferPlace);
+                return AddressOfFirst(bufferPlace, new TypeId(_module.Types[bufferType.Index].A), frontend.Types.Map(buffer.Type!, location), SpanOf(operation));
             case ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
                 or IFieldReferenceOperation or IInstanceReferenceOperation or IDeclarationExpressionOperation
                 or IArrayElementReferenceOperation:
                 return _f.Copy(PlaceOf(operation));
+            case IPropertyReferenceOperation { Property.IsIndexer: true } when TypeMapper.IsSpanLike(((IPropertyReferenceOperation)operation).Instance?.Type):
+                return _f.Copy(PlaceOf(operation));
+            case IOperation { Kind: OperationKind.ImplicitIndexerReference } rangeSlice when IsRangeAccess(rangeSlice):
+                return LowerRangeSlice(rangeSlice);
+            case IOperation { Kind: OperationKind.ImplicitIndexerReference }:
+                return _f.Copy(PlaceOf(operation));
+            case IInlineArrayAccessOperation:
+                return _f.Copy(PlaceOf(operation));
+            case ICollectionExpressionOperation collection:
+                return LowerCollectionExpression(collection);
+            case IInvocationOperation { TargetMethod: { Name: "GetEnumerator", ContainingType.Name: "IEnumerable" } } arrayEnumeration:
+                return LowerArrayEnumerator(arrayEnumeration);
+            case IInvocationOperation { TargetMethod: { Name: "MoveNext", ContainingType.Name: "IEnumerator" } } arrayAdvance:
+                return LowerMoveNext(arrayAdvance);
+            case IPropertyReferenceOperation { Property: { Name: "Current", ContainingType.Name: "IEnumerator" } }:
+                return _f.Copy(PlaceOf(operation));
+            case IInvocationOperation { TargetMethod.Name: "GetEnumerator" } enumeration when TypeMapper.IsSpanLike(enumeration.TargetMethod.ContainingType):
+                return LowerGetEnumerator(enumeration);
+            case IInvocationOperation { TargetMethod.Name: "MoveNext" } advance when advance.TargetMethod.ContainingType is { Name: "Enumerator", ContainingType: { } owner } && TypeMapper.IsSpanLike(owner):
+                return LowerMoveNext(advance);
+            case IPropertyReferenceOperation { Property.Name: "Current" } current when current.Property.ContainingType is { Name: "Enumerator", ContainingType: { } outer } && TypeMapper.IsSpanLike(outer):
+                return _f.Copy(PlaceOf(operation));
+            case IOperation { Kind: OperationKind.None } fixedInitializer when fixedInitializer.Syntax.Parent is EqualsValueClauseSyntax { Parent.Parent.Parent: FixedStatementSyntax }:
+                return LowerFixedInitializer(fixedInitializer);
+            case IOperation { Kind: OperationKind.None } stackAllocation when stackAllocation.Syntax is StackAllocArrayCreationExpressionSyntax:
+                return LowerStackAlloc(stackAllocation);
+            case IPropertyReferenceOperation { Instance: not null } nullableMember when TypeMapper.IsNullable(nullableMember.Instance.Type):
+                return LowerNullableMember(nullableMember);
+            case IConversionOperation { Operand.Type: not null } fromNullable when TypeMapper.IsNullable(fromNullable.Operand.Type) && !TypeMapper.IsNullable(fromNullable.Type):
+                return _f.Copy(_f.Project(PlaceOf(fromNullable.Operand), ProjectionKind.Payload, 0));
             case IOperation { Kind: OperationKind.None } when IsPointerForm(operation):
                 return _f.Copy(PlaceOf(operation));
             case ITupleOperation tuple:
@@ -545,6 +595,9 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return TestPattern(isPattern.Pattern, PlaceOf(isPattern.Value), SpanOf(operation));
             case IObjectCreationOperation creation:
                 return LowerObjectCreation(creation);
+            case IDefaultValueOperation when TypeMapper.IsNullable(operation.Type):
+                TypeId none = frontend.Types.Map(operation.Type!, location);
+                return Emit(none, _f.OptionalNone(new TypeId(_module.Types[none.Index].A)), SpanOf(operation));
             case IDefaultValueOperation:
                 return Zero(frontend.Types.Map(operation.Type!, location), SpanOf(operation));
             case IAddressOfOperation address:
@@ -579,6 +632,15 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private OperandId LowerConstant(object? value, ITypeSymbol type, Location location)
     {
         TypeId typeId = frontend.Types.Map(type, location);
+        if (TypeMapper.IsNullable(type))
+        {
+            SourceSpan constantSpan = frontend.SpanOf(location);
+            TypeId payloadType = new(_module.Types[typeId.Index].A);
+            return value is null
+                ? Emit(typeId, _f.OptionalNone(payloadType), constantSpan)
+                : Emit(typeId, _f.OptionalSome(LowerConstant(value, ((INamedTypeSymbol)type).TypeArguments[0], location)), constantSpan);
+        }
+
         if (value is null)
         {
             return _f.Const(_builder.NullConstant(typeId));
@@ -745,6 +807,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         Location location = conversion.Syntax.GetLocation();
         ITypeSymbol target = conversion.Type!;
         ITypeSymbol? source = conversion.Operand.Type;
+        if (source is null && TypeMapper.IsNullable(target) && conversion.Operand.ConstantValue is { HasValue: true, Value: null })
+        {
+            TypeId optional = frontend.Types.Map(target, location);
+            return Emit(optional, _f.OptionalNone(new TypeId(_module.Types[optional.Index].A)), SpanOf(conversion));
+        }
+
         if (source is null && conversion.Operand.ConstantValue is { HasValue: true, Value: null })
         {
             return _f.Const(_builder.NullConstant(frontend.Types.Map(target, location)));
@@ -755,10 +823,25 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return LowerStringToPointer(text, target, conversion, location);
         }
 
+        if (conversion.Operand is IPropertyReferenceOperation { Property: { Name: "Current", ContainingType.Name: "IEnumerator" } })
+        {
+            return _f.Copy(PlaceOf(conversion.Operand));
+        }
+
+        if (source is not null && TypeMapper.IsSpanLike(target) && (source is IArrayTypeSymbol || TypeMapper.IsSpanLike(source)) && !SymbolEqualityComparer.Default.Equals(source, target))
+        {
+            return LowerSliceOfWhole(conversion.Operand, frontend.Types.Map(target, location), SpanOf(conversion));
+        }
+
         OperandId operand = LowerValue(conversion.Operand);
         if (source is null || SymbolEqualityComparer.Default.Equals(source, target))
         {
             return operand;
+        }
+
+        if (TypeMapper.IsNullable(target) && !TypeMapper.IsNullable(source))
+        {
+            return Emit(frontend.Types.Map(target, location), _f.OptionalSome(operand), SpanOf(conversion));
         }
 
         TypeId targetType = frontend.Types.Map(target, location);
@@ -878,6 +961,22 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _f.DerefPlace(held);
             case IDiscardOperation discard:
                 return _f.LocalPlace(NewTemp(discard.Type!, discard.Syntax.GetLocation()));
+            case IOperation { Kind: OperationKind.ImplicitIndexerReference } implicitIndexer:
+                return ImplicitElementPlace(implicitIndexer);
+            case IInlineArrayAccessOperation inline:
+                PlaceId storage = _f.Project(PlaceOf(inline.Instance), ProjectionKind.Field, 0);
+                return _f.Project(storage, ProjectionKind.Index, LowerValue(inline.Argument).Index);
+            case IPropertyReferenceOperation { Property: { Name: "Current" } } current when IsEnumeratorMember(current.Property.ContainingType):
+                PlaceId enumerator = PlaceOf(current.Instance!);
+                PlaceId items = _f.Project(enumerator, ProjectionKind.Field, EnumeratorItems);
+                OperandId at = _f.Copy(_f.Project(enumerator, ProjectionKind.Field, EnumeratorIndex));
+                return _f.Project(items, ProjectionKind.Index, at.Index);
+            case IPropertyReferenceOperation { Property.IsIndexer: true } indexer when TypeMapper.IsSpanLike(indexer.Instance?.Type):
+                PlaceId container = PlaceOf(indexer.Instance!);
+                OperandId currentIndex = LowerValue(indexer.Arguments[0].Value);
+                return _f.Project(container, ProjectionKind.Index, currentIndex.Index);
+            case IPropertyReferenceOperation { Property.Name: "Value" } payload when TypeMapper.IsNullable(payload.Instance?.Type):
+                return _f.Project(PlaceOf(payload.Instance!), ProjectionKind.Payload, 0);
             case IArrayElementReferenceOperation element:
                 PlaceId array = PlaceOf(element.ArrayReference);
                 OperandId position = LowerValue(element.Indices[0]);
@@ -980,6 +1079,16 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             target = implementation;
         }
 
+        if (TypeMapper.IsSpanLike(target.ContainingType) && target.Name == "Slice")
+        {
+            return LowerSlice(invocation, span);
+        }
+
+        if (TypeMapper.IsNullable(target.ContainingType) && target.Name == "GetValueOrDefault")
+        {
+            return LowerGetValueOrDefault(invocation, span);
+        }
+
         var arguments = new List<OperandId>();
         if (!target.IsStatic)
         {
@@ -1032,6 +1141,16 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         SourceSpan span = SpanOf(creation);
         TypeId type = frontend.Types.Map(creation.Type!, location);
         IMethodSymbol? constructor = creation.Constructor;
+        if (constructor is not null && TypeMapper.IsSpanLike(constructor.ContainingType) && creation.Arguments.Length == 2)
+        {
+            return LowerSpanFromPointer(creation, type, span);
+        }
+
+        if (constructor is not null && TypeMapper.IsNullable(constructor.ContainingType) && creation.Arguments.Length == 1)
+        {
+            return Emit(type, _f.OptionalSome(LowerValue(creation.Arguments[0].Value)), span);
+        }
+
         if (constructor is null || constructor.IsImplicitlyDeclared)
         {
             return Zero(type, span);
@@ -1048,6 +1167,267 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         _f.CallStatement(_f.CallDirect(frontend.Declare(constructor), arguments), span);
         return _f.Copy(_f.LocalPlace(temp));
+    }
+
+    private OperandId LowerSpanFromPointer(IObjectCreationOperation creation, TypeId type, SourceSpan span)
+    {
+        IOperation source = creation.Arguments[0].Value;
+        while (source is IConversionOperation { Operand.Type: IPointerTypeSymbol } wrapped)
+        {
+            source = wrapped.Operand;
+        }
+
+        TypeNode slice = _module.Types[type.Index];
+        TypeFlags flags = TypeFlags.Nullable | TypeFlags.Many | (slice.Flags & TypeFlags.Const);
+        TypeId pointerType = _builder.Pointer(new TypeId(slice.A), flags);
+        OperandId pointer = LowerValue(source);
+        if (OperandType(pointer) != pointerType)
+        {
+            pointer = Emit(pointerType, _f.Cast(CastKind.PtrPtr, ArithMode.Default, pointer, pointerType), span);
+        }
+
+        OperandId length = Snapshot(LowerValue(creation.Arguments[1].Value), span);
+        return Emit(type, _f.Aggregate(type, [pointer, length]), span);
+    }
+
+    private OperandId LowerSlice(IInvocationOperation invocation, SourceSpan span)
+    {
+        TypeId type = frontend.Types.Map(invocation.Type!, invocation.Syntax.GetLocation());
+        PlaceId place = PlaceOf(invocation.Instance!);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId start = Snapshot(LowerValue(invocation.Arguments[0].Value), span);
+        OperandId end = invocation.Arguments.Length == 2
+            ? Emit(i32, _f.Binop(BinOp.Add, ArithMode.Default, start, Snapshot(LowerValue(invocation.Arguments[1].Value), span)), span)
+            : Emit(i32, _f.Len(place), span);
+        return Emit(type, _f.Slice(place, start, end), span);
+    }
+
+    private static bool IsRangeAccess(IOperation access) => access.ChildOperations.Last() is IRangeOperation;
+
+    private PlaceId ImplicitElementPlace(IOperation access)
+    {
+        IOperation[] children = access.ChildOperations.ToArray();
+        SourceSpan span = SpanOf(access);
+        PlaceId container = PlaceOf(children[0]);
+        OperandId position = FromEnd(children[1], container, span) ?? LowerValue(children[1]);
+        return _f.Project(container, ProjectionKind.Index, position.Index);
+    }
+
+    private OperandId? FromEnd(IOperation index, PlaceId container, SourceSpan span)
+    {
+        if (index is IUnaryOperation { OperatorKind: UnaryOperatorKind.Hat } hat)
+        {
+            TypeId i32 = _builder.Primitive(TypeKind.I32);
+            OperandId length = Emit(i32, _f.Len(container), span);
+            return Emit(i32, _f.Binop(BinOp.Sub, ArithMode.Default, length, Snapshot(LowerValue(hat.Operand), span)), span);
+        }
+
+        return null;
+    }
+
+    private OperandId LowerRangeSlice(IOperation access)
+    {
+        IOperation[] children = access.ChildOperations.ToArray();
+        SourceSpan span = SpanOf(access);
+        var range = (IRangeOperation)children[1];
+        PlaceId container = PlaceOf(children[0]);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId start = range.LeftOperand is null
+            ? _f.Const(_builder.IntConstant(i32, 0))
+            : RangeBound(range.LeftOperand, container, span);
+        OperandId end = range.RightOperand is null
+            ? Emit(i32, _f.Len(container), span)
+            : RangeBound(range.RightOperand, container, span);
+        TypeId type = frontend.Types.Map(access.Type!, access.Syntax.GetLocation());
+        return Emit(type, _f.Slice(container, start, end), span);
+    }
+
+    private OperandId RangeBound(IOperation bound, PlaceId container, SourceSpan span)
+    {
+        IOperation inner = bound is IConversionOperation { Operand.Type.SpecialType: SpecialType.System_Int32 } conversion ? conversion.Operand : bound;
+        return FromEnd(inner, container, span) ?? Snapshot(LowerValue(inner), span);
+    }
+
+    private static bool IsEnumeratorMember(INamedTypeSymbol type) =>
+        type.Name == "IEnumerator" || type is { Name: "Enumerator", ContainingType: { } outer } && TypeMapper.IsSpanLike(outer);
+
+    private OperandId LowerArrayEnumerator(IInvocationOperation enumeration)
+    {
+        SourceSpan span = SpanOf(enumeration);
+        IOperation source = enumeration.Instance!;
+        while (source is IConversionOperation conversion)
+        {
+            source = conversion.Operand;
+        }
+
+        PlaceId array = PlaceOf(source);
+        TypeId arrayType = IrTyper.OfPlace(_module, _body, array);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        TypeId sliceType = _builder.SliceOf(new TypeId(_module.Types[arrayType.Index].A), false);
+        OperandId items = Emit(sliceType, _f.Slice(array, _f.Const(_builder.IntConstant(i32, 0)), _f.Const(_builder.IntConstant(i32, _module.Types[arrayType.Index].B))), span);
+        TypeId type = _builder.StructType(frontend.Types.EnumeratorOf(sliceType));
+        return Emit(type, _f.Aggregate(type, [items, _f.Const(_builder.IntConstant(i32, -1))]), span);
+    }
+
+    private OperandId LowerFixedInitializer(IOperation initializer)
+    {
+        SourceSpan span = SpanOf(initializer);
+        IOperation source = initializer.ChildOperations.FirstOrDefault() ?? throw new UnsupportedConstructException("a fixed initializer has no operand", initializer.Syntax.GetLocation());
+        while (source is IConversionOperation conversion)
+        {
+            source = conversion.Operand;
+        }
+
+        TypeId pointerType = frontend.Types.Map(initializer.Type is IPointerTypeSymbol ? initializer.Type : throw new UnsupportedConstructException("a fixed initializer is not a pointer", initializer.Syntax.GetLocation()), initializer.Syntax.GetLocation());
+        if (source.Type is IArrayTypeSymbol)
+        {
+            PlaceId array = PlaceOf(source);
+            TypeId arrayType = IrTyper.OfPlace(_module, _body, array);
+            return AddressOfFirst(array, new TypeId(_module.Types[arrayType.Index].A), pointerType, span);
+        }
+
+        return Emit(pointerType, _f.Cast(CastKind.SlicePtr, ArithMode.Default, LowerValue(source), pointerType), span);
+    }
+
+    private OperandId LowerCollectionExpression(ICollectionExpressionOperation collection)
+    {
+        SourceSpan span = SpanOf(collection);
+        TypeId type = frontend.Types.Map(collection.Type!, collection.Syntax.GetLocation());
+        TypeNode slice = _module.Types[type.Index];
+        TypeId arrayType = _builder.ArrayOf(new TypeId(slice.A), collection.Elements.Length);
+        LocalId storage = NewTemp(arrayType);
+        var values = new List<OperandId>();
+        foreach (IOperation element in collection.Elements)
+        {
+            if (element is ISpreadOperation)
+            {
+                throw new UnsupportedConstructException("a spread element is not supported yet", element.Syntax.GetLocation());
+            }
+
+            values.Add(Snapshot(LowerValue(element), span));
+        }
+
+        _f.Assign(_f.LocalPlace(storage), _f.Aggregate(arrayType, values), span);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId start = _f.Const(_builder.IntConstant(i32, 0));
+        OperandId end = _f.Const(_builder.IntConstant(i32, collection.Elements.Length));
+        return Emit(type, _f.Slice(_f.LocalPlace(storage), start, end), span);
+    }
+
+    private OperandId LowerGetEnumerator(IInvocationOperation enumeration)
+    {
+        SourceSpan span = SpanOf(enumeration);
+        TypeId type = frontend.Types.Map(enumeration.Type!, enumeration.Syntax.GetLocation());
+        OperandId items = Snapshot(LowerValue(enumeration.Instance!), span);
+        OperandId before = _f.Const(_builder.IntConstant(_builder.Primitive(TypeKind.I32), -1));
+        return Emit(type, _f.Aggregate(type, [items, before]), span);
+    }
+
+    private OperandId LowerMoveNext(IInvocationOperation advance)
+    {
+        SourceSpan span = SpanOf(advance);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        PlaceId enumerator = PlaceOf(advance.Instance!);
+        PlaceId index = _f.Project(enumerator, ProjectionKind.Field, EnumeratorIndex);
+        OperandId next = Emit(i32, _f.Binop(BinOp.Add, ArithMode.Wrap, _f.Copy(index), _f.Const(_builder.IntConstant(i32, 1))), span);
+        _f.Assign(index, _f.Use(next), span);
+        OperandId length = Emit(i32, _f.Len(_f.Project(enumerator, ProjectionKind.Field, EnumeratorItems)), span);
+        return Emit(_builder.Primitive(TypeKind.Bool), _f.Binop(BinOp.Lt, ArithMode.Default, next, length), span);
+    }
+
+    private OperandId LowerSliceOfWhole(IOperation source, TypeId type, SourceSpan span)
+    {
+        PlaceId place = PlaceOf(source);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId end = Emit(i32, _f.Len(place), span);
+        return Emit(type, _f.Slice(place, _f.Const(_builder.IntConstant(i32, 0)), end), span);
+    }
+
+    private OperandId LowerStackAlloc(IOperation operation)
+    {
+        Location location = operation.Syntax.GetLocation();
+        SourceSpan span = SpanOf(operation);
+        TypeId pointerType = frontend.Types.Map(operation.Type!, location);
+        TypeId element = IrTyper.Pointee(_module, pointerType);
+        IArrayInitializerOperation? initializer = operation.ChildOperations.OfType<IArrayInitializerOperation>().FirstOrDefault();
+        IOperation? size = operation.ChildOperations.FirstOrDefault(child => child is not IArrayInitializerOperation);
+        int count = initializer?.ElementValues.Length ?? 0;
+        if (size is not null && size.ConstantValue is { HasValue: true, Value: int declared })
+        {
+            count = declared;
+        }
+        else if (size is not null)
+        {
+            TypeId usize = _builder.Primitive(TypeKind.USize);
+            OperandId length = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Default, LowerValue(size), usize), span);
+            return Emit(pointerType, _f.Alloca(element, length, AllocaInit.Zero), span);
+        }
+
+        TypeId arrayType = _builder.ArrayOf(element, count);
+        LocalId storage = NewTemp(arrayType);
+        if (initializer is not null)
+        {
+            var values = new List<OperandId>();
+            foreach (IOperation item in initializer.ElementValues)
+            {
+                values.Add(Snapshot(LowerValue(item), span));
+            }
+
+            _f.Assign(_f.LocalPlace(storage), _f.Aggregate(arrayType, values), span);
+        }
+        else
+        {
+            _f.Assign(_f.LocalPlace(storage), _f.Use(Zero(arrayType, span)), span);
+        }
+
+        return AddressOfFirst(storage, element, pointerType, span);
+    }
+
+    private OperandId AddressOfFirst(LocalId storage, TypeId element, TypeId pointerType, SourceSpan span) =>
+        AddressOfFirst(_f.LocalPlace(storage), element, pointerType, span);
+
+    private OperandId AddressOfFirst(PlaceId array, TypeId element, TypeId pointerType, SourceSpan span)
+    {
+        OperandId zero = _f.Const(_builder.IntConstant(_builder.Primitive(TypeKind.I32), 0));
+        PlaceId first = _f.Project(array, ProjectionKind.Index, zero.Index);
+        TypeId unique = _builder.Pointer(element, TypeFlags.None);
+        OperandId address = Emit(unique, _f.Addr(first, true), span);
+        return Emit(pointerType, _f.Cast(CastKind.PtrPtr, ArithMode.Default, address, pointerType), span);
+    }
+
+    private OperandId LowerNullableMember(IPropertyReferenceOperation member)
+    {
+        SourceSpan span = SpanOf(member);
+        PlaceId place = PlaceOf(member.Instance!);
+        if (member.Property.Name == "HasValue")
+        {
+            return Emit(_builder.Primitive(TypeKind.Bool), _f.HasPayload(place), span);
+        }
+
+        return _f.Copy(_f.Project(place, ProjectionKind.Payload, 0));
+    }
+
+    private OperandId LowerGetValueOrDefault(IInvocationOperation invocation, SourceSpan span)
+    {
+        TypeId payloadType = frontend.Types.Map(invocation.Type!, invocation.Syntax.GetLocation());
+        PlaceId place = PlaceOf(invocation.Instance!);
+        OperandId fallback = invocation.Arguments.Length == 1
+            ? Snapshot(LowerValue(invocation.Arguments[0].Value), span)
+            : Zero(payloadType, span);
+        LocalId result = NewTemp(payloadType);
+        OperandId present = Emit(_builder.Primitive(TypeKind.Bool), _f.HasPayload(place), span);
+        BlockId has = _f.NewBlock();
+        BlockId missing = _f.NewBlock();
+        BlockId join = _f.NewBlock();
+        _f.Branch(present, has, missing, span);
+        _f.SetBlock(has);
+        _f.Assign(_f.LocalPlace(result), _f.Use(_f.Copy(_f.Project(place, ProjectionKind.Payload, 0))), span);
+        _f.Goto(join, span);
+        _f.SetBlock(missing);
+        _f.Assign(_f.LocalPlace(result), _f.Use(fallback), span);
+        _f.Goto(join, span);
+        _f.SetBlock(join);
+        return _f.Copy(_f.LocalPlace(result));
     }
 
     private OperandId LowerTuple(ITupleOperation tuple)
@@ -1204,6 +1584,11 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _builder.NullConstant(type);
             case TypeKind.F32 or TypeKind.F64 or TypeKind.F16:
                 return _builder.FloatConstant(type, 0);
+            case TypeKind.Slice:
+                TypeId elementPointer = _builder.Pointer(new TypeId(node.A), TypeFlags.Nullable | TypeFlags.Many | (node.Flags & TypeFlags.Const));
+                return _builder.AggregateConstant(type, [_builder.NullConstant(elementPointer), _builder.IntConstant(_builder.Primitive(TypeKind.I32), 0)]);
+            case TypeKind.Optional:
+                return _builder.AggregateConstant(type, [ZeroConstant(new TypeId(node.A)), _builder.BoolConstant(_builder.Primitive(TypeKind.Bool), false)]);
             case TypeKind.Array:
                 var elements = new List<ConstId>();
                 for (int i = 0; i < node.B; i++)

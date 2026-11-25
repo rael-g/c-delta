@@ -19,11 +19,15 @@ public readonly struct Span<T>
 
     public ref T this[int index] => throw null;
 
+    public ref T GetPinnableReference() => throw null;
+
     public Span<T> Slice(int start) => throw null;
 
     public Span<T> Slice(int start, int length) => throw null;
 
     public Enumerator GetEnumerator() => throw null;
+
+    public static implicit operator Span<T>(T[] array) => throw null;
 
     public static implicit operator ReadOnlySpan<T>(Span<T> span) => throw null;
 

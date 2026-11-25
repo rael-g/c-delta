@@ -82,6 +82,25 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
     }
 
+    public StructId EnumeratorOf(INamedTypeSymbol span, Location location) => EnumeratorOf(Map(span, location));
+
+    public StructId EnumeratorOf(TypeId sliceType)
+    {
+        Module module = builder.Module;
+        string key = "enumerator<" + IrPrinter.TypeText(module, sliceType) + ">";
+        if (module.StructsByKey.TryGetValue(key, out StructId existing))
+        {
+            return existing;
+        }
+
+        var fields = new List<FieldDecl>
+        {
+            new(module.Intern("Items"), sliceType, IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+            new(module.Intern("Index"), builder.Primitive(TypeKind.I32), IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+        };
+        return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
+    }
+
     public EnumId EnumOf(INamedTypeSymbol type, Location location)
     {
         if (_enums.TryGetValue(type, out EnumId existing))
@@ -163,6 +182,14 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         throw new InvalidOperationException("a field is not a member of its struct");
     }
 
+    public static bool IsSpan(ITypeSymbol? type) => type?.OriginalDefinition.ToDisplayString() == "System.Span<T>";
+
+    public static bool IsReadOnlySpan(ITypeSymbol? type) => type?.OriginalDefinition.ToDisplayString() == "System.ReadOnlySpan<T>";
+
+    public static bool IsSpanLike(ITypeSymbol? type) => IsSpan(type) || IsReadOnlySpan(type);
+
+    public static bool IsNullable(ITypeSymbol? type) => type?.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+
     public TypeId Map(ITypeSymbol type, Location location)
     {
         switch (type)
@@ -174,6 +201,12 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.Pointer(element, TypeFlags.Nullable | TypeFlags.Many);
             case INamedTypeSymbol { IsTupleType: true } tuple:
                 return builder.StructType(TupleOf(tuple, location));
+            case INamedTypeSymbol { Name: "Enumerator", ContainingType: { } enumerated } when IsSpanLike(enumerated):
+                return builder.StructType(EnumeratorOf(enumerated, location));
+            case INamedTypeSymbol spanType when IsSpan(spanType) || IsReadOnlySpan(spanType):
+                return builder.SliceOf(Map(spanType.TypeArguments[0], location), IsReadOnlySpan(spanType));
+            case INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable:
+                return builder.OptionalOf(Map(nullable.TypeArguments[0], location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
                 return builder.StructType(StructOf(named, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
@@ -233,9 +266,9 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         {
             type = builder.ArrayOf(Map(((IPointerTypeSymbol)field.Type).PointedAtType, location), field.FixedSize);
         }
-        else if (IsInlineArray(field.Type, out int length, out ITypeSymbol? element))
+        else if (IsInlineArray(owner, out int length, out _))
         {
-            type = builder.ArrayOf(Map(element!, location), length);
+            type = builder.ArrayOf(Map(field.Type, location), length);
         }
         else
         {

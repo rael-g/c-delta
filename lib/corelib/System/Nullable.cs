@@ -15,5 +15,9 @@ public struct Nullable<T> where T : struct
 
     public T Value => _value;
 
+    public T GetValueOrDefault() => _hasValue ? _value : default;
+
+    public T GetValueOrDefault(T defaultValue) => _hasValue ? _value : defaultValue;
+
     public static implicit operator T?(T value) => new T?(value);
 }

@@ -653,6 +653,9 @@ internal sealed partial class CFunctionWriter(
             case CastKind.EnumInt:
                 Statement(destination + " = (" + cType + ")" + a + ";");
                 return;
+            case CastKind.SlicePtr:
+                Statement(destination + " = " + a + ".ptr;");
+                return;
             case CastKind.IntInt:
                 break;
             default:
