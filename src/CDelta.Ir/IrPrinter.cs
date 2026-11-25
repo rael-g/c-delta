@@ -1,0 +1,540 @@
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace CDelta.Ir;
+
+public static partial class IrPrinter
+{
+    private const string Indent = "  ";
+
+    private static readonly HashSet<string> _keywords =
+    [
+        "module", "stage", "lowered", "instantiated", "final", "target", "source", "cimport", "struct", "enum",
+        "union", "interface", "opaque", "global", "fn", "impl", "error", "layout", "size", "align", "minsize",
+        "origin", "copy", "const", "fnref", "undef", "binop", "unop", "cast", "addr", "aggregate", "len", "tag",
+        "haspayload", "errcode", "sizeof", "alignof", "offsetof", "call", "intrinsic", "comptime", "direct",
+        "indirect", "closure", "dyn", "constrained", "param", "local", "live", "dead", "check", "goto", "branch",
+        "switch", "return", "unreachable", "panic", "default", "trap", "wrap", "assume", "true", "false", "null",
+        "bytes", "bits", "nullable", "many", "volatile", "ref", "out", "internal", "export", "extern", "weak",
+        "inline", "always", "never", "cc", "safety", "on", "off", "type", "user", "temp", "to", "ptr", "slice",
+        "array", "optional", "result", "errorset", "anyerror", "void", "noreturn", "bool", "isize", "usize",
+    ];
+
+    [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")]
+    private static partial Regex BareReference();
+
+    public static string Print(Module module)
+    {
+        var text = new StringBuilder();
+        text.Append("module ").Append(Reference(module.Name)).Append(" stage ").Append(IrNames.Stage(module.Stage));
+        if (module.Target is Target target)
+        {
+            text.Append(" target ").Append(target.Triple);
+        }
+
+        text.Append('\n');
+        if (module.Sources.Count > 0)
+        {
+            text.Append('\n');
+            for (int i = 0; i < module.Sources.Count; i++)
+            {
+                SourceFile file = module.Sources[i];
+                text.Append("source ").Append(i + 1).Append(' ').Append(Quote(file.FullPath)).Append(' ')
+                    .Append(Quote(file.DisplayPath)).Append('\n');
+            }
+        }
+
+        foreach (FunctionId function in OrderedFunctions(module))
+        {
+            text.Append('\n');
+            PrintFunction(module, function, text);
+        }
+
+        return text.ToString();
+    }
+
+    public static string TypeText(Module module, TypeId type)
+    {
+        TypeNode node = module.Types[type.Index];
+        switch (node.Kind)
+        {
+            case TypeKind.Ptr:
+                StringBuilder pointer = new StringBuilder("ptr<").Append(TypeText(module, new TypeId(node.A))).Append('>');
+                AppendFlag(pointer, node.Flags, TypeFlags.Nullable, "nullable");
+                AppendFlag(pointer, node.Flags, TypeFlags.Const, "const");
+                AppendFlag(pointer, node.Flags, TypeFlags.Volatile, "volatile");
+                AppendFlag(pointer, node.Flags, TypeFlags.Many, "many");
+                return pointer.ToString();
+            case TypeKind.Slice:
+                string slice = "slice<" + TypeText(module, new TypeId(node.A)) + ">";
+                return node.Flags.HasFlag(TypeFlags.Const) ? slice + " const" : slice;
+            case TypeKind.Array:
+                return "array<" + TypeText(module, new TypeId(node.A)) + ", " + node.B + ">";
+            case TypeKind.Fn:
+                return "fn" + SigText(module, new SigId(node.A));
+            default:
+                return IrTypes.Name(node.Kind);
+        }
+    }
+
+    public static string SigText(Module module, SigId sig)
+    {
+        SigNode node = module.Sigs[sig.Index];
+        var text = new StringBuilder("(");
+        int[] items = module.TypeLists[node.Params.Index];
+        for (int i = 0; i < items.Length; i++)
+        {
+            var parameter = SigParam.Decode(items[i]);
+            if (i > 0)
+            {
+                text.Append(", ");
+            }
+
+            text.Append(IrNames.ParamMode(parameter.Mode)).Append(TypeText(module, parameter.Type));
+        }
+
+        if (node.Variadic)
+        {
+            text.Append(items.Length > 0 ? ", ..." : "...");
+        }
+
+        text.Append(") -> ").Append(TypeText(module, node.Return));
+        if (node.Conv != CallConv.Default)
+        {
+            text.Append(" cc ").Append(IrNames.Conv(node.Conv));
+        }
+
+        return text.ToString();
+    }
+
+    public static string Quote(string value) => QuoteBytes(Encoding.UTF8.GetBytes(value));
+
+    public static string QuoteBytes(byte[] data)
+    {
+        var text = new StringBuilder("\"");
+        foreach (byte b in data)
+        {
+            switch (b)
+            {
+                case (byte)'"':
+                    text.Append("\\\"");
+                    break;
+                case (byte)'\\':
+                    text.Append("\\\\");
+                    break;
+                case (byte)'\n':
+                    text.Append("\\n");
+                    break;
+                case (byte)'\t':
+                    text.Append("\\t");
+                    break;
+                case >= 0x20 and < 0x7F:
+                    text.Append((char)b);
+                    break;
+                default:
+                    text.Append("\\x").Append(b.ToString("X2"));
+                    break;
+            }
+        }
+
+        return text.Append('"').ToString();
+    }
+
+    public static string Reference(string key) =>
+        BareReference().IsMatch(key) && !_keywords.Contains(key) ? key : Quote(key);
+
+    public static List<FunctionId> OrderedFunctions(Module module)
+    {
+        var ids = new List<FunctionId>();
+        for (int i = 0; i < module.Functions.Count; i++)
+        {
+            ids.Add(new FunctionId(i));
+        }
+
+        ids.Sort((a, b) => string.CompareOrdinal(
+            module.Text(module.Functions[a.Index].Key),
+            module.Text(module.Functions[b.Index].Key)));
+        return ids;
+    }
+
+    private static void AppendFlag(StringBuilder text, TypeFlags flags, TypeFlags flag, string word)
+    {
+        if (flags.HasFlag(flag))
+        {
+            text.Append(' ').Append(word);
+        }
+    }
+
+    private static string Span(SourceSpan span) => "@" + (span.File.Index + 1) + ":" + span.Line + ":" + span.Column;
+
+    private static void PrintFunction(Module module, FunctionId id, StringBuilder text)
+    {
+        FunctionDecl function = module.Functions[id.Index];
+        for (int i = 0; i < function.Attributes.Count; i++)
+        {
+            AttributeNode attribute = module.Attributes[function.Attributes.Start + i];
+            text.Append("#[").Append(Reference(module.Text(attribute.Name))).Append("]\n");
+        }
+
+        text.Append("fn ").Append(Reference(module.Text(function.Key))).Append('(');
+        for (int i = 0; i < function.Params.Count; i++)
+        {
+            ParamDecl parameter = module.Params[function.Params.Start + i];
+            if (i > 0)
+            {
+                text.Append(", ");
+            }
+
+            text.Append(module.Text(parameter.Name)).Append(": ").Append(IrNames.ParamMode(parameter.Mode))
+                .Append(TypeText(module, parameter.Type));
+        }
+
+        if (function.Variadic)
+        {
+            text.Append(function.Params.Count > 0 ? ", ..." : "...");
+        }
+
+        text.Append(") -> ").Append(TypeText(module, function.Return));
+        if (function.Conv != CallConv.Default)
+        {
+            text.Append(" cc ").Append(IrNames.Conv(function.Conv));
+        }
+
+        switch (function.Linkage)
+        {
+            case LinkageKind.Export:
+                text.Append(" export(").Append(Quote(module.Text(function.ExportName))).Append(')');
+                if (function.ExportWeak)
+                {
+                    text.Append(" weak");
+                }
+
+                break;
+            case LinkageKind.Extern:
+                text.Append(" extern");
+                break;
+            case LinkageKind.CMacro:
+                text.Append(" c.macro");
+                break;
+        }
+
+        if (function.Inline != InlineKind.Default)
+        {
+            text.Append(" inline ").Append(function.Inline == InlineKind.Always ? "always" : "never");
+        }
+
+        if (function.Safety != SafetyOverride.Default)
+        {
+            text.Append(" safety ").Append(function.Safety == SafetyOverride.On ? "on" : "off");
+        }
+
+        PrintOrigin(module, function.Origin, text);
+        text.Append(' ').Append(Span(function.Span));
+        Body? body = module.Bodies[id.Index];
+        if (body is null)
+        {
+            text.Append('\n');
+            return;
+        }
+
+        text.Append(" {\n");
+        PrintBody(module, body, text);
+        text.Append("}\n");
+    }
+
+    private static void PrintOrigin(Module module, Origin origin, StringBuilder text)
+    {
+        switch (origin.Kind)
+        {
+            case OriginKind.Source when !origin.Language.IsNone:
+                text.Append(" origin source(").Append(module.Text(origin.Language)).Append(')');
+                break;
+            case OriginKind.CHeader:
+                text.Append(" origin cheader(").Append(origin.ImportId).Append(", ")
+                    .Append(Quote(module.Text(origin.CName))).Append(')');
+                break;
+            case OriginKind.CLibrary:
+                text.Append(" origin clibrary(").Append(Quote(module.Text(origin.Library))).Append(", ")
+                    .Append(Quote(module.Text(origin.CName))).Append(')');
+                break;
+            case OriginKind.Synthetic:
+                text.Append(" origin synthetic");
+                break;
+        }
+    }
+
+    private static void PrintBody(Module module, Body body, StringBuilder text)
+    {
+        for (int i = 0; i < body.Locals.Count; i++)
+        {
+            LocalDecl local = body.Locals[i];
+            text.Append(Indent).Append("local %").Append(i);
+            if (!local.Name.IsNone)
+            {
+                text.Append(' ').Append(module.Text(local.Name));
+            }
+
+            text.Append(": ").Append(TypeText(module, local.Type)).Append(' ').Append(local.Kind switch
+            {
+                LocalKind.Param => "param",
+                LocalKind.User => "user",
+                _ => "temp",
+            });
+            if (!local.Span.IsNone)
+            {
+                text.Append(' ').Append(Span(local.Span));
+            }
+
+            text.Append('\n');
+        }
+
+        for (int b = 0; b < body.Blocks.Count; b++)
+        {
+            text.Append("bb").Append(b).Append(":\n");
+            Block block = body.Blocks[b];
+            foreach (StatementId statementId in block.Statements)
+            {
+                text.Append(Indent);
+                PrintStatement(module, body, body.Statements[statementId.Index], text);
+                text.Append('\n');
+            }
+
+            if (block.Terminator is Terminator terminator)
+            {
+                text.Append(Indent);
+                PrintTerminator(module, body, terminator, text);
+                text.Append('\n');
+            }
+        }
+    }
+
+    private static void PrintStatement(Module module, Body body, Statement statement, StringBuilder text)
+    {
+        switch (statement.Kind)
+        {
+            case StatementKind.Assign:
+                PrintPlace(body, statement.Place, text);
+                text.Append(" = ");
+                PrintRvalue(module, body, statement.Rvalue, text);
+                break;
+            case StatementKind.Call:
+                PrintRvalue(module, body, statement.Rvalue, text);
+                break;
+            case StatementKind.Check:
+                text.Append("check ").Append(IrNames.Check((CheckKind)statement.Aux)).Append(' ');
+                PrintOperand(module, body, statement.Operand, text);
+                text.Append(' ').Append(Quote(module.Text(statement.Message)));
+                break;
+            case StatementKind.Live:
+                text.Append("live %").Append(statement.Aux);
+                break;
+            default:
+                text.Append("dead %").Append(statement.Aux);
+                break;
+        }
+
+        text.Append("  ").Append(Span(statement.Span));
+    }
+
+    private static void PrintTerminator(Module module, Body body, Terminator terminator, StringBuilder text)
+    {
+        switch (terminator.Kind)
+        {
+            case TermKind.Goto:
+                text.Append("goto bb").Append(terminator.Then.Index);
+                break;
+            case TermKind.Branch:
+                text.Append("branch ");
+                PrintOperand(module, body, terminator.Operand, text);
+                text.Append(" ? bb").Append(terminator.Then.Index).Append(" : bb").Append(terminator.Else.Index);
+                break;
+            case TermKind.Switch:
+                text.Append("switch ");
+                PrintOperand(module, body, terminator.Operand, text);
+                text.Append(" [");
+                for (int i = 0; i < terminator.Cases.Count; i++)
+                {
+                    SwitchCase item = body.SwitchCases[terminator.Cases.Start + i];
+                    if (i > 0)
+                    {
+                        text.Append(' ');
+                    }
+
+                    PrintConstant(module, item.Value, text);
+                    text.Append(" -> bb").Append(item.Target.Index);
+                }
+
+                text.Append("] default bb").Append(terminator.Else.Index);
+                break;
+            case TermKind.Return:
+                text.Append("return");
+                if (!terminator.Operand.IsNone)
+                {
+                    text.Append(' ');
+                    PrintOperand(module, body, terminator.Operand, text);
+                }
+
+                break;
+            case TermKind.Unreachable:
+                text.Append("unreachable ").Append(terminator.Mode switch
+                {
+                    UnreachableMode.Trap => "trap",
+                    UnreachableMode.Assume => "assume",
+                    _ => "default",
+                });
+                break;
+            default:
+                text.Append("panic ");
+                PrintOperand(module, body, terminator.Operand, text);
+                break;
+        }
+
+        text.Append("  ").Append(Span(terminator.Span));
+    }
+
+    private static void PrintPlace(Body body, PlaceId id, StringBuilder text)
+    {
+        Place place = body.Places[id.Index];
+        string baseText = place.Base switch
+        {
+            PlaceBase.Local => "%" + place.Id,
+            PlaceBase.Global => "global " + place.Id,
+            _ => "(*%" + place.Id + ")",
+        };
+        text.Append(baseText);
+        for (int i = 0; i < place.Projections.Count; i++)
+        {
+            Projection projection = body.Projections[place.Projections.Start + i];
+            switch (projection.Kind)
+            {
+                case ProjectionKind.Field:
+                    text.Append(".field(").Append(projection.Value).Append(')');
+                    break;
+                case ProjectionKind.Index:
+                    text.Append("[%").Append(projection.Value).Append(']');
+                    break;
+                default:
+                    text.Append(".payload(").Append(projection.Value).Append(')');
+                    break;
+            }
+        }
+    }
+
+    private static void PrintOperand(Module module, Body body, OperandId id, StringBuilder text)
+    {
+        Operand operand = body.Operands[id.Index];
+        switch (operand.Kind)
+        {
+            case OperandKind.Copy:
+                text.Append("copy ");
+                PrintPlace(body, new PlaceId(operand.A), text);
+                break;
+            case OperandKind.Const:
+                text.Append("const ");
+                PrintConstant(module, new ConstId(operand.A), text);
+                break;
+            case OperandKind.FnRef:
+                text.Append("fnref ").Append(Reference(module.Text(module.Functions[operand.A].Key)));
+                break;
+            default:
+                text.Append("undef ").Append(TypeText(module, new TypeId(operand.A)));
+                break;
+        }
+    }
+
+    private static void PrintConstant(Module module, ConstId id, StringBuilder text)
+    {
+        ConstNode constant = module.Constants[id.Index];
+        text.Append(TypeText(module, constant.Type)).Append(' ');
+        switch (constant.Kind)
+        {
+            case ConstKind.Int:
+                text.Append(constant.Value.ToString());
+                break;
+            case ConstKind.Float:
+                text.Append("bits ").Append(((ulong)constant.Value).ToString("x"));
+                break;
+            case ConstKind.Bool:
+                text.Append(constant.Value != 0 ? "true" : "false");
+                break;
+            case ConstKind.Null:
+                text.Append("null");
+                break;
+            case ConstKind.Bytes:
+                text.Append("bytes ").Append(QuoteBytes(module.Bytes[constant.Bytes.Index]));
+                break;
+            default:
+                text.Append("undef");
+                break;
+        }
+    }
+
+    private static void PrintRvalue(Module module, Body body, RvalueId id, StringBuilder text)
+    {
+        Rvalue rvalue = body.Rvalues[id.Index];
+        switch (rvalue.Kind)
+        {
+            case RvalueKind.Use:
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.Binop:
+                var binop = (BinOp)rvalue.Op;
+                text.Append("binop ").Append(IrNames.BinOp(binop)).Append(' ');
+                if (IrNames.HasMode(binop))
+                {
+                    text.Append(IrNames.Mode(rvalue.Mode)).Append(' ');
+                }
+
+                PrintOperand(module, body, rvalue.A, text);
+                text.Append(", ");
+                PrintOperand(module, body, rvalue.B, text);
+                break;
+            case RvalueKind.Unop:
+                var unop = (UnOp)rvalue.Op;
+                text.Append("unop ").Append(IrNames.UnOp(unop)).Append(' ');
+                if (unop == UnOp.Neg)
+                {
+                    text.Append(IrNames.Mode(rvalue.Mode)).Append(' ');
+                }
+
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.Cast:
+                var cast = (CastKind)rvalue.Op;
+                text.Append("cast ").Append(IrNames.Cast(cast)).Append(' ');
+                if (IrNames.HasMode(cast))
+                {
+                    text.Append(IrNames.Mode(rvalue.Mode)).Append(' ');
+                }
+
+                PrintOperand(module, body, rvalue.A, text);
+                text.Append(" to ").Append(TypeText(module, rvalue.Type));
+                break;
+            default:
+                text.Append("call ");
+                if (rvalue.Callee == CalleeKind.Direct)
+                {
+                    text.Append("direct ").Append(Reference(module.Text(module.Functions[rvalue.CalleeId].Key)));
+                }
+                else
+                {
+                    text.Append("indirect ");
+                    PrintOperand(module, body, new OperandId(rvalue.CalleeId), text);
+                }
+
+                text.Append('(');
+                for (int i = 0; i < rvalue.Args.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        text.Append(", ");
+                    }
+
+                    PrintOperand(module, body, body.Args[rvalue.Args.Start + i], text);
+                }
+
+                text.Append(')');
+                break;
+        }
+    }
+}

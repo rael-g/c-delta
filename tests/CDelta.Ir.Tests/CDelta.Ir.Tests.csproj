@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CDelta.Ir\CDelta.Ir.csproj" />
+    <Compile Include="..\Shared\GoldenFile.cs" Link="GoldenFile.cs" />
+  </ItemGroup>
+
+</Project>
