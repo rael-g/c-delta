@@ -75,7 +75,8 @@ These follow from the north and decide most design questions directly.
 - Not .NET: it does not run on the CLR or Mono, does not use the BCL, does not produce assemblies
   to execute, and does not interoperate with managed code.
 - Not a dialect: it has no syntax of its own.
-- Not self-hosted: the compiler is a .NET program because Roslyn is. Self-hosting is not a goal.
+- Not fully self-hosted: a small .NET host keeps Roslyn and MSBuild; the rest of the compiler is
+  ported to CΔ after M7 (D116).
 - Not a C replacement for every C feature: inline assembly, `long double`, and arbitrary
   preprocessor macros are reached through C sources, not through CΔ syntax.
 
