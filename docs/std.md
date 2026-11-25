@@ -21,7 +21,7 @@ already solves a problem well, the std wraps it instead of reimplementing it.
 |---|---|---|
 | `Std.Mem` | `Copy`, `Set`, `Eql`, `IndexOf`, `StartsWith`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
 | `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `DebugAllocator` | the OS page API, libc |
-| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `HashMap<K, V, THash>` with `IHasher<K>`, `Deque<T>` | itself |
+| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `HashMap<K, V, THash>` with `IHasher<K>`, `Deque<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer) | itself |
 | `Std.Text` | UTF-8 validation and iteration, `Ascii`, parsing and formatting of integers and floats | itself; float formatting and parsing wrap a C implementation |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |
@@ -70,6 +70,12 @@ a fixed stack buffer and flushes to the writer: no allocation. `AppendFormatted<
 structs field by field through `TypeInfo`).
 
 ## Later
+
+Automatic memory management is not part of the language or the std (D142). The std's answer to
+"I do not want to free each object" is `ArenaAllocator` for memory freed together and `Pool<T>`
+with handles for graphs and cycles; a shared owner that is truly needed is reference counted by
+hand. A conservative collector may exist as a package outside the std, as an `IAllocator` over a
+C library.
 
 Networking, a JSON reader and writer, compression and hashing wrappers (zlib, xxhash),
 `Std.Build` for build steps in CΔ, SIMD vectors. Each enters the std only when a real program

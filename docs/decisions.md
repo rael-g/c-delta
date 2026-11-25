@@ -246,6 +246,11 @@ compilable without toolchain flags.
 **D141. The development environment grows as the documents need.** A missing tool is added to
 `eng/setup-dev.sh`; tests and checks are never weakened to fit what the container has.
 
+**D142. No garbage collection or automatic reference counting in the language or the std.**
+Automatic strategies need hidden calls or a runtime, and their explicit versions remove no work.
+Arenas and pools with handles remove the work instead, and are the std's answer; a conservative
+collector can only be a package, behind `IAllocator`.
+
 ## Repository
 
 **D201. Documents and code are in English.**
