@@ -1381,6 +1381,16 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         foreach (IArgumentOperation argument in invocation.Arguments)
         {
+            if (target.IsVararg && argument.Value is { Kind: OperationKind.None, Syntax: InvocationExpressionSyntax arglist } && arglist.Expression.IsKind(SyntaxKind.ArgListExpression))
+            {
+                foreach (IOperation extra in argument.Value.ChildOperations)
+                {
+                    arguments.Add(Snapshot(LowerValue(extra), span));
+                }
+
+                continue;
+            }
+
             arguments.Add(LowerArgument(argument, span));
         }
 

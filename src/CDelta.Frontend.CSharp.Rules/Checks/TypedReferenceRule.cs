@@ -39,7 +39,8 @@ internal sealed class TypedReferenceRule : SubsetRule
         context.RegisterSyntaxNodeAction(
             node =>
             {
-                if (node.Node.Parent is ArgumentSyntax argument
+                SyntaxNode? argument = node.Node.Parent is InvocationExpressionSyntax call ? call.Parent : node.Node.Parent;
+                if (argument is ArgumentSyntax
                     && argument.Parent?.Parent is InvocationExpressionSyntax invocation
                     && node.SemanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol { IsExtern: true })
                 {

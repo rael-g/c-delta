@@ -17,6 +17,38 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
     private readonly Dictionary<INamedTypeSymbol, StructId> _structs = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<INamedTypeSymbol, EnumId> _enums = new(SymbolEqualityComparer.Default);
 
+    public Func<INamedTypeSymbol?, int> ImportIdOf { get; set; } = _ => -1;
+
+    private readonly Dictionary<INamedTypeSymbol, TypeId> _opaques = new(SymbolEqualityComparer.Default);
+
+    private Origin OriginOf(INamedTypeSymbol type)
+    {
+        int import = ImportIdOf(type.ContainingType);
+        return import < 0
+            ? Origin.FromSource(builder.Module.Intern(Language))
+            : new Origin(OriginKind.CHeader, StringId.None, import, StringId.None, builder.Module.Intern(CSharpFrontend.CNameOf(type)));
+    }
+
+    private static bool IsOpaque(INamedTypeSymbol type) =>
+        type.TypeKind == Microsoft.CodeAnalysis.TypeKind.Struct && type.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "CDelta.OpaqueAttribute");
+
+    private TypeId OpaqueOf(INamedTypeSymbol type, Location location)
+    {
+        type = type.OriginalDefinition;
+        if (_opaques.TryGetValue(type, out TypeId existing))
+        {
+            return existing;
+        }
+
+        TypeId id = builder.OpaqueType(builder.DeclareOpaque(
+            type.GetDocumentationCommentId()![2..],
+            type.ToDisplayString(_nameFormat),
+            spanOf(location),
+            OriginOf(type)));
+        _opaques[type] = id;
+        return id;
+    }
+
     public StructId StructOf(INamedTypeSymbol type, Location location)
     {
         type = type.OriginalDefinition;
@@ -36,7 +68,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             type.GetDocumentationCommentId()![2..],
             type.ToDisplayString(_nameFormat),
             spanOf(type.Locations[0]),
-            Origin.FromSource(module.Intern(Language)),
+            OriginOf(type),
             layout,
             pack,
             minSize,
@@ -143,7 +175,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             type.GetDocumentationCommentId()![2..],
             type.ToDisplayString(_nameFormat),
             spanOf(type.Locations.FirstOrDefault() ?? Location.None),
-            Origin.FromSource(builder.Module.Intern(Language)),
+            OriginOf(type),
             underlying,
             exhaustive,
             members);
@@ -241,8 +273,14 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.ResultOf(payload, error);
             case INamedTypeSymbol { Name: "Error", ContainingNamespace: { Name: "CDelta", ContainingNamespace.IsGlobalNamespace: true } }:
                 return builder.AnyError();
+            case INamedTypeSymbol { Name: "CLong", ContainingNamespace.Name: "InteropServices" }:
+                return builder.Primitive(TypeKind.CLong);
+            case INamedTypeSymbol { Name: "CULong", ContainingNamespace.Name: "InteropServices" }:
+                return builder.Primitive(TypeKind.CULong);
             case INamedTypeSymbol { Name: "Void", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }:
                 return builder.Primitive(TypeKind.Void);
+            case INamedTypeSymbol opaque when IsOpaque(opaque):
+                return OpaqueOf(opaque, location);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
                 return builder.StructType(StructOf(named, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:

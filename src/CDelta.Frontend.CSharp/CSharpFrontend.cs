@@ -35,7 +35,7 @@ public sealed class CSharpFrontend : IBodyProvider
         _compilation = compilation;
         Builder = builder;
         _diagnostics = diagnostics;
-        _types = new TypeMapper(builder, location => SpanOf(location));
+        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf };
     }
 
     public ModuleBuilder Builder { get; }
