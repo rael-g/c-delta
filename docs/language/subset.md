@@ -159,6 +159,7 @@ User code, including the std, cannot declare them.
 | Feature | Status |
 |---|---|
 | Applying attributes, generic attributes, user attribute classes | Kept |
+| Array creation and collection expressions as attribute arguments | Kept: they are constants of the attribute, never arrays at run time |
 | Reading attributes | At comptime only, see [comptime.md](comptime.md) |
 
 ## Roslyn warnings that are errors

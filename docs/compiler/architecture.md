@@ -165,7 +165,8 @@ depend on traversal order.
 
 ## Parallelism
 
-Roslyn binds and checks packages in parallel within dependency order. Lowering and core passes run
+Everything is serial until M9 ([engineering.md](engineering.md#parallelism)). Afterwards: Roslyn
+binds and checks packages in parallel within dependency order. Lowering and core passes run
 per function in parallel where a pass is function-local; the instantiation worklist is the single
 serial point. The C compiler is invoked once per translation unit.
 

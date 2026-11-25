@@ -39,11 +39,13 @@ more specific one wins and the other is a bug to fix.
     the MSBuild SDK and the IDE.
 20. [compiler/diagnostics.md](compiler/diagnostics.md): the registry of every diagnostic code.
 21. [compiler/testing.md](compiler/testing.md): how everything is tested.
+22. [compiler/engineering.md](compiler/engineering.md): environment, packages, project settings,
+    code style, test infrastructure, Roslyn probes and CI.
 
 ## Libraries and the future
 
-22. [std.md](std.md): the standard library.
-23. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
-24. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
+23. [std.md](std.md): the standard library.
+24. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
+25. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
 
 Work status lives in `docs/kanban/`, which is not versioned.

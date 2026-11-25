@@ -39,13 +39,60 @@ libraries the program chose to link.
 | imported C declaration | its C name, or its typedef name when the IR says so |
 | `[DllImport]` function | its C name |
 | other function or global | `cd_` + path segments joined by `_`, characters outside `[A-Za-z0-9]` written `_xHH` |
-| overload | + `__` + 8 hex digits of a hash of its documentation comment ID |
-| generic instance | + `__` + 8 hex digits of a hash of its instance key |
+| functions sharing a `Name` | every one of them gets `__` + 8 hex digits of a hash of its `Key` |
+| generic instance | + `__` + 8 hex digits of a hash of its instance key, written as in the text format (`Key<targs>`) |
 | type | the same scheme with `cd_T_` |
 | local | its source name if it is a valid C identifier, not a C keyword and not shadowing; otherwise `l<n>`; temps `t<n>` |
 
-Hashes use a fixed algorithm (FNV-1a 64 bits folded to 32) over the canonical text of the key, so
-names are stable across runs and machines.
+Hashes use a fixed algorithm over the UTF-8 bytes of the key: FNV-1a 64 bits, then the high 32
+bits XOR the low 32 bits, printed as 8 lowercase hex digits. Names are therefore stable across runs
+and machines, and adding an unrelated function never renames another.
+
+## The prelude
+
+Every helper the prelude can contain, with its exact name. A helper is emitted only when the
+program uses it; each is `static` (`static inline` for arithmetic).
+
+| Helper | Contract |
+|---|---|
+| `noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)` | calls the user's `[PanicHandler]` if there is one, else `cd_default_panic` |
+| `noreturn void cd_default_panic(...)` | same parameters; the output below, then `abort()`; without libc `__builtin_trap()` |
+| `cd_trace`, `cd_trace_len` | `_Thread_local` ring of 32 `{ const char* file; int32_t line; }` and its count |
+| `void cd_trace_push(const char* file, int32_t line)` | writes at `cd_trace_len % 32`, then increments |
+| `void cd_trace_print(void)` | the trace block below, when `cd_trace_len > 0` |
+| `<to> cd_f2i_wrap_<from>_<to>(<from> v)` | saturating conversion, `NaN` to `0` |
+| `<to> cd_f2i_trap_<from>_<to>(<from> v, const char* file, int32_t line)` | panics "float cast out of range" when not representable |
+| `void* cd_alloca(size_t n)` | `__builtin_alloca`, or `_alloca` on MSVC |
+
+`<from>` and `<to>` are the IR type names (`f64`, `i32`). Integer overflow checks are written in
+place with `__builtin_add_overflow`, `__builtin_sub_overflow` and `__builtin_mul_overflow` and a
+call to `cd_panic`, not through helpers. Every `check` calls `cd_panic` with the message of its
+kind from [../language/memory.md](../language/memory.md#build-modes-and-illegal-behavior), exactly
+as written there.
+
+### Output of a panic
+
+On standard error, through `fputs` of `<stdio.h>`:
+
+```
+panic: <message>
+  at <file>:<line>
+error return trace:
+  <file>:<line>
+```
+
+The trace block appears only when the trace is not empty and lists the recorded entries oldest
+first, at most the last 32. `<file>` is the display path of the source ([ir.md](ir.md#grammar)).
+
+### Output of an error from `Main`
+
+```
+error: <Name>
+error return trace:
+  <file>:<line>
+```
+
+then the exit code `1`. The error name table is always emitted when `Main` returns a `Result`.
 
 ## Types
 

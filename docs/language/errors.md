@@ -106,6 +106,9 @@ In Debug and ReleaseSafe the compiler records, per thread, the source location o
 `return` that propagated an error, in a fixed ring of 32 entries. When `Main` returns an error or a
 panic happens while an error is in flight, the trace is printed. ReleaseFast and ReleaseSmall
 record nothing. The ring needs no allocation and is part of the generated code, not a runtime.
+An error handled by `Catch` or `TryGet` removes the entries it added, so the trace shows only the
+path of the error that is still in flight. The output format is in
+[../compiler/backend-c.md](../compiler/backend-c.md#output-of-a-panic).
 
 ## Panics
 

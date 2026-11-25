@@ -1,6 +1,6 @@
 # Roadmap
 
-Milestones in order. Each ends with acceptance criteria that are tests, not opinions. A milestone
+Milestones in order: M0, M1, M2, M3, MVP, M4 and onward. Each ends with acceptance criteria that are tests, not opinions. A milestone
 is done when its criteria pass in CI on every tier 1 target. Progress is tracked in
 `docs/kanban/`, not here.
 
@@ -12,11 +12,13 @@ The repository builds and tests nothing yet, correctly.
   [compiler/architecture.md](compiler/architecture.md) empty but referencing only what the
   separation rules allow.
 - `CDelta.Diagnostics` with the registry of [compiler/diagnostics.md](compiler/diagnostics.md).
-- Corelib skeleton: what Roslyn needs to bind an empty `static class` with no BCL.
-- CI running build and tests in the distrobox `dev` image.
+- Corelib skeleton: what Roslyn needs to bind the probes, with every type of
+  [compiler/frontend-csharp.md](compiler/frontend-csharp.md#the-corelib) the probes touch.
+- The settings, packages and `.editorconfig` of [compiler/engineering.md](compiler/engineering.md).
+- The Roslyn probes of [compiler/engineering.md](compiler/engineering.md#roslyn-probes).
+- `eng/ci.sh`.
 
-Accepted when: `dotnet build` and `dotnet test` pass; the registry test matches the document; a
-test proves Roslyn binds a source against the corelib with no error.
+Accepted when: `eng/ci.sh` passes; the registry test matches the document; every probe passes.
 
 ## M1: Hello, C
 
@@ -39,6 +41,8 @@ Accepted when: `hello` prints through `puts`; an overflow program panics in Debu
 - Structs, methods, constructors, layouts, `ref`, `in`, `out`, pointers, `fixed`, `stackalloc`,
   spans and slicing, inline arrays, fixed buffers, static arrays, enums, `switch` and patterns
   except type patterns, tuples, optionals, `Defer`, `using`, `goto`.
+- Global initializers that are constants or collection expressions of constants. Until M6 any
+  other initializer is `CD4006`.
 - The subset analyzer with every `CD1xxx` and `CD2xxx` rule, and the Roslyn promotions.
 - Layout assertions in generated C; the layout catalog test.
 - IR parser and round trip.
@@ -54,6 +58,69 @@ strict C and sanitizers pass on them.
 
 Accepted when: `errors` conformance passes; a failing `Main` prints the error name and trace.
 
+## MVP
+
+The first version someone can use: command line tools over C libraries, with errors as values and
+deferred cleanup. Version `0.1.0`.
+
+- Everything of M0 to M3.
+- C frontend for: functions (variadic included), `extern` globals, structs, unions, incomplete
+  structs, enums, typedefs, object-like macros that evaluate to constants, and `[Unsupported]` for
+  the rest. No doc tags, annotations or cache: every build parses the headers.
+- Import stubs, `[Import]` with `Defines`, `IncludeDirs` and `Only`, the `CDeltaImports` target
+  for the IDE, `NativeLibrary` items, linking.
+- The rules of these features: `CD6001`, `CD6002`, `CD6003`, `CD6007`, `CD6009`.
+- The MVP subset of the std ([std.md](std.md#the-mvp-subset)).
+- `Result<T>`, `Result<T, E>`, `Span<T>`, `ReadOnlySpan<T>` and `Nullable<T>` work because the
+  frontend maps them to the IR's own `result`, `slice` and `optional` types; user generics are
+  still M4.
+- `samples/count-lines`:
+
+```csharp
+using Std;
+
+[Import("stdio.h")]
+static unsafe partial class C { }
+
+enum CountError { CannotOpen, ReadFailed }
+
+static unsafe class Program
+{
+    static Result<long, CountError> CountLines(byte* path)
+    {
+        var file = C.fopen(path, "rb");
+        if (file == null) return CountError.CannotOpen;
+        Defer(() => C.fclose(file));
+
+        long lines = 0;
+        int ch;
+        while ((ch = C.fgetc(file)) != C.EOF)
+            if (ch == '\n') lines++;
+        if (C.ferror(file) != 0) return CountError.ReadFailed;
+        return lines;
+    }
+
+    static Result Main()
+    {
+        var args = Process.Args();
+        if (args.Length != 2)
+        {
+            Debug.Print("usage: count-lines <file>\n");
+            Process.Exit(2);
+        }
+        var lines = Try(CountLines(args[1].Pointer));
+        C.printf("%lld\n", __arglist(lines));
+        return default;
+    }
+}
+```
+
+Accepted when: `count-lines` built by `cdc build` prints the line count of a file on
+`x86_64-linux-gnu`, `aarch64-linux-gnu` and `x86_64-windows-gnu`, and for a missing file prints
+`error: CannotOpen` with a trace and exits `1`; its output links nothing but libc; the conformance
+directory `interop` passes for the imported declarations above; the sample opens in VS Code with
+completion of `C.fopen` and CΔ diagnostics.
+
 ## M4: Abstraction
 
 - Generics with monomorphization, constraints, static abstract members, generic math on
@@ -67,8 +134,9 @@ work in a sample.
 
 ## M5: C import and export
 
-- C frontend: declarations, layouts, constants, comments, unsupported declarations.
-- Import stubs, `[Import]`, `[CMacro]`, C sources, native libraries, the import cache.
+- The rest of the C frontend: comments into doc comments, doc tags and annotations, the import
+  cache.
+- `[CMacro]`, `CSource` items.
 - `[Export]`, the export header, static and shared libraries, `--emit-c`.
 - Every `CD6xxx` rule.
 

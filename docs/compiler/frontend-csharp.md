@@ -48,6 +48,26 @@ null`; nothing in it is ever executed.
 | Generic delegates | `Action<...>`, `Func<...>` up to 16 parameters |
 | CΔ | everything in [../language/intrinsics-attributes.md](../language/intrinsics-attributes.md) |
 
+Roslyn decides from fields whether a struct is unmanaged, which decides where `T*` is allowed. The
+corelib declares these private fields, never read by the compiler, which takes layouts from the
+IR:
+
+| Type | Fields |
+|---|---|
+| `Span<T>`, `ReadOnlySpan<T>` | `nint _pointer; int _length;` |
+| `Nullable<T>` | `T _value; bool _hasValue;` |
+| `Result` | `ushort _code;` |
+| `Result<T>`, `Result<T, E>` | `T _value; ushort _code;` |
+| `Error` | `ushort _code;` |
+| `Void` | none |
+| `Index`, `Range` | as in C#: `int _value;`, and two `Index` fields |
+| `Int128`, `UInt128` | `ulong _lower; ulong _upper;` |
+| `Half` | `ushort _value;` |
+| `CLong`, `CULong`, `NFloat` | `nint _value;`, `nuint _value;`, `nint _value;` |
+
+So a span is unmanaged whatever its element type, and a `Result` is unmanaged exactly when its
+payload is.
+
 The frontend recognizes corelib members by their documentation comment ID
 (`M:CDelta.Intrinsics.Defer(System.Action)`) in a table built once per compilation, and checks
 the corelib's assembly identity against the compiler's (`CD0008`).
@@ -75,6 +95,13 @@ The frontend does not lower everything. The core starts from the roots (`Main`, 
 bodies through `IBodyProvider`. The subset checker still covers all code, so an unused function
 with a violation is still an error, which keeps the IDE and the build consistent.
 
+- Before the core runs, the frontend declares the root functions and marks them with the
+  attributes `cdelta.EntryPoint` (the `Main` of an executable), `cdelta.Export`, `cdelta.Test` and
+  `cdelta.PanicHandler`. The core's roots pass collects the functions that carry them.
+- Every other type, function and global is declared the first time a lowered body or a declared
+  signature refers to it. Its body is lowered only when the core asks.
+- The frontend keeps the map from each `FunctionId` it declared to its Roslyn symbol.
+
 ## Symbols to IR
 
 | Roslyn | IR |
@@ -95,8 +122,17 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | static field | `Global` |
 | attribute application | `Attribute` in the `cs.` namespace, or the owning namespace for CΔ attributes |
 
-IR names are the fully qualified C# names. Overloads are distinguished by their documentation
-comment ID, which is stable and readable.
+IR names are the fully qualified C# names. Keys ([ir.md](ir.md#module)) are documentation
+comment IDs without the kind prefix; constructs without one get keys derived from their method:
+
+| Construct | Key |
+|---|---|
+| lambda or anonymous method | `<method key>/lambda<n>`, `n` counting from `0` in source order within the method |
+| local function | `<method key>/<name>` |
+| closure frame struct | `<method key>/frame` |
+| `Comptime(...)` region | `<method key>/comptime<n>` |
+| static initializer of a global | `<global key>/init` |
+| tuple struct | `tuple<T1,T2,...>` with the element types in the text format |
 
 ## Lowering bodies
 
@@ -143,6 +179,15 @@ exactly the semantics of [../language/memory.md](../language/memory.md#defer).
 the payload. The error edge runs every active deferred body up to the method's outermost region,
 then returns `result.err` of the method's return type with the same error code. Whether the error
 sets are compatible was already checked by `CD3002`.
+
+### Error return trace
+
+- `trace.push` is emitted on every `Try` error edge, after the deferred bodies and before the
+  `return`, and before every `return` whose value is built by `result.err` or by an implicit
+  conversion from an error.
+- `Catch` and `TryGet` save the trace length into a temp (`trace.save`) before evaluating their
+  operand, and restore it (`trace.restore`) on the edge where the error is handled, so a handled
+  error leaves no entries.
 
 ### Patterns
 

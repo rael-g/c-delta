@@ -72,6 +72,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `EmitC` | `true` to keep the generated C next to the output | `false` |
 | `PackageName` | the C-visible name of the package (header name, library name) | the project name |
 | `ErrorReturnTrace` | `true`, `false` | `true` in safe modes |
+| `DebugSymbols` | `true`, `false` | `true` in Debug and ReleaseSafe |
 
 ### Items
 

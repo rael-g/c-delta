@@ -34,6 +34,25 @@ already solves a problem well, the std wraps it instead of reimplementing it.
 | `Std.Testing` | `Expect`, `ExpectEqual`, `ExpectError`, `Allocator` | `Std.Debug` |
 | `Std.C` | helpers for C interop: NUL-terminated text, `Flexible<T>`, `errno` | libc |
 
+## The MVP subset
+
+The MVP ([roadmap.md](roadmap.md#mvp)) ships only what needs no generics of its own, no interfaces
+and no formatting:
+
+| Member | Signature |
+|---|---|
+| `Std.C.CString` | `struct CString { public byte* Pointer; public ReadOnlySpan<byte> AsSpan(); }`, the bytes before the NUL |
+| `Std.Process.Args` | `static ReadOnlySpan<CString> Args()`, `argv` as stored by the entry point |
+| `Std.Process.Exit` | `static void Exit(int code)`, never returns |
+| `Std.Debug.Print` | `static void Print(ReadOnlySpan<byte> text)`, to standard error |
+| `Std.Mem.Eql` | `static bool Eql(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)` |
+| `Std.Mem.Copy` | `static void Copy(Span<byte> destination, ReadOnlySpan<byte> source)`, lengths must be equal |
+| `Std.Mem.Set` | `static void Set(Span<byte> destination, byte value)` |
+
+Pointer types cannot be type arguments in C#, which is why `Args` returns `CString` values. Each
+of these becomes generic or gains overloads in the first version without changing its behavior on
+bytes.
+
 Freestanding builds get `Std.Mem`, `Std.Heap.FixedBufferAllocator`, `Std.Collections`,
 `Std.Text`, `Std.Fmt`, `Std.Math` (the parts without libm) and `Std.Testing`; modules that need an
 OS fail to compile with `CompileError` when used.

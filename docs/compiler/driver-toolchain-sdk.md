@@ -24,6 +24,36 @@ Common options: `--target`, `--mode`, `-o`, `--emit-c`, `--dump-ir <stage>`, `--
 Given `.cs` files instead of a project, `cdc` builds them as one executable package with the
 default properties, so a single file program needs no project file.
 
+| Option | Values | Default |
+|---|---|---|
+| `--target` | a triple of [../language/modules-build.md](../language/modules-build.md#targets), or `native` | the project's `Target`, else `native` |
+| `--mode` | `Debug`, `ReleaseSafe`, `ReleaseFast`, `ReleaseSmall` | the project's `OptimizeMode`, else `Debug` |
+| `-o` | output path | below |
+| `--toolchain` | `zig`, `clang`, `gcc`, `msvc`, `auto` | the project's `CToolchain`, else `auto` |
+| `--option name=value` | a `BuildOption` | none |
+| `--color` | `auto`, `always`, `never` | `auto` |
+
+Options are written `--name value`; `-o` takes the next argument. An unknown option or a missing
+value is exit code `2` with a usage line.
+
+### Outputs and intermediate files
+
+| Build of | Output | Intermediate files |
+|---|---|---|
+| a project | `bin/<Configuration>/<Target>/<PackageName>[.exe]` under the project directory | `obj/cdelta/` under the project directory |
+| files | `<stem of the first file>[.exe]` in the current directory | `<cache>/files/<id>/` |
+
+- `<Configuration>` is `Debug` for the `Debug` mode and `Release` for the others. `<Target>` is the
+  resolved triple, also when the project says `native`.
+- `<cache>` is `$XDG_CACHE_HOME/cdelta`, else `~/.cache/cdelta`; on Windows
+  `%LOCALAPPDATA%\cdelta`. `<id>` is the first 16 hex digits of the SHA-256 of the sorted full
+  paths of the files.
+- Libraries are `lib<PackageName>.a` or `.so` (`<PackageName>.lib` or `.dll` on Windows,
+  `.dylib` on macOS).
+- Inside the intermediate directory: `<PackageName>.c`, `<PackageName>.h`, `ir/` for
+  `--dump-ir`, `imports/` for import stubs, `objects/` for object files.
+- `cdc run` runs the output with the arguments after `--` and exits with its exit code.
+
 Exit codes: `0` success, `1` compile errors, `2` invalid invocation, `3` internal error.
 
 Diagnostics are printed as `path(line,col): error CD1001: message`, the format MSBuild and every
@@ -61,9 +91,27 @@ cross compilation the normal case.
 
 - System include directories are read from the compiler itself (`-E -v` on an empty input) and
   given to libclang, so imports see the same headers the C compiler uses.
-- Each provider has a minimum version, checked when it is selected (`CD0002`).
+- Each provider has a minimum version, checked when it is selected (`CD0002`); the versions are
+  in [engineering.md](engineering.md#environment).
 - Command lines are shown with `--verbose`; a failing C compilation of generated C is `CD0003`
   (always a compiler bug), of a user C source `CD0004`, a failing link `CD0005`.
+
+### Target triples per toolchain
+
+| CΔ target | `zig cc -target` | `clang --target` |
+|---|---|---|
+| `x86_64-linux-gnu` | `x86_64-linux-gnu` | `x86_64-unknown-linux-gnu` |
+| `x86_64-linux-musl` | `x86_64-linux-musl` | `x86_64-unknown-linux-musl` |
+| `aarch64-linux-gnu` | `aarch64-linux-gnu` | `aarch64-unknown-linux-gnu` |
+| `x86_64-windows-gnu` | `x86_64-windows-gnu` | `x86_64-w64-windows-gnu` |
+| `x86_64-windows-msvc` | `x86_64-windows-msvc` | `x86_64-pc-windows-msvc` |
+| `aarch64-macos-none` | `aarch64-macos-none` | `arm64-apple-macos` |
+| `wasm32-wasi-musl` | `wasm32-wasi-musl` | `wasm32-unknown-wasi` |
+| `x86_64-freestanding-none` | `x86_64-freestanding-none` | `x86_64-unknown-none-elf` |
+
+`gcc` builds only for the host and takes no target flag. `native` resolves to the host's
+architecture and OS from the .NET runtime; on Linux the ABI is `musl` when a file matching
+`/lib/ld-musl-*` exists, `gnu` otherwise; on Windows `gnu`.
 
 ### Target tiers
 
@@ -72,6 +120,15 @@ cross compilation the normal case.
 | 1 | `x86_64-linux-gnu`, `aarch64-linux-gnu`, `x86_64-windows-gnu` | built and tested by CI on every change, tests executed |
 | 2 | `x86_64-linux-musl`, `aarch64-macos-none`, `x86_64-windows-msvc`, `wasm32-wasi-musl` | built by CI on every change, tests executed when a runner exists |
 | 3 | `*-freestanding-none` | built by CI |
+
+## Before the SDK package
+
+Until M7 the SDK exists only as files in `sdk/CDelta.Sdk/Sdk/`. A CΔ project in this repository
+(the std, samples, end to end cases) starts with `<Project>` and imports `Sdk.props` and
+`Sdk.targets` by relative path. Before M7 these files contain the `Sdk.props` settings below and
+only the `CDeltaImports` target, which runs the `cdc` built in `artifacts/`. `dotnet build` on such
+a project therefore checks it (Roslyn and the analyzer) and produces no native output; `cdc build`
+produces it.
 
 ## The MSBuild SDK
 

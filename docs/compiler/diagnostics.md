@@ -3,15 +3,19 @@
 ## Format
 
 ```
-src/Program.cs(12,9): error CD3004: the Result returned by 'Close' is discarded; handle it or write '_ ='
+src/Program.cs(12,9): error CD3004: a 'Result' is discarded
+src/Program.cs(12,9): note: 'Close' returns 'Result'; handle it or write '_ ='
 ```
 
 - Path, line and column of the start of the offending code; the MSBuild format, so every C# tool
-  links it.
-- Severity is `error` or `warning`. CΔ has very few warnings: a rule is either a rule or not.
-- The message names the construct and says what to write instead.
-- Notes follow on their own lines with their own locations (`note: the error set is declared
-  here`).
+  links it. The path is the one the driver received: full paths for project items, as typed for
+  files on the command line. Line and column are 1-based; the column counts UTF-16 code units.
+- Every registered code is an error. CΔ has no warnings of its own: a rule is either a rule or not.
+- The message of a code is fixed: exactly the registry text, with each pair of backticks written
+  as single quotes. It never contains names or values from the program.
+- What is specific to the occurrence (names, the expected set, the other declaration) goes in
+  notes, each on its own line with its own location or the diagnostic's. A diagnostic has zero or
+  more notes, in a fixed order chosen by the rule.
 
 ## Ranges
 
@@ -118,6 +122,20 @@ A code is never reused for another meaning. A retired code stays in this table m
 
 ## In the code
 
-The registry lives in `CDelta.Diagnostics` as one static table of `DiagnosticDescriptor`s, one
-per code, with its message format. A test checks that this document and the table list the same
-codes with the same messages, so neither can drift from the other.
+`CDelta.Diagnostics` is portable and references no Roslyn assembly. It contains:
+
+- `DiagnosticCode`, an enum with one member per code (`CD3004`), the numeric value being the code's
+  number;
+- `DiagnosticRegistry`, one static table from code to message;
+- `Diagnostic` (code, `Location`, list of `Note`), `Note` (optional `Location`, text) and
+  `Location` (path, line, column);
+- `DiagnosticBag`, which a stage appends to, and which reports whether it holds an error.
+
+`CDelta.Frontend.CSharp.Rules` builds one Roslyn `DiagnosticDescriptor` per code from the registry
+(id `CDnnnn`, category `CDelta`, severity error, title and message format both the fixed message).
+An analyzer rule reports notes as additional locations and carries their texts in the diagnostic's
+properties under the keys `note0`, `note1`, ...; `cdc` converts Roslyn diagnostics back into
+`Diagnostic` with their notes, and the IDE shows the message.
+
+A test reads this document and checks that the table lists the same codes with the same messages,
+so neither can drift from the other.

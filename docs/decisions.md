@@ -168,6 +168,33 @@ values, no exceptions for control flow, no LINQ, no reflection, no `async`.
 
 **D119. The ported C frontend imports `clang-c/Index.h` with `[Import]`**, replacing ClangSharp.
 
+**D120. The MVP is M0 to M3 plus a minimal C import, before generics.** Reading C is the reason to
+pick CΔ, and command line tools over C libraries need no user generics: results, spans and
+optionals are IR types.
+
+**D121. The IR in memory is interned tables of structs addressed by integer ids, and every
+declaration has a unique key.** It follows D118 and makes type equality an id comparison.
+Integer constants are 128 bits, the widest IR integer.
+
+**D122. Diagnostic messages are fixed per code; details go in notes.** The registry test can
+then compare messages exactly, and `CDelta.Diagnostics` needs no Roslyn.
+
+**D123. The compiler is single-threaded until M9.** Determinism is designed for parallelism,
+which is an optimization.
+
+**D124. Target data is a fixed table in the core, checked against clang by tests.** The core
+knows no C compiler.
+
+**D125. CI is `eng/ci.sh` in the distrobox `dev` until the repository has a remote.** Foreign tier
+1 targets run under `qemu-aarch64` and `wine`.
+
+**D126. A handled error removes its entries from the error return trace.** `Catch` and `TryGet`
+save and restore the trace length, so a trace shows only the error in flight.
+
+**D127. Implementation follows the documents and never decides design.** A gap or a conflict in
+the documents is written to `docs/kanban/questions.md` and the affected work waits for the
+answer.
+
 ## Repository
 
 **D201. Documents and code are in English.**

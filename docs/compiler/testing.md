@@ -44,7 +44,7 @@ tests/conformance/
 | `.stdout` | the program builds, runs, and prints exactly this |
 | `.exitcode` | the expected exit code, `0` when absent |
 | `.diagnostics` | the build fails with exactly these `path(line,col): code` lines |
-| `.panic` | the program panics with this message (safe modes only) |
+| `.panic` | the program panics: the first line of standard error is `panic: ` followed by this file's content, and the exit status is not `0` (safe modes only) |
 | `.modes` | the build modes to run in, all four when absent |
 | `.targets` | the targets to run on, the host when absent |
 

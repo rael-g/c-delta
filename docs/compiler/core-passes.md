@@ -85,7 +85,8 @@ reachable, emit the name table global.
 ## 5. Entry point and test runner
 
 - An executable gets a synthetic C `main(int argc, char** argv)`: it stores `argc` and `argv` in
-  the globals `Std.Process.Args()` reads, calls `Main`, and converts its result into the exit code
+  the synthetic globals `synthetic:argc` and `synthetic:argv`, which the intrinsics
+  `Startup.ArgCount()` and `Startup.ArgValues()` read and `Std.Process.Args()` wraps, calls `Main`, and converts its result into the exit code
   of [../language/errors.md](../language/errors.md#main). A freestanding target gets no `main`.
 - A test build gets a synthetic `Main` that iterates over the tests, sorted by name, prints each
   name and result, and returns the failure count.
@@ -101,6 +102,23 @@ For every concrete struct, union, optional, result, slice, closure and dyn type:
 | `auto` | fields sorted by decreasing alignment, stable, then the `c` rule |
 | `explicit` | the given offsets; size is the maximum end rounded to the maximum alignment |
 | bit-fields | the target ABI's bit-field rules (SysV or Microsoft), both implemented |
+
+### Target data
+
+The core describes each target with a fixed table in `CDelta.Core`; nothing is queried from a C
+compiler. Every primitive has its size as alignment except where stated.
+
+| Target | Pointer | `long` | `wchar_t` | `char` | `i128`, `u128` | `f16` | Bit-fields |
+|---|---|---|---|---|---|---|---|
+| `x86_64-linux-gnu`, `x86_64-linux-musl`, `x86_64-freestanding-none` | 8 | 8 | `i32` | signed | native, align 16 | native | SysV |
+| `aarch64-linux-gnu`, `aarch64-freestanding-none` | 8 | 8 | `u32` | unsigned | native, align 16 | native | SysV |
+| `aarch64-macos-none` | 8 | 8 | `i32` | signed | native, align 16 | native | SysV |
+| `x86_64-windows-gnu` | 8 | 4 | `u16` | signed | native, align 16 | native | Microsoft |
+| `x86_64-windows-msvc` | 8 | 4 | `u16` | signed | struct of two `u64`, align 8 | struct of `u16` | Microsoft |
+| `wasm32-wasi-musl` | 4 | 4 | `i32` | signed | struct of two `u64`, align 8 | struct of `u16` | SysV |
+
+All targets are little endian. The layout catalog test of [testing.md](testing.md#layouts) checks
+this table against clang; a difference is a bug in the table.
 
 Imported C types keep clang's layout. Every computed layout is asserted against the C compiler by
 the backend, so a mistake here fails the C build instead of corrupting memory.
@@ -128,8 +146,9 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 
 ## 8. Debug instrumentation
 
-With checks on: `fill.undef` after `Unsafe.SkipInit` and uninitialized `stackalloc`, and
-`trace.push` at each `Try` error edge and each error `return`, when `ErrorReturnTrace` is enabled.
+With checks on: `fill.undef` after `Unsafe.SkipInit` and uninitialized `stackalloc`. The
+frontend emits every `trace.push`, `trace.save` and `trace.restore`; this pass keeps them when
+`ErrorReturnTrace` is enabled and removes them otherwise.
 
 ## 9. Reachability cleanup
 

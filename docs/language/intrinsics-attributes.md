@@ -37,6 +37,7 @@ The second table lists the C# names CΔ reuses.
 | `Void` | the zero-size value | [types.md](types.md) |
 | `Dyn<I>` with `static I Of<T>(ref T value) where T : I` | interface value from a reference | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
 | `Builtin` | comptime constants | [comptime.md](comptime.md#builtin) |
+| `Startup` with `static int ArgCount()` and `static byte** ArgValues()` | the process arguments as given to C `main`; for the std, which wraps them in `Std.Process.Args()` | [std.md](../std.md#the-mvp-subset) |
 | `TypeInfo`, `FieldInfo`, `EnumMemberInfo`, `AttributeInfo`, `TypeKind` | comptime reflection | [comptime.md](comptime.md) |
 | `Os`, `Arch`, `Abi`, `BuildMode`, `Endian` | target description | [comptime.md](comptime.md#builtin) |
 
