@@ -23,8 +23,19 @@ public sealed class CorelibProbeTests
 
     [Fact]
     public void Stackalloc() => CorelibCompilation.AssertBinds("""
-        static class M { static void F() { Span<int> s = stackalloc int[4]; } }
+        static unsafe class M { static void F() { int* p = stackalloc int[4]; var s = new Span<int>(p, 4); } }
         """);
+
+    [Fact]
+    public void StackallocToSpanIsRejected()
+    {
+        IReadOnlyList<string> errors = CorelibCompilation.Errors("""
+            static class M { static void F() { Span<int> s = stackalloc int[4]; } }
+            """);
+
+        Assert.Single(errors);
+        Assert.Contains("CS8346", errors[0]);
+    }
 
     [Fact]
     public void CollectionExpression() => CorelibCompilation.AssertBinds("""
