@@ -165,6 +165,13 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return;
         }
 
+        if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw && (block.BranchValue is null || block.BranchValue.IsImplicit
+            || block.BranchValue is IObjectCreationOperation { Type.Name: "SwitchExpressionException" or "InvalidOperationException" }))
+        {
+            _f.Unreachable(UnreachableMode.Default, span);
+            return;
+        }
+
         if (fallThrough.Semantics != ControlFlowBranchSemantics.Regular)
         {
             throw new UnsupportedConstructException("the control flow " + fallThrough.Semantics + " is not supported yet", method.Locations[0]);
@@ -288,6 +295,12 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _f.Copy(PlaceOf(operation));
             case IOperation { Kind: OperationKind.None } when IsPointerForm(operation):
                 return _f.Copy(PlaceOf(operation));
+            case ITupleOperation tuple:
+                return LowerTuple(tuple);
+            case IDeconstructionAssignmentOperation deconstruction:
+                return LowerDeconstruction(deconstruction);
+            case IIsPatternOperation isPattern:
+                return TestPattern(isPattern.Pattern, PlaceOf(isPattern.Value), SpanOf(operation));
             case IObjectCreationOperation creation:
                 return LowerObjectCreation(creation);
             case IDefaultValueOperation:
@@ -779,6 +792,115 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         _f.CallStatement(_f.CallDirect(frontend.Declare(constructor), arguments), span);
         return _f.Copy(_f.LocalPlace(temp));
+    }
+
+    private OperandId LowerTuple(ITupleOperation tuple)
+    {
+        SourceSpan span = SpanOf(tuple);
+        var elements = new List<OperandId>();
+        foreach (IOperation element in tuple.Elements)
+        {
+            elements.Add(Snapshot(LowerValue(element), span));
+        }
+
+        TypeId type = frontend.Types.Map(tuple.Type!, tuple.Syntax.GetLocation());
+        return Emit(type, _f.Aggregate(type, elements), span);
+    }
+
+    private OperandId LowerDeconstruction(IDeconstructionAssignmentOperation deconstruction)
+    {
+        SourceSpan span = SpanOf(deconstruction);
+        OperandId value = LowerValue(deconstruction.Value);
+        LocalId held = NewTemp(OperandType(value));
+        _f.Assign(_f.LocalPlace(held), _f.Use(value), span);
+        ITupleOperation targets = deconstruction.Target switch
+        {
+            ITupleOperation tuple => tuple,
+            IDeclarationExpressionOperation { Expression: ITupleOperation tuple } => tuple,
+            _ => throw new UnsupportedConstructException("this deconstruction is not supported yet", deconstruction.Syntax.GetLocation()),
+        };
+
+        int index = 0;
+        foreach (IOperation target in targets.Elements)
+        {
+            OperandId part = _f.Copy(_f.Project(_f.LocalPlace(held), ProjectionKind.Field, index++));
+            _f.Assign(PlaceOf(target), _f.Use(part), span);
+        }
+
+        return _f.Copy(_f.LocalPlace(held));
+    }
+
+    private OperandId TestPattern(IPatternOperation pattern, PlaceId place, SourceSpan span)
+    {
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        switch (pattern)
+        {
+            case IConstantPatternOperation constant:
+                return Emit(boolean, _f.Binop(BinOp.Eq, ArithMode.Default, _f.Copy(place), LowerValue(constant.Value)), span);
+            case IRelationalPatternOperation relational:
+                BinOp op = relational.OperatorKind switch
+                {
+                    BinaryOperatorKind.LessThan => BinOp.Lt,
+                    BinaryOperatorKind.LessThanOrEqual => BinOp.Le,
+                    BinaryOperatorKind.GreaterThan => BinOp.Gt,
+                    BinaryOperatorKind.GreaterThanOrEqual => BinOp.Ge,
+                    _ => throw new UnsupportedConstructException("the relational pattern is not supported yet", pattern.Syntax.GetLocation()),
+                };
+                return Emit(boolean, _f.Binop(op, ArithMode.Default, _f.Copy(place), LowerValue(relational.Value)), span);
+            case IBinaryPatternOperation binary:
+                OperandId left = TestPattern(binary.LeftPattern, place, span);
+                OperandId right = TestPattern(binary.RightPattern, place, span);
+                BinOp combine = binary.OperatorKind == BinaryOperatorKind.And ? BinOp.And : BinOp.Or;
+                return Emit(boolean, _f.Binop(combine, ArithMode.Default, left, right), span);
+            case INegatedPatternOperation negated:
+                return Emit(boolean, _f.Unop(UnOp.Not, ArithMode.Default, TestPattern(negated.Pattern, place, span)), span);
+            case IDiscardPatternOperation:
+                return _f.Const(_builder.BoolConstant(boolean, true));
+            case IDeclarationPatternOperation declaration:
+                if (declaration.DeclaredSymbol is ILocalSymbol declared)
+                {
+                    _f.Assign(_f.LocalPlace(LocalOf(declared, span)), _f.Use(_f.Copy(place)), span);
+                }
+
+                return _f.Const(_builder.BoolConstant(boolean, true));
+            case IRecursivePatternOperation recursive:
+                return TestRecursive(recursive, place, span);
+            default:
+                throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported yet", pattern.Syntax.GetLocation());
+        }
+    }
+
+    private OperandId TestRecursive(IRecursivePatternOperation pattern, PlaceId place, SourceSpan span)
+    {
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        OperandId result = _f.Const(_builder.BoolConstant(boolean, true));
+        TypeId inputType = IrTyper.OfPlace(_module, _body, place);
+        if (pattern.DeclaredSymbol is ILocalSymbol declared)
+        {
+            _f.Assign(_f.LocalPlace(LocalOf(declared, span)), _f.Use(_f.Copy(place)), span);
+        }
+
+        foreach (IPropertySubpatternOperation sub in pattern.PropertySubpatterns)
+        {
+            if (sub.Member is not IFieldReferenceOperation member)
+            {
+                throw new UnsupportedConstructException("a property pattern names something that is not a field", sub.Syntax.GetLocation());
+            }
+
+            int index = frontend.Types.FieldIndex((INamedTypeSymbol)member.Field.ContainingType, member.Field);
+            OperandId test = TestPattern(sub.Pattern, _f.Project(place, ProjectionKind.Field, index), span);
+            result = Emit(boolean, _f.Binop(BinOp.And, ArithMode.Default, result, test), span);
+        }
+
+        int position = 0;
+        foreach (IPatternOperation sub in pattern.DeconstructionSubpatterns)
+        {
+            OperandId test = TestPattern(sub, _f.Project(place, ProjectionKind.Field, position++), span);
+            result = Emit(boolean, _f.Binop(BinOp.And, ArithMode.Default, result, test), span);
+        }
+
+        _ = inputType;
+        return result;
     }
 
     private OperandId LowerAddressOf(IAddressOfOperation address)

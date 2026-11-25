@@ -58,6 +58,30 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return id;
     }
 
+    public StructId TupleOf(INamedTypeSymbol tuple, Location location)
+    {
+        var elements = new List<TypeId>();
+        foreach (IFieldSymbol element in tuple.TupleElements)
+        {
+            elements.Add(Map(element.Type, location));
+        }
+
+        Module module = builder.Module;
+        string key = "tuple<" + string.Join(",", elements.Select(e => IrPrinter.TypeText(module, e))) + ">";
+        if (module.StructsByKey.TryGetValue(key, out StructId existing))
+        {
+            return existing;
+        }
+
+        var fields = new List<FieldDecl>();
+        for (int i = 0; i < elements.Count; i++)
+        {
+            fields.Add(new FieldDecl(module.Intern("Item" + (i + 1)), elements[i], IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset));
+        }
+
+        return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
+    }
+
     public EnumId EnumOf(INamedTypeSymbol type, Location location)
     {
         if (_enums.TryGetValue(type, out EnumId existing))
@@ -106,6 +130,20 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public int FieldIndex(INamedTypeSymbol type, IFieldSymbol field)
     {
+        if (type.IsTupleType)
+        {
+            for (int i = 0; i < type.TupleElements.Length; i++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(type.TupleElements[i], field)
+                    || SymbolEqualityComparer.Default.Equals(type.TupleElements[i].CorrespondingTupleField, field.CorrespondingTupleField ?? field))
+                {
+                    return i;
+                }
+            }
+
+            throw new InvalidOperationException("a field is not an element of its tuple");
+        }
+
         int index = 0;
         foreach (IFieldSymbol candidate in type.OriginalDefinition.GetMembers().OfType<IFieldSymbol>())
         {
@@ -134,6 +172,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                     ? builder.Primitive(TypeKind.Void)
                     : Map(pointer.PointedAtType, location);
                 return builder.Pointer(element, TypeFlags.Nullable | TypeFlags.Many);
+            case INamedTypeSymbol { IsTupleType: true } tuple:
+                return builder.StructType(TupleOf(tuple, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
                 return builder.StructType(StructOf(named, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
