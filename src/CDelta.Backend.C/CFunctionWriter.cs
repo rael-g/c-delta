@@ -34,7 +34,7 @@ internal sealed partial class CFunctionWriter(
             text.Append("static ");
         }
 
-        text.Append(CTypes.Spell(module, function.Return)).Append(' ').Append(names.Function(id)).Append('(');
+        text.Append(CTypes.Spell(module, names, function.Return)).Append(' ').Append(names.Function(id)).Append('(');
         if (function.Params.Count == 0 && !function.Variadic)
         {
             text.Append("void");
@@ -47,7 +47,7 @@ internal sealed partial class CFunctionWriter(
                 text.Append(", ");
             }
 
-            text.Append(CTypes.Spell(module, module.Params[function.Params.Start + i].Type));
+            text.Append(CTypes.Spell(module, names, module.Params[function.Params.Start + i].Type));
             if (withNames)
             {
                 text.Append(' ').Append(localNames![i]);
@@ -71,7 +71,7 @@ internal sealed partial class CFunctionWriter(
             TypeId type = _body.Locals[i].Type;
             if (module.Types[type.Index].Kind != TypeKind.Void)
             {
-                _text.Append(Indent).Append(CTypes.Spell(module, type)).Append(' ').Append(_locals[i]).Append(";\n");
+                _text.Append(Indent).Append(CTypes.Spell(module, names, type)).Append(' ').Append(_locals[i]).Append(";\n");
             }
         }
 
@@ -169,7 +169,7 @@ internal sealed partial class CFunctionWriter(
         return operand.Kind switch
         {
             OperandKind.Copy => Place(new PlaceId(operand.A)),
-            OperandKind.Const => CConstants.Spell(module, new ConstId(operand.A)),
+            OperandKind.Const => CConstants.Spell(module, names, new ConstId(operand.A)),
             _ => throw new NotSupportedException("the operand kind " + operand.Kind + " is not supported at this stage"),
         };
     }
@@ -225,7 +225,7 @@ internal sealed partial class CFunctionWriter(
         Rvalue rvalue = _body.Rvalues[statement.Rvalue.Index];
         string destination = Place(statement.Place);
         TypeId destinationType = IrTyper.OfPlace(module, _body, statement.Place);
-        string cType = CTypes.Spell(module, destinationType);
+        string cType = CTypes.Spell(module, names, destinationType);
         TypeKind kind = KindOf(destinationType);
         switch (rvalue.Kind)
         {
@@ -393,7 +393,7 @@ internal sealed partial class CFunctionWriter(
         Statement(destination + " = (" + cType + ")" + a + ";");
         if (rvalue.Mode == ArithMode.Trap && !Fits(from, to))
         {
-            string source = CTypes.Spell(module, sourceType);
+            string source = CTypes.Spell(module, names, sourceType);
             Statement("if (__builtin_expect((((" + source + ")" + destination + " != " + a + ") || ((" + destination + " < 0) != (" + a + " < 0))), 0)) " + PanicCall(CastTruncated, span));
         }
     }

@@ -11,6 +11,8 @@
     <Compile Include="..\Shared\GoldenFile.cs" Link="GoldenFile.cs" />
     <Compile Include="..\CDelta.Core.Tests\LoweredPrograms.cs" Link="LoweredPrograms.cs" />
     <Compile Include="..\CDelta.Core.Tests\DictionaryBodyProvider.cs" Link="DictionaryBodyProvider.cs" />
+    <Compile Include="..\CDelta.Core.Tests\CatalogModule.cs" Link="CatalogModule.cs" />
+    <Compile Include="..\CDelta.Core.Tests\LayoutCatalog.cs" Link="LayoutCatalog.cs" />
   </ItemGroup>
 
 </Project>

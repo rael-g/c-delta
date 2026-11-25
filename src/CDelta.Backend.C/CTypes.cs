@@ -4,19 +4,39 @@ namespace CDelta.Backend.C;
 
 internal static class CTypes
 {
-    public static string Spell(Module module, TypeId type)
+    public static string Spell(Module module, CNames names, TypeId type)
     {
         TypeNode node = module.Types[type.Index];
         switch (node.Kind)
         {
             case TypeKind.Ptr:
-                string element = Spell(module, new TypeId(node.A));
+                string element = Spell(module, names, new TypeId(node.A));
                 string qualifiers = (node.Flags.HasFlag(TypeFlags.Const) ? "const " : string.Empty)
                     + (node.Flags.HasFlag(TypeFlags.Volatile) ? "volatile " : string.Empty);
                 return qualifiers + element + "*";
+            case TypeKind.Slice:
+                return SliceName(module, names, node);
+            case TypeKind.Struct:
+                return names.Struct(new StructId(node.A));
+            case TypeKind.I128 or TypeKind.U128 when module.Target is { NativeInt128: false }:
+                return node.Kind == TypeKind.I128 ? "cd_i128" : "cd_u128";
             default:
                 return Primitive(node.Kind);
         }
+    }
+
+    public static string SliceName(Module module, CNames names, TypeNode node)
+    {
+        string element = Spell(module, names, new TypeId(node.A));
+        string mangled = element.Replace("*", "_p", StringComparison.Ordinal).Replace(' ', '_');
+        return "cd_T_slice_" + (node.Flags.HasFlag(TypeFlags.Const) ? "const_" : string.Empty) + mangled;
+    }
+
+    public static string SliceDefinition(Module module, CNames names, TypeNode node)
+    {
+        string element = Spell(module, names, new TypeId(node.A));
+        string pointer = (node.Flags.HasFlag(TypeFlags.Const) ? "const " : string.Empty) + element + "*";
+        return "typedef struct { " + pointer + " ptr; int32_t len; } " + SliceName(module, names, node) + ";\n";
     }
 
     public static string Primitive(TypeKind kind) => kind switch

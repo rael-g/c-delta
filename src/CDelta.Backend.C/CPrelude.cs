@@ -11,6 +11,12 @@ internal static class CPrelude
 
         """;
 
+    public const string EmulatedInt128 = """
+        typedef struct { uint64_t lo; uint64_t hi; } cd_i128;
+        typedef struct { uint64_t lo; uint64_t hi; } cd_u128;
+
+        """;
+
     public const string LibcProtocol = """
         void cd_libc_write_stderr(const uint8_t* bytes, size_t length);
         noreturn void cd_libc_abort(void);

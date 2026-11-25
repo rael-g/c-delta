@@ -7,10 +7,10 @@ internal static class CConstants
 {
     private const int HalfBits = 64;
 
-    public static string Spell(Module module, ConstId id)
+    public static string Spell(Module module, CNames names, ConstId id)
     {
         ConstNode constant = module.Constants[id.Index];
-        string type = CTypes.Spell(module, constant.Type);
+        string type = CTypes.Spell(module, names, constant.Type);
         switch (constant.Kind)
         {
             case ConstKind.Int:
