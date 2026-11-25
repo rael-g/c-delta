@@ -7,7 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CDelta.Driver\CDelta.Driver.csproj" />
     <ProjectReference Include="..\..\lib\corelib\CDelta.Corelib.csproj" ReferenceOutputAssembly="false" OutputItemType="CorelibAssembly" />
-  </ItemGroup>
+      <None Include="..\..\lib\std\**\*.cs" CopyToOutputDirectory="PreserveNewest" Link="lib/std/%(RecursiveDir)%(Filename)%(Extension)" />
+</ItemGroup>
 
   <Target Name="CopyCorelib" BeforeTargets="AssignTargetPaths">
     <ItemGroup>

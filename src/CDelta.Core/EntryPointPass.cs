@@ -6,6 +6,8 @@ public static class EntryPointPass
 {
     private const string MainKey = "synthetic:main";
     private const string MainName = "main";
+    private const string ArgumentCountKey = "synthetic:argc";
+    private const string ArgumentValuesKey = "synthetic:argv";
     private const int FailureExitCode = 1;
 
     public static void Run(Module module)
@@ -50,6 +52,7 @@ public static class EntryPointPass
         f.NewLocal("argv", argvType, LocalKind.Param, SourceSpan.None);
         f.SetBlock(f.NewBlock());
 
+        StoreArguments(module, f);
         TypeId result = module.Functions[entry.Value.Index].Return;
         RvalueId call = f.CallDirect(entry.Value, []);
         OperandId exitCode;
@@ -121,5 +124,18 @@ public static class EntryPointPass
         PlaceId entry = f.Project(f.GlobalPlace(module.GlobalsByKey[ErrorCodesPass.NameTableKey]), ProjectionKind.Index, f.Copy(f.LocalPlace(code)).Index);
         f.Assign(f.LocalPlace(name), f.Use(f.Copy(entry)), SourceSpan.None);
         f.IntrinsicStatement(f.Intrinsic(IrTyper.ErrorReportIntrinsic, [f.Copy(f.LocalPlace(name))]), SourceSpan.None);
+    }
+
+    private static void StoreArguments(Module module, FunctionBuilder f)
+    {
+        if (module.GlobalsByKey.TryGetValue(ArgumentCountKey, out GlobalId count))
+        {
+            f.Assign(f.GlobalPlace(count), f.Use(f.Copy(f.LocalPlace(new LocalId(0)))), SourceSpan.None);
+        }
+
+        if (module.GlobalsByKey.TryGetValue(ArgumentValuesKey, out GlobalId values))
+        {
+            f.Assign(f.GlobalPlace(values), f.Use(f.Copy(f.LocalPlace(new LocalId(1)))), SourceSpan.None);
+        }
     }
 }

@@ -1355,6 +1355,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             target = implementation;
         }
 
+        if (target.ContainingType.ToDisplayString() == "CDelta.Startup")
+        {
+            return LowerStartup(target, span);
+        }
+
         if (TypeMapper.IsSpanLike(target.ContainingType) && target.Name == "Slice")
         {
             return LowerSlice(invocation, span);

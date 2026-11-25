@@ -80,6 +80,11 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string intermediate = BuildPaths.IntermediateForFiles(environment, sources.ConvertAll(s => s.FullPath));
         Directory.CreateDirectory(intermediate);
         List<string> includeDirectories = [];
+        foreach (string stdFile in LibraryLocator.StdSources(environment))
+        {
+            sources.Add(new SourceInput(stdFile, "std/" + Path.GetFileName(stdFile), File.ReadAllText(stdFile)));
+        }
+
         if (!ImportC(sources, toolchain, target, packageName, intermediate, includeDirectories, diagnostics))
         {
             return null;
