@@ -37,7 +37,7 @@ public sealed class CSharpFrontend : IBodyProvider
 
     public Module Module => Builder.Module;
 
-    public IReadOnlyList<Microsoft.CodeAnalysis.Diagnostic> BindingErrors { get; private init; } = [];
+    public IReadOnlyList<string> BindingErrors { get; private init; } = [];
 
     public static CSharpFrontend Create(
         IReadOnlyList<SourceInput> sources,
@@ -51,6 +51,7 @@ public sealed class CSharpFrontend : IBodyProvider
         {
             BindingErrors = compilation.GetDiagnostics()
                 .Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(FormatBindingError)
                 .ToList(),
         };
         foreach (SourceInput source in sources)
@@ -59,6 +60,13 @@ public sealed class CSharpFrontend : IBodyProvider
         }
 
         return frontend;
+    }
+
+    private static string FormatBindingError(Microsoft.CodeAnalysis.Diagnostic diagnostic)
+    {
+        FileLinePositionSpan span = diagnostic.Location.GetLineSpan();
+        return span.Path + "(" + (span.StartLinePosition.Line + 1) + "," + (span.StartLinePosition.Character + 1) + "): error "
+            + diagnostic.Id + ": " + diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public IReadOnlyList<FunctionId> DeclareRoots()
