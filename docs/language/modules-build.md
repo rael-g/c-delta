@@ -16,7 +16,8 @@
 | `private` (default for members) | the containing type |
 | `file` | the source file |
 
-Fields are always `public` (`CD1025`): there is no encapsulation of data. A struct that wants a
+Fields are always `public` (`CD1025`): there is no encapsulation of data. Constants (`const`)
+are not data and take any visibility. A struct that wants a
 narrow surface exposes functions and documents which fields are its contract.
 
 ## Packages

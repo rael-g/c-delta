@@ -23,7 +23,7 @@ src/Program.cs(12,9): note: 'Close' returns 'Result'; handle it or write '_ ='
 |---|---|---|
 | `CD0xxx` | driver, project, toolchain | driver |
 | `CD1xxx` | removed C# constructs | subset analyzer (IDE and build) |
-| `CD2xxx` | types and memory | subset analyzer |
+| `CD2xxx` | types and memory | subset analyzer, except `CD2008` (core) |
 | `CD3xxx` | errors and panics | subset analyzer, except `CD3010` (core) |
 | `CD4xxx` | comptime | core (build only) |
 | `CD5xxx` | generics, interfaces, delegates | subset analyzer, except `CD5005` (core) |
@@ -81,6 +81,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD2005 | `[ThreadStatic]` applies only to static fields | [../language/memory.md](../language/memory.md#threads-and-atomics) |
 | CD2006 | this returns memory of the current stack frame | [../language/memory.md](../language/memory.md#lifetimes) |
 | CD2007 | this string literal is not valid UTF-16 and cannot be encoded as UTF-8 | [../language/types.md](../language/types.md#text) |
+| CD2008 | a reference or pointer cannot be taken to a field that is not aligned | [../language/types.md](../language/types.md#layout) |
 | CD3001 | `Try` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#try) |
 | CD3002 | the error set returned here lacks errors `Try` can propagate | [../language/errors.md](../language/errors.md#try) |
 | CD3003 | `ErrDefer` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#errdefer) |

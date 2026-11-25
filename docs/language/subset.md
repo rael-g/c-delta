@@ -82,7 +82,7 @@ User code, including the std, cannot declare them.
 | Feature | Status |
 |---|---|
 | Fields, `readonly` fields, `const`, `static` fields | Kept |
-| Non-public fields | Removed: every field is `public`. `CD1025` |
+| Non-public fields | Removed: every field, `static` and `fixed` fields included, is `public`. `const` declarations are constants, not fields, and take any visibility. `CD1025` |
 | `volatile` fields | Kept |
 | `[ThreadStatic]` static fields | Kept: thread-local storage |
 | Methods (static and instance), local functions | Kept |

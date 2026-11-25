@@ -130,19 +130,24 @@ then the exit code `1`. The error name table is always emitted when `Main` retur
 | `c.*` | the C spelling (`long`, `unsigned char`) |
 | `ptr<T>` | `T*`, `const T*` for `const`, `volatile T*` for `volatile` |
 | `slice<T>` | `typedef struct { T* ptr; int32_t len; } cd_T_slice_<T>` |
-| `array<T, N>` inside a struct | `T name[N]` |
-| `array<T, N>` as a value | a struct wrapping `T e[N]`, so it can be assigned and returned |
+| `slice<T> const` | `typedef struct { const T* ptr; int32_t len; } cd_T_slice_const_<T>` |
+| `array<T, N>` | `typedef struct { T e[N]; } cd_T_array_<N>_<T>`, for locals, globals, parameters, returns and fields of structs the backend defines |
+| `array<T, N>` field of an imported struct | the header's `T name[N]`; copying it as a value goes through `__builtin_memcpy` into the wrapper |
 | `fn(sig)` | `R (*)(params)` through a `typedef` |
 | `closure(sig)` | `struct { R (*fn)(void* ctx, params); void* ctx; }` |
 | `dyn<I>` | `struct { void* self; const cd_T_vtable_<I>* vt; }` |
 | `optional<T>` | `struct { T value; bool has; }` |
 | `result<T, E>` | `struct { T value; uint16_t err; }`; `uint16_t` alone when `T` is `void` |
 | `struct` | `struct` with the fields in IR order and `_Alignas` where the IR alignment exceeds natural |
-| explicit layout | `union` of one `struct` per field, each with a leading `char` padding array of the field's offset |
+| explicit layout | `union` of one `struct` per field, each with a leading `char` padding array of the field's offset; a member struct whose field offset is not a multiple of the field's alignment is packed (`__attribute__((packed))`, `#pragma pack(1)` on MSVC), and the union has `_Alignas` of the IR alignment |
 | `union` (tagged) | `struct { tag_t tag; union { ... } as; }` |
 | `enum` | a `typedef` of the underlying integer; members are written as typed literals at each use |
 | `opaque` | an incomplete `struct` |
 | `void` local or field | omitted |
+
+In these names, `<T>` is the C spelling of the element type with `*` written `_p`, spaces written
+`_` and any other character outside `[A-Za-z0-9_]` written `_xHH`: `cd_T_slice_const_uint8_t`,
+`cd_T_array_4_cd_T_Hello_Vec2`, `cd_T_slice_int32_t_p`.
 
 ### Layout assertions
 

@@ -54,6 +54,9 @@ struct Vec2
 | `[Bits(n)]` on integer fields of a sequential struct | C bit-field of width `n`, laid out as the target C compiler does |
 | `[StructLayout(..., Size = n)]` | Minimum size `n` |
 
+A `[FieldOffset]` need not be aligned: such a field is read and written in place, as packed C
+does. Taking a `ref` or a pointer to it is `CD2008`, because the address would be misaligned.
+
 Sizes and offsets are computed by the compiler for the target and checked against the C compiler
 with static assertions in the generated C ([../compiler/backend-c.md](../compiler/backend-c.md)).
 

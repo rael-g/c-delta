@@ -210,6 +210,24 @@ declaration.
 **D130. A build from files has the directory of the first file as its package root.** Display
 paths of its sources are relative to it, with `..` segments when a file is outside it.
 
+**D131. `ref`, `in`, `out` and `this` are pointer-typed parameters with a mode in the IR.** The
+IR makes every indirection explicit; the mode remains for diagnostics and projections.
+
+**D132. Pointer arithmetic and comparison are `binop`s on pointers, scaled as in C, with no
+check.**
+
+**D133. Every IR array value is a wrapper struct in C**, so arrays assign and return; only
+imported structs keep C array fields.
+
+**D134. Bit-fields record their bit offset.** Comptime and projections need the exact position;
+the C compiler still lays them out and the catalog test compares bit offsets with clang.
+
+**D135. Misaligned explicit field offsets are valid and packed in C; references to such fields
+are rejected (`CD2008`).** C headers contain packed layouts, and a misaligned reference would be
+illegal behavior that is always wrong.
+
+**D136. `const` declarations take any visibility; every field is public.**
+
 ## Repository
 
 **D201. Documents and code are in English.**

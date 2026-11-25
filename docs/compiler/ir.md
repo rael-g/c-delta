@@ -84,9 +84,33 @@ Every declaration has an id (its index in its table), a `Key`, a `Name`, a `Span
 | `param T` | a type parameter; `Lowered` only |
 | `comptime.type`, `comptime.typeinfo` | comptime-only values |
 
-Parameter passing modes are part of the signature: `value`, `ref`, `ref.readonly`, `out`. They
-lower to pointers in the backend; the core and the interpreter keep the distinction for
-diagnostics and for `out` definite assignment.
+Parameter passing modes are part of the signature: `value`, `ref`, `ref.readonly`, `out`. A
+parameter with a mode other than `value` has a pointer type in the IR: `ref T` and `out T` are
+`ptr<T>`, `ref readonly T` and `in T` are `ptr<T> const`, never nullable or many. The body reads
+and writes through it with a deref place (`(*%0)`), and a caller passes `addr` of the argument's
+place. The mode is kept beside the type for diagnostics, for `out` definite assignment, and for
+projection backends; the C backend ignores it.
+
+- `this` of an instance method is the first parameter, named `this`, with mode `ref` and type
+  `ptr<S>`, or mode `ref.readonly` and type `ptr<S> const` for a `readonly` method or a member of a
+  `readonly struct`.
+- A `ref` local is a local of type `ptr<T>` (`const` for `ref readonly`) assigned with `addr`.
+- A `ref` return has a return mode in the signature, `ref` or `ref.readonly`, and returns
+  `ptr<T>`.
+
+Pointer operations:
+
+| Source | IR |
+|---|---|
+| `p + n`, `p - n`, `n + p` on `T*` | `binop add` or `sub` with the pointer first and an `isize` operand (the frontend converts `n` with `cast int.int wrap`), scaled by the element size as in C |
+| `p - q` | `binop sub` of two pointers of the same type, giving `isize` elements |
+| `p == q`, `!=`, `<`, `<=`, `>`, `>=` | `binop eq ne lt le gt ge` on two pointers of the same type, or a pointer and `const null` |
+| `p[i]` | the pointer `p + i` into a temp, then the place `(*%t)` |
+| `p->f` | the place `(*%p).field(n)` |
+| `sizeof(T)`, `Unsafe.SizeOf<T>()` | `sizeof T`, of type `i32` |
+
+Pointer operations have no mode and no safety check: an offset outside the object is illegal
+behavior that is not detected.
 
 ### Declarations of types
 
@@ -223,7 +247,7 @@ struct Hello.Vec2 layout c size 8 align 4 @1:3:8 {
   Y: f32 @4
 }
 
-fn "Hello.Vec2.Dot(Hello.Vec2)"(this: ptr<struct Hello.Vec2> const, other: struct Hello.Vec2) -> f32 @1:7:27 {
+fn "Hello.Vec2.Dot(Hello.Vec2)"(this: ref.readonly ptr<struct Hello.Vec2> const, other: struct Hello.Vec2) -> f32 @1:7:27 {
   local %0 this: ptr<struct Hello.Vec2> const param
   local %1 other: struct Hello.Vec2 param
   local %2: f32 temp
@@ -274,7 +298,7 @@ origin      = "origin" ( "source" "(" ident ")" | "cheader" "(" int "," string "
 struct      = attrs "struct" ref [tparams] [layout] ["size" int "align" int] ["minsize" int]
               [origin] span "{" NL {field} "}" NL
 layout      = "layout" ("c" | "c.packed" "(" int ")" | "auto" | "explicit")
-field       = attrs ident ":" type ["bits" int] ["@" int] NL
+field       = attrs ident ":" type ["bits" int ["at" int]] ["@" int] NL
 enum        = attrs "enum" ref ":" type ["exhaustive"] [origin] span "{" NL {ident "=" int NL} "}" NL
 union       = attrs "union" ref ["tag" type "size" int "align" int] span "{" NL {type ["=" int] NL} "}" NL
 interface   = attrs "interface" ref [tparams] ["extends" type {"," type}] span "{" NL {imethod} "}" NL
@@ -282,7 +306,7 @@ imethod     = ["static"] "fn" ident sig ["default" ref] NL
 opaque      = attrs "opaque" ref [origin] span NL
 global      = attrs "global" ref ":" type {gflag} ["=" (constant | "comptime" ref)] [origin] span NL
 gflag       = "mutable" | "threadlocal" | linkage | "section" string | "align" int
-function    = attrs "fn" ref [tparams] "(" [param {"," param}] ["," "..."] ")" "->" type
+function    = attrs "fn" ref [tparams] "(" [param {"," param}] ["," "..."] ")" "->" [pmode] type
               {fflag} [origin] span (body | NL)
 param       = ident ":" [pmode] type
 pmode       = "ref" | "ref.readonly" | "out"
@@ -311,7 +335,7 @@ type        = "void" | "noreturn" | "bool" | int-type | "isize" | "usize" | "f16
             | ("struct" | "interface") ref [targs] | ("enum" | "union" | "opaque") ref
             | "param" ident | "comptime.type" | "comptime.typeinfo"
 int-type    = "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16" | "u32" | "u64" | "u128"
-sig         = "(" [[pmode] type {"," [pmode] type}] ["," "..."] ")" "->" type ["cc" conv]
+sig         = "(" [[pmode] type {"," [pmode] type}] ["," "..."] ")" "->" [pmode] type ["cc" conv]
 
 body        = "{" NL {local} block {block} "}" NL
 local       = "local" lref [ident] ":" type ("param" | "user" | "temp") [span] NL
@@ -340,7 +364,7 @@ value       = int | "bits" hex | "true" | "false" | "null" | "undef" | "bytes" s
 rvalue      = operand
             | "binop" op [mode] operand "," operand
             | "unop" op [mode] operand
-            | "cast" ckast [mode] operand "to" type
+            | "cast" castkind [mode] operand "to" type
             | ("addr" | "addr.mut") place
             | "aggregate" type "(" [operand {"," operand}] ")"
             | "optional.some" operand | "optional.none" type
@@ -356,10 +380,15 @@ rvalue      = operand
 callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
             | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" string
 mode        = "default" | "trap" | "wrap" | "assume"
+castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
+            | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "array.slice" | "slice.ptr"
 ```
 
-- A field written `@n` has offset `n`: required for `layout explicit`, printed for every field in
-  `Final`.
+- A field written `@n` has byte offset `n`: required for `layout explicit`, printed for every field
+  that is not a bit-field in `Final`.
+- A bit-field is written `bits w at b`: width `w` and offset `b` in bits from the start of the
+  struct. `at` is printed for every bit-field in `Final` and never with `@`. In memory a field has
+  a byte offset and, for a bit-field, a width and a bit offset.
 - `bytes` constants have type `slice<u8> const` (the length excludes the terminating NUL) or
   `ptr<u8> const nullable many`; the data always carries a terminating NUL.
 - An aggregate constant lists the values of the fields, elements or `{has, value}` of its type in

@@ -117,8 +117,8 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | `Nullable<T>` | `optional<T>` |
 | `Result`, `Result<T>`, `Result<T, E>` | `result<void, anyerror>`, `result<T, anyerror>`, `result<T, errorset(E)>` |
 | `Span<T>`, `ReadOnlySpan<T>` | `slice<T>`, `slice<T> const` |
-| `T*`, `ref T`, `in T` | `ptr<T>` with the matching flags |
-| method | `Function`; instance methods get `this` as the first parameter |
+| `T*`, `ref T`, `in T` | `ptr<T>` with the matching flags; a `ref`, `in` or `out` parameter also has its mode |
+| method | `Function`; instance methods get `this` as the first parameter ([ir.md](ir.md#functions)) |
 | static field | `Global` |
 | attribute application | `Attribute` in the `cs.` namespace, or the owning namespace for CΔ attributes |
 
