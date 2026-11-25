@@ -398,11 +398,12 @@ public sealed class CSharpFrontend : IBodyProvider
             origin,
             parameters,
             false,
-            _types.Map(method.ReturnType, location),
+            _types.ReferenceType(_types.Map(method.ReturnType, location), method.RefKind),
             conv,
             linkage,
             null,
-            attributes);
+            attributes,
+            TypeMapper.ModeOf(method.RefKind));
         _functions.Add(method, id);
         _symbols.Add(method);
         return id;

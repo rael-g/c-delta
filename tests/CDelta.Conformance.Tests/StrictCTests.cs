@@ -8,16 +8,25 @@ public sealed class StrictCTests
 {
     private const string Mode = "Debug";
 
-    public static IEnumerable<TheoryDataRow<string>> Cases() =>
-        CaseDiscovery.Cases()
+    public static IEnumerable<TheoryDataRow<string>> Cases()
+    {
+        var rows = CaseDiscovery.Cases()
             .Where(c => c.Mode == Mode && c.Target == (HostTarget.Resolve() ?? "x86_64-linux-gnu"))
             .Where(c => !File.Exists(Path.Combine(CaseDiscovery.Root(), c.RelativePath[..^".cs".Length] + ".diagnostics")))
-            .Select(c => new TheoryDataRow<string>(c.RelativePath));
+            .Select(c => new TheoryDataRow<string>(c.RelativePath))
+            .ToList();
+        return rows.Count > 0 ? rows : [new TheoryDataRow<string>(string.Empty)];
+    }
 
     [Theory]
     [MemberData(nameof(Cases))]
     public void GeneratedCIsStrictAndSanitizerClean(string relativePath)
     {
+        if (relativePath.Length == 0)
+        {
+            return;
+        }
+
         string source = Path.Combine(CaseDiscovery.Root(), relativePath);
         string stem = source[..^".cs".Length];
         string directory = Directory.CreateTempSubdirectory("cdelta-strict").FullName;

@@ -201,7 +201,9 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         if (fallThrough.Destination is { Kind: BasicBlockKind.Exit } || fallThrough.Semantics == ControlFlowBranchSemantics.Return)
         {
-            OperandId? value = block.BranchValue is null ? null : LowerValue(block.BranchValue);
+            OperandId? value = block.BranchValue is null
+                ? null
+                : method.RefKind == RefKind.None ? LowerValue(block.BranchValue) : ReferenceTo(block.BranchValue, method.RefKind != RefKind.Ref, span);
             if (value is not null && (!fallThrough.LeavingRegions.IsEmpty || ActiveDefers(fallThrough, block).Count > 0))
             {
                 LocalId saved = NewTemp(OperandType(value.Value));
@@ -565,6 +567,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return LowerCompound(compound);
             case IIncrementOrDecrementOperation increment:
                 return LowerIncrement(increment);
+            case IInvocationOperation { TargetMethod.RefKind: not RefKind.None } returnsReference:
+                return _f.Copy(PlaceOf(returnsReference));
             case IInvocationOperation invocation:
                 return LowerInvocation(invocation);
             default:
@@ -867,6 +871,11 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return _f.DerefPlace(_thisLocal);
             case IDeclarationExpressionOperation declaration:
                 return PlaceOf(declaration.Expression);
+            case IInvocationOperation { TargetMethod.RefKind: not RefKind.None } returnsReference:
+                OperandId pointer = LowerInvocation(returnsReference)!.Value;
+                LocalId held = NewTemp(OperandType(pointer));
+                _f.Assign(_f.LocalPlace(held), _f.Use(pointer), SpanOf(returnsReference));
+                return _f.DerefPlace(held);
             case IDiscardOperation discard:
                 return _f.LocalPlace(NewTemp(discard.Type!, discard.Syntax.GetLocation()));
             case IArrayElementReferenceOperation element:
@@ -1148,6 +1157,13 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         _ = inputType;
         return result;
+    }
+
+    private OperandId ReferenceTo(IOperation operation, bool readOnly, SourceSpan span)
+    {
+        PlaceId place = PlaceOf(operation);
+        TypeId pointee = IrTyper.OfPlace(_module, _body, place);
+        return Emit(_builder.Pointer(pointee, readOnly ? TypeFlags.Const : TypeFlags.None), _f.Addr(place, !readOnly), span);
     }
 
     private OperandId LowerAddressOf(IAddressOfOperation address)
