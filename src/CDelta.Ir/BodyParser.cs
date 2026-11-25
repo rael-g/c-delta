@@ -300,6 +300,30 @@ internal sealed class BodyParser(
             case "len":
                 cursor.ReadWord();
                 return _f.Len(ParsePlace(cursor));
+            case "slice":
+                cursor.ReadWord();
+                PlaceId sliced = ParsePlace(cursor);
+                cursor.Expect(',');
+                OperandId start = ParseOperand(cursor);
+                cursor.Expect(',');
+                return _f.Slice(sliced, start, ParseOperand(cursor));
+            case "alloca":
+                cursor.ReadWord();
+                TypeId element = types.ParseType(cursor);
+                cursor.Expect(',');
+                OperandId count = ParseOperand(cursor);
+                cursor.Expect(',');
+                AllocaInit init = IrNames.ParseAllocaInit(cursor.ReadWord()) ?? throw cursor.Error("unknown alloca init");
+                return _f.Alloca(element, count, init);
+            case "haspayload":
+                cursor.ReadWord();
+                return _f.HasPayload(ParsePlace(cursor));
+            case "optional.some":
+                cursor.ReadWord();
+                return _f.OptionalSome(ParseOperand(cursor));
+            case "optional.none":
+                cursor.ReadWord();
+                return _f.OptionalNone(types.ParseType(cursor));
             case "sizeof":
                 cursor.ReadWord();
                 return _f.SizeOf(types.ParseType(cursor));

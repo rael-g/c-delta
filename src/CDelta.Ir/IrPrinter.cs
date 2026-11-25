@@ -17,7 +17,7 @@ public static partial class IrPrinter
         "switch", "return", "unreachable", "panic", "default", "trap", "wrap", "assume", "true", "false", "null",
         "bytes", "bits", "nullable", "many", "volatile", "ref", "out", "internal", "export", "extern", "weak",
         "inline", "always", "never", "cc", "safety", "on", "off", "type", "user", "temp", "to", "ptr", "slice",
-        "array", "optional", "result", "errorset", "anyerror", "void", "noreturn", "bool", "isize", "usize",
+        "array", "optional", "result", "errorset", "anyerror", "alloca", "zero", "fill", "void", "noreturn", "bool", "isize", "usize",
     ];
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")]
@@ -86,6 +86,8 @@ public static partial class IrPrinter
             case TypeKind.Slice:
                 string slice = "slice<" + TypeText(module, new TypeId(node.A)) + ">";
                 return node.Flags.HasFlag(TypeFlags.Const) ? slice + " const" : slice;
+            case TypeKind.Optional:
+                return "optional<" + TypeText(module, new TypeId(node.A)) + ">";
             case TypeKind.Array:
                 return "array<" + TypeText(module, new TypeId(node.A)) + ", " + node.B + ">";
             case TypeKind.Fn:
@@ -738,6 +740,30 @@ public static partial class IrPrinter
             case RvalueKind.Len:
                 text.Append("len ");
                 PrintPlace(module, body, rvalue.Place, text);
+                break;
+            case RvalueKind.Slice:
+                text.Append("slice ");
+                PrintPlace(module, body, rvalue.Place, text);
+                text.Append(", ");
+                PrintOperand(module, body, rvalue.A, text);
+                text.Append(", ");
+                PrintOperand(module, body, rvalue.B, text);
+                break;
+            case RvalueKind.Alloca:
+                text.Append("alloca ").Append(TypeText(module, rvalue.Type)).Append(", ");
+                PrintOperand(module, body, rvalue.A, text);
+                text.Append(", ").Append(IrNames.AllocaInit((AllocaInit)rvalue.Aux));
+                break;
+            case RvalueKind.HasPayload:
+                text.Append("haspayload ");
+                PrintPlace(module, body, rvalue.Place, text);
+                break;
+            case RvalueKind.OptionalSome:
+                text.Append("optional.some ");
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.OptionalNone:
+                text.Append("optional.none ").Append(TypeText(module, rvalue.Type));
                 break;
             case RvalueKind.SizeOf:
                 text.Append("sizeof ").Append(TypeText(module, rvalue.Type));

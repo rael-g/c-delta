@@ -12,6 +12,5 @@ public enum CastKind
     IntPtr,
     PtrPtr,
     Bitcast,
-    ArraySlice,
     SlicePtr,
 }

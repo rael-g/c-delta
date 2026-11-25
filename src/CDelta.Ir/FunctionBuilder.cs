@@ -61,6 +61,18 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public RvalueId Len(PlaceId place) => AddRvalue(Blank(RvalueKind.Len) with { Place = place });
 
+    public RvalueId Slice(PlaceId place, OperandId start, OperandId end) =>
+        AddRvalue(Blank(RvalueKind.Slice) with { Place = place, A = start, B = end });
+
+    public RvalueId Alloca(TypeId element, OperandId count, AllocaInit init) =>
+        AddRvalue(Blank(RvalueKind.Alloca) with { Type = element, A = count, Aux = (int)init });
+
+    public RvalueId HasPayload(PlaceId place) => AddRvalue(Blank(RvalueKind.HasPayload) with { Place = place });
+
+    public RvalueId OptionalSome(OperandId value) => AddRvalue(Blank(RvalueKind.OptionalSome) with { A = value });
+
+    public RvalueId OptionalNone(TypeId payload) => AddRvalue(Blank(RvalueKind.OptionalNone) with { Type = payload });
+
     public RvalueId SizeOf(TypeId type) => AddRvalue(Blank(RvalueKind.SizeOf) with { Type = type });
 
     public RvalueId AlignOf(TypeId type) => AddRvalue(Blank(RvalueKind.AlignOf) with { Type = type });

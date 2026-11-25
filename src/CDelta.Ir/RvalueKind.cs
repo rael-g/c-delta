@@ -13,4 +13,9 @@ public enum RvalueKind
     SizeOf,
     AlignOf,
     OffsetOf,
+    Slice,
+    Alloca,
+    HasPayload,
+    OptionalSome,
+    OptionalNone,
 }

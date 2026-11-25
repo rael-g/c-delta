@@ -55,6 +55,8 @@ public static class IrTyper
                     : TypeId.None;
             case ProjectionKind.Index:
                 return node.Kind is TypeKind.Array or TypeKind.Slice ? new TypeId(node.A) : TypeId.None;
+            case ProjectionKind.Payload:
+                return node.Kind == TypeKind.Optional && projection.Value == 0 ? new TypeId(node.A) : TypeId.None;
             default:
                 return TypeId.None;
         }
@@ -116,6 +118,27 @@ public static class IrTyper
             case RvalueKind.AlignOf:
             case RvalueKind.OffsetOf:
                 return i32;
+            case RvalueKind.HasPayload:
+                return boolean;
+            case RvalueKind.Slice:
+                TypeId sliced = OfPlace(module, body, r.Place);
+                if (sliced.IsNone)
+                {
+                    return TypeId.None;
+                }
+
+                TypeNode slicedNode = module.Types[sliced.Index];
+                return slicedNode.Kind is TypeKind.Array or TypeKind.Slice
+                    ? module.Type(new TypeNode(TypeKind.Slice, slicedNode.Kind == TypeKind.Slice ? slicedNode.Flags & TypeFlags.Const : TypeFlags.None, slicedNode.A, 0))
+                    : TypeId.None;
+            case RvalueKind.Alloca:
+                TypeFlags many = TypeFlags.Nullable | TypeFlags.Many;
+                return module.Type(new TypeNode(TypeKind.Ptr, many, r.Type.Index, 0));
+            case RvalueKind.OptionalSome:
+                TypeId payload = OfOperand(module, body, r.A);
+                return payload.IsNone ? TypeId.None : module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, payload.Index, 0));
+            case RvalueKind.OptionalNone:
+                return module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, r.Type.Index, 0));
             case RvalueKind.Call:
                 if (r.Callee == CalleeKind.Direct)
                 {

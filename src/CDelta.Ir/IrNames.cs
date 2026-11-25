@@ -56,8 +56,22 @@ public static class IrNames
         CastKind.IntPtr => "int.ptr",
         CastKind.PtrPtr => "ptr.ptr",
         CastKind.Bitcast => "bitcast",
-        CastKind.ArraySlice => "array.slice",
         _ => "slice.ptr",
+    };
+
+    public static string AllocaInit(AllocaInit init) => init switch
+    {
+        Ir.AllocaInit.Zero => "zero",
+        Ir.AllocaInit.Undef => "undef",
+        _ => "fill",
+    };
+
+    public static AllocaInit? ParseAllocaInit(string word) => word switch
+    {
+        "zero" => Ir.AllocaInit.Zero,
+        "undef" => Ir.AllocaInit.Undef,
+        "fill" => Ir.AllocaInit.Fill,
+        _ => null,
     };
 
     public static string Check(CheckKind kind) => kind switch
@@ -131,7 +145,7 @@ public static class IrNames
 
     public static CastKind? ParseCast(string word)
     {
-        foreach (CastKind kind in new[] { CastKind.IntInt, CastKind.IntFloat, CastKind.FloatInt, CastKind.FloatFloat, CastKind.IntEnum, CastKind.EnumInt, CastKind.PtrInt, CastKind.IntPtr, CastKind.PtrPtr, CastKind.Bitcast, CastKind.ArraySlice, CastKind.SlicePtr })
+        foreach (CastKind kind in new[] { CastKind.IntInt, CastKind.IntFloat, CastKind.FloatInt, CastKind.FloatFloat, CastKind.IntEnum, CastKind.EnumInt, CastKind.PtrInt, CastKind.IntPtr, CastKind.PtrPtr, CastKind.Bitcast, CastKind.SlicePtr })
         {
             if (Cast(kind) == word)
             {

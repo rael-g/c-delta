@@ -37,4 +37,5 @@ public enum TypeKind
     Fn,
     Struct,
     Enum,
+    Optional,
 }

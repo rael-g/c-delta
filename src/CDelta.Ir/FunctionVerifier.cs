@@ -127,7 +127,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             case StatementKind.Assign:
                 TypeId destination = PlaceType(body, statement.Place);
                 TypeId value = RvalueType(body, statement.Rvalue);
-                if (destination.IsNone || value.IsNone || destination != value)
+                if (destination.IsNone || value.IsNone || (destination != value && !ConstSliceOf(body, destination, statement.Rvalue)))
                 {
                     Fail("assignment of mismatched types");
                 }
@@ -362,12 +362,66 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 }
 
                 return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.HasPayload:
+                TypeId optional = PlaceType(body, r.Place);
+                if (optional.IsNone || KindOf(optional) != TypeKind.Optional)
+                {
+                    Fail("haspayload of something that is not an optional");
+                }
+
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.Slice:
+                TypeId sliced = PlaceType(body, r.Place);
+                if (sliced.IsNone || KindOf(sliced) is not (TypeKind.Array or TypeKind.Slice))
+                {
+                    Fail("slice of something that is not an array or a slice");
+                    return TypeId.None;
+                }
+
+                RequireInteger(body, r.A, "a slice start is not an integer");
+                RequireInteger(body, r.B, "a slice end is not an integer");
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.Alloca:
+                if (!ValidType(r.Type))
+                {
+                    return TypeId.None;
+                }
+
+                RequireInteger(body, r.A, "an alloca count is not an integer");
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.OptionalSome:
+                OperandType(body, r.A);
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.OptionalNone:
+                return ValidType(r.Type) ? IrTyper.OfRvalue(module, body, rvalue) : TypeId.None;
             case RvalueKind.SizeOf:
             case RvalueKind.AlignOf:
             case RvalueKind.OffsetOf:
                 return ValidType(r.Type) ? IrTyper.OfRvalue(module, body, rvalue) : TypeId.None;
             default:
                 return CallType(body, r);
+        }
+    }
+
+    private bool ConstSliceOf(Body body, TypeId destination, RvalueId rvalue)
+    {
+        if (body.Rvalues[rvalue.Index].Kind != RvalueKind.Slice)
+        {
+            return false;
+        }
+
+        TypeNode wanted = module.Types[destination.Index];
+        TypeId produced = IrTyper.OfRvalue(module, body, rvalue);
+        return wanted.Kind == TypeKind.Slice && wanted.Flags.HasFlag(TypeFlags.Const) && !produced.IsNone
+            && module.Types[produced.Index].A == wanted.A;
+    }
+
+    private void RequireInteger(Body body, OperandId operand, string message)
+    {
+        TypeId type = OperandType(body, operand);
+        if (type.IsNone || !IrTypes.IsInteger(IrTypes.ScalarKind(module, type)))
+        {
+            Fail(message);
         }
     }
 
@@ -398,8 +452,12 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 }
 
                 break;
+            case TypeKind.Slice:
+                expected.Add(module.Type(new TypeNode(TypeKind.Ptr, TypeFlags.Nullable | TypeFlags.Many | (node.Flags & TypeFlags.Const), node.A, 0)));
+                expected.Add(module.Type(new TypeNode(TypeKind.I32, TypeFlags.None, 0, 0)));
+                break;
             default:
-                Fail("an aggregate of a type that is not a struct or an array");
+                Fail("an aggregate of a type that is not a struct, an array or a slice");
                 return TypeId.None;
         }
 

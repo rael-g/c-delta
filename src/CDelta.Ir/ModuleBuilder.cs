@@ -17,6 +17,8 @@ public sealed class ModuleBuilder(Module module)
     public TypeId SliceOf(TypeId element, bool isConst) =>
         Module.Type(new TypeNode(TypeKind.Slice, isConst ? TypeFlags.Const : TypeFlags.None, element.Index, 0));
 
+    public TypeId OptionalOf(TypeId payload) => Module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, payload.Index, 0));
+
     public TypeId ArrayOf(TypeId element, int length) => Module.Type(new TypeNode(TypeKind.Array, TypeFlags.None, element.Index, length));
 
     public SigId Signature(CallConv conv, IReadOnlyList<SigParam> parameters, TypeId result, bool variadic, ParamMode returnMode = ParamMode.Value)

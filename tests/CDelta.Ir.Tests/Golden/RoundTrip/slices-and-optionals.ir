@@ -1,0 +1,24 @@
+module Golden stage lowered
+
+source 1 "$ROOT/Data.cs" "Data.cs"
+
+fn Data.Use(n: i32) -> i32 origin source(csharp) @1:1:1 {
+  local %0 n: i32 param
+  local %1 buf: array<i32, 4> user
+  local %2 view: slice<i32> user
+  local %3 ro: slice<i32> const user
+  local %4: ptr<i32> nullable many temp
+  local %5 opt: optional<i32> user
+  local %6: bool temp
+  local %7: i32 temp
+bb0:
+  %1 = aggregate array<i32, 4>(const i32 1, const i32 2, const i32 3, const i32 4)  @1:2:3
+  %2 = slice %1, const i32 0, const i32 4  @1:2:3
+  %3 = slice %2, const i32 1, copy %0  @1:2:3
+  %4 = alloca i32, const usize 8, zero  @1:2:3
+  %5 = optional.some copy %0  @1:2:3
+  %5 = optional.none i32  @1:2:3
+  %6 = haspayload %5  @1:2:3
+  %7 = copy %5.payload(0)  @1:2:3
+  return copy %7  @1:2:3
+}
