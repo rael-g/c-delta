@@ -26,7 +26,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
 
         for (int i = 0; i < module.Types.Count; i++)
         {
-            if (module.Types[i].Kind == TypeKind.Array)
+            if (module.Types[i].Kind is TypeKind.Array or TypeKind.Optional)
             {
                 VisitType(new TypeId(i), visitedStructs, visitedTypes, order);
             }
@@ -56,7 +56,10 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         {
             if (arrayType >= 0)
             {
-                text.Append(CTypes.ArrayDefinition(module, names, module.Types[arrayType]));
+                TypeNode node = module.Types[arrayType];
+                text.Append(node.Kind == TypeKind.Optional
+                    ? CTypes.OptionalDefinition(module, names, node)
+                    : CTypes.ArrayDefinition(module, names, node));
             }
             else
             {
@@ -122,6 +125,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 VisitStruct(new StructId(node.A), visitedStructs, visitedTypes, order);
                 break;
             case TypeKind.Array:
+            case TypeKind.Optional:
                 if (visitedTypes.Add(type.Index))
                 {
                     VisitType(new TypeId(node.A), visitedStructs, visitedTypes, order);

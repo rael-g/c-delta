@@ -14,6 +14,7 @@ internal sealed partial class CFunctionWriter(
     private const string Indent = "    ";
     private const string UnknownFile = "<unknown>";
     private const string IntegerOverflow = "integer overflow";
+    private const string AllocaFill = "0xAA";
     private const string CastTruncated = "integer cast truncated bits";
     private const string Unreachable = "reached unreachable code";
 
@@ -305,6 +306,10 @@ internal sealed partial class CFunctionWriter(
                 StructDecl declaration = module.Structs[module.Types[current.Index].A];
                 text += "." + CStructWriter.FieldNames(module, declaration)[projection.Value];
             }
+            else if (projection.Kind == ProjectionKind.Payload)
+            {
+                text += ".value";
+            }
             else
             {
                 string index = OperandText(new OperandId(projection.Value));
@@ -398,6 +403,21 @@ internal sealed partial class CFunctionWriter(
             case RvalueKind.Len:
                 Statement(destination + " = " + LenText(rvalue) + ";");
                 break;
+            case RvalueKind.Slice:
+                WriteSlice(rvalue, destination, cType);
+                break;
+            case RvalueKind.Alloca:
+                WriteAlloca(rvalue, destination);
+                break;
+            case RvalueKind.HasPayload:
+                Statement(destination + " = " + Place(rvalue.Place) + ".has;");
+                break;
+            case RvalueKind.OptionalSome:
+                Statement(destination + " = (" + cType + "){ " + OperandText(rvalue.A) + ", true };");
+                break;
+            case RvalueKind.OptionalNone:
+                Statement(destination + " = (" + cType + "){ .has = false };");
+                break;
             case RvalueKind.SizeOf:
                 Statement(destination + " = ((int32_t)sizeof(" + CTypes.Spell(module, names, rvalue.Type) + "));");
                 break;
@@ -421,10 +441,38 @@ internal sealed partial class CFunctionWriter(
         }
     }
 
+    private void WriteSlice(Rvalue rvalue, string destination, string cType)
+    {
+        TypeId container = IrTyper.OfPlace(module, _body, rvalue.Place);
+        string baseText = Place(rvalue.Place) + (module.Types[container.Index].Kind == TypeKind.Array ? ".e" : ".ptr");
+        string start = OperandText(rvalue.A);
+        Statement(destination + " = (" + cType + "){ " + baseText + " + " + start + ", "
+            + "(int32_t)(" + OperandText(rvalue.B) + " - " + start + ") };");
+    }
+
+    private void WriteAlloca(Rvalue rvalue, string destination)
+    {
+        state.UsesAlloca = true;
+        string element = CTypes.Spell(module, names, rvalue.Type);
+        string bytes = "(size_t)(" + OperandText(rvalue.A) + ") * sizeof(" + element + ")";
+        Statement(destination + " = (" + element + "*)cd_alloca(" + bytes + ", _Alignof(" + element + "));");
+        var init = (AllocaInit)rvalue.Aux;
+        if (init != AllocaInit.Undef)
+        {
+            Statement("__builtin_memset(" + destination + ", " + (init == AllocaInit.Zero ? "0" : AllocaFill) + ", " + bytes + ");");
+        }
+    }
+
     private string AggregateText(Rvalue rvalue, string cType)
     {
         TypeNode node = module.Types[rvalue.Type.Index];
         var text = new StringBuilder("(" + cType + "){ ");
+        if (node.Kind == TypeKind.Slice)
+        {
+            return text.Append(".ptr = ").Append(OperandText(_body.Args[rvalue.Args.Start]))
+                .Append(", .len = ").Append(OperandText(_body.Args[rvalue.Args.Start + 1])).Append(" }").ToString();
+        }
+
         if (node.Kind == TypeKind.Array)
         {
             text.Append("{ ");

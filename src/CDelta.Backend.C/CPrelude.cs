@@ -26,6 +26,17 @@ internal static class CPrelude
 
         """;
 
+    public const string Alloca = """
+        #if defined(_MSC_VER)
+        #include <malloc.h>
+        #define CD_ALLOCA_RAW(n) _alloca(n)
+        #else
+        #define CD_ALLOCA_RAW(n) __builtin_alloca(n)
+        #endif
+        #define cd_alloca(n, a) ((void*)(((uintptr_t)CD_ALLOCA_RAW((n) + (a) - 1) + (a) - 1) & ~(uintptr_t)((a) - 1)))
+
+        """;
+
     public const string LibcProtocol = """
         void cd_libc_write_stderr(const uint8_t* bytes, size_t length);
         noreturn void cd_libc_abort(void);

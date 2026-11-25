@@ -18,6 +18,8 @@ internal static class CTypes
                 return SliceName(module, names, node);
             case TypeKind.Array:
                 return ArrayName(module, names, node);
+            case TypeKind.Optional:
+                return OptionalName(module, names, node);
             case TypeKind.Struct:
                 return names.Struct(new StructId(node.A));
             case TypeKind.Enum:
@@ -34,6 +36,12 @@ internal static class CTypes
 
     public static string ArrayDefinition(Module module, CNames names, TypeNode node) =>
         "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " e[" + node.B + "]; } " + ArrayName(module, names, node) + ";\n";
+
+    public static string OptionalName(Module module, CNames names, TypeNode node) =>
+        "cd_T_optional_" + CNames.MangleSpelling(Spell(module, names, new TypeId(node.A)));
+
+    public static string OptionalDefinition(Module module, CNames names, TypeNode node) =>
+        "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " value; bool has; } " + OptionalName(module, names, node) + ";\n";
 
     public static string SliceName(Module module, CNames names, TypeNode node)
     {

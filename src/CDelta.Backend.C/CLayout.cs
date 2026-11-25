@@ -11,7 +11,7 @@ internal static class CLayout
         return node.Kind switch
         {
             TypeKind.Ptr or TypeKind.Fn or TypeKind.Slice => target.PointerSize,
-            TypeKind.Array => AlignmentOf(module, new TypeId(node.A)),
+            TypeKind.Array or TypeKind.Optional => AlignmentOf(module, new TypeId(node.A)),
             TypeKind.Struct => module.Structs[node.A].Alignment,
             _ => PrimitiveLayout.Alignment(node.Kind, target),
         };

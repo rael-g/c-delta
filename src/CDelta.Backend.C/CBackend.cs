@@ -28,6 +28,11 @@ public static class CBackend
             text.Append('\n').Append(CPrelude.UnusedMarker);
         }
 
+        if (state.UsesAlloca)
+        {
+            text.Append('\n').Append(CPrelude.Alloca);
+        }
+
         if (state.UsesPanic)
         {
             if (options.LinkLibC)

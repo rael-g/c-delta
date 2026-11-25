@@ -46,6 +46,18 @@ internal static class CConstants
             case ConstKind.Aggregate:
                 int[] items = module.TypeLists[constant.Items.Index];
                 var text = new StringBuilder("{ ");
+                if (node.Kind == TypeKind.Slice)
+                {
+                    return "{ .ptr = " + Initializer(module, names, new ConstId(items[0])) + ", .len = "
+                        + Initializer(module, names, new ConstId(items[1])) + " }";
+                }
+
+                if (node.Kind == TypeKind.Optional)
+                {
+                    return "{ .value = " + Initializer(module, names, new ConstId(items[0])) + ", .has = "
+                        + Initializer(module, names, new ConstId(items[1])) + " }";
+                }
+
                 if (node.Kind == TypeKind.Array)
                 {
                     text.Append("{ ");
