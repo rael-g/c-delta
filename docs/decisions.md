@@ -270,6 +270,11 @@ codes, so the IR names errors until the core numbers them. A `result` is read wi
 projections as an optional, and every read is checked in safe modes, leaving the redundant test
 after a branch to the C compiler.
 
+**D146. No borrow checker; memory safety help is opt-in and lives outside the compiler.** A
+borrow checker needs move semantics and lifetime syntax that C# lacks, and an optional one
+proves little. Roslyn's ref safety on `ref struct` types gives checked views for free, an
+analyzer package gives lints, and the debug allocator and pools catch the rest at run time.
+
 ## Repository
 
 **D201. Documents and code are in English.**

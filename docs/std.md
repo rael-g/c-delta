@@ -77,6 +77,10 @@ with handles for graphs and cycles; a shared owner that is truly needed is refer
 hand. A conservative collector may exist as a package outside the std, as an `IAllocator` over a
 C library.
 
+Checked views as `ref struct` types (a scoped span over stack or arena memory), and a separate
+analyzer package with the memory lints of [language/memory.md](language/memory.md#lifetimes),
+outside the std and installed by choice.
+
 Networking, a JSON reader and writer, compression and hashing wrappers (zlib, xxhash),
 `Std.Build` for build steps in CΔ, SIMD vectors. Each enters the std only when a real program
 needs it.

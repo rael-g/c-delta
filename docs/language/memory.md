@@ -67,8 +67,18 @@ plus two checks of obvious mistakes:
   [generics-interfaces-delegates.md](generics-interfaces-delegates.md#lambdas-and-closures)).
 
 Everything else (use after free, double free, dangling pointers into a freed buffer) is the
-programmer's responsibility, helped by `Std.Heap.DebugAllocator`, which detects leaks, double frees
-and use after free in Debug builds by never reusing addresses and poisoning freed memory.
+programmer's responsibility. CΔ promises no full memory safety; it offers help in three opt-in
+layers (D146):
+
+- **Checked views.** `ref struct` types of the std, such as a scoped span, get Roslyn's ref
+  safety analysis: the compiler proves they never outlive the memory they view. Plain spans stay
+  unchecked ordinary structs.
+- **Lints.** An optional analyzer package warns about likely mistakes inside a function: a use
+  after `Free`, an allocation with no `Free` or `Defer` on some exit path, stack memory stored in
+  a field or global. It is a heuristic, not a proof.
+- **Run time.** `Std.Heap.DebugAllocator` detects leaks, double frees and use after free in Debug
+  builds by never reusing addresses and poisoning freed memory; `Pool<T>` turns a use after free
+  of a handle into an error value.
 
 ## Uninitialized memory
 
