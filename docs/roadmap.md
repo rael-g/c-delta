@@ -128,7 +128,7 @@ completion of `C.fopen` and CΔ diagnostics.
 - Generics with monomorphization, constraints, static abstract members and operators, generic
   math on primitives and on user types.
 - Interfaces as constraints, `Dyn<I>`, dispatch tables, `[Union]` interfaces, type patterns.
-- Delegates, lambdas, closure conversion, local functions, function pointers.
+- Delegates, lambdas, closure conversion, local functions, function pointers (D144) and `CD1030`.
 - Every `CD5xxx` rule, `CD2002`.
 
 Accepted when: `generics` conformance passes; a generic `List<T>` and a `Dyn<IAllocator>` arena

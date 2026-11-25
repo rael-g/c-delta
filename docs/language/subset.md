@@ -74,7 +74,7 @@ including the std, cannot declare them.
 | Tuples `(int, int)` | Kept: anonymous structs |
 | Nullable value types `T?` | Kept: optionals |
 | Nullable reference types | Not applicable: disabled |
-| Pointers, function pointers | Kept |
+| Pointers, function pointers | Kept: `delegate*<...>` is a C function pointer with the default convention; `delegate* unmanaged` only with a named convention (`CD1030`) |
 | `TypedReference`, `__makeref`, `__reftype`, `__refvalue` | Removed. `CD1027` |
 | `__arglist` | Restricted: only in declarations and calls of variadic C functions. `CD1027` |
 

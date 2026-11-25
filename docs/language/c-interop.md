@@ -80,7 +80,7 @@ declarations, functions taking or returning a struct by value with a flexible ar
 | `T*`, `const T*` | `T*`; constness is kept in Delta IR and in the generated C |
 | `void*` | `void*` |
 | `T[N]` parameter | `T*` |
-| function pointer | `delegate* unmanaged[Cdecl]<...>`, or the convention the header states |
+| function pointer | `delegate*<...>` for the target's default convention; `delegate* unmanaged[Stdcall]<...>` and the other named conventions only when the header states a different one |
 
 Imports are per target: a header read for `x86_64-windows` and for `x86_64-linux` may produce
 different declarations. Code written against `CLong`, `nuint` and the declared names stays

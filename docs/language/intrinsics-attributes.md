@@ -83,7 +83,8 @@ The second table lists the C# names CΔ reuses.
 | `Math.*`, `MathF.*` (the subset in the corelib) | mapped to C `<math.h>` or compiler builtins |
 | `CLong`, `CULong`, `NFloat` | C `long`, `unsigned long`, and a pointer-sized float |
 | `IDisposable` | the `using` contract |
-| `CallConvCdecl`, `CallConvStdcall`, `CallConvFastcall`, `CallConvThiscall`, `CallConvVectorcall` | calling conventions in `delegate* unmanaged[...]` |
+| `CallConvCdecl`, `CallConvStdcall`, `CallConvFastcall`, `CallConvThiscall`, `CallConvVectorcall` | calling conventions in `delegate* unmanaged[...]` and `[UnmanagedCallersOnly]`, only when not the target's default |
+| `[UnmanagedCallersOnly(CallConvs = [...])]` | gives a method a non-default calling convention, so that `&Method` converts to `delegate* unmanaged[...]` |
 
 Corelib members that C# exposes as properties or operators on primitives and spans (`Length`,
 indexers, ranges, arithmetic and comparison operators, `MinValue`, `MaxValue`) are intrinsics too.

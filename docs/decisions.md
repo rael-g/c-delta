@@ -259,6 +259,11 @@ matrices, fixed point, colors) into the compiler as intrinsics, which does not s
 conversions stay removed because nothing in the text shows the call; `true`, `false`, `++`, `--`
 and compound assignment operators stay removed to keep one spelling.
 
+**D144. `delegate*<...>` is the C function pointer.** CΔ has no managed code, so C#'s managed
+and unmanaged function pointers mean the same thing; the plain form needs no
+`[UnmanagedCallersOnly]` on callbacks. The unmanaged form remains only to name a non-default
+calling convention.
+
 ## Repository
 
 **D201. Documents and code are in English.**

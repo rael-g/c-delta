@@ -113,9 +113,22 @@ static void Sort(Span<int> items, Compare compare) { ... }
 
 ### Function pointers
 
-`delegate*<int, int, int>` and `delegate* unmanaged[Cdecl]<int, int>` are bare C function
-pointers. A `static` lambda or a static method converts to them with `&Method`. They are the form
-used at the C boundary.
+`delegate*<int, int, int>` is a bare C function pointer with the target's default calling
+convention. Every CΔ function already has the C ABI, so there is no managed form: a static method
+or a `static` lambda converts to it with `&Method` and can be handed to C as a callback, with no
+attribute.
+
+```csharp
+static void OnKey(int key) { }
+
+C.set_key_callback(&OnKey);
+```
+
+`delegate* unmanaged[Stdcall]<...>` and the other named conventions exist for C functions that
+state a convention other than the default. As in C#, `&Method` to such a pointer requires
+`[UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]` on the method, which gives the
+method that convention. `delegate* unmanaged<...>` with no named convention is the default
+convention and is written `delegate*<...>` instead (`CD1030`).
 
 ## Lambdas and closures
 

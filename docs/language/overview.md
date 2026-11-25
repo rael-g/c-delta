@@ -72,7 +72,7 @@ What to notice:
 | Static polymorphism | a generic constrained by an interface | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
 | Dynamic dispatch | an interface value made by `Dyn<I>.Of` | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
 | A callback with context | a delegate (function plus context pointer) | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
-| A bare C function pointer | `delegate* unmanaged[Cdecl]<...>` | [c-interop.md](c-interop.md) |
+| A bare C function pointer | `delegate*<...>` | [c-interop.md](c-interop.md) |
 | Compile-time evaluation | `static readonly` initializers, `Comptime(...)`, `[Comptime]` parameters | [comptime.md](comptime.md) |
 | Compile-time type parameters | generics | [comptime.md](comptime.md) |
 | Unrecoverable failure | `throw Panic("...")`, `throw Unreachable()` | [errors.md](errors.md) |

@@ -74,6 +74,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1027 | `TypedReference` constructs are not part of CΔ, and `__arglist` is only for variadic C functions | [../language/c-interop.md](../language/c-interop.md#what-a-header-becomes) |
 | CD1028 | `params` arrays are not part of CΔ; use `params ReadOnlySpan<T>` | [../language/subset.md](../language/subset.md#members) |
 | CD1029 | delegates do not combine | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#delegates) |
+| CD1030 | a function pointer with the default calling convention is written `delegate*<...>` | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#function-pointers) |
 | CD2001 | this switch does not cover every value; add the missing members or `default` | [../language/types.md](../language/types.md#enums) |
 | CD2002 | a capturing lambda cannot outlive the function that created it | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
 | CD2003 | an opaque type can only be used behind a pointer | [../language/types.md](../language/types.md#opaque-structs) |
