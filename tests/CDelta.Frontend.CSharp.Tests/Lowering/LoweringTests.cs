@@ -24,6 +24,8 @@ public sealed class LoweringTests
             [new SourceInput(sourcePath, name + ".cs", File.ReadAllText(sourcePath))],
             Path.Combine(AppContext.BaseDirectory, CorelibFileName),
             "Golden",
+            [],
+            [],
             bag);
 
         Assert.Empty(frontend.BindingErrors);

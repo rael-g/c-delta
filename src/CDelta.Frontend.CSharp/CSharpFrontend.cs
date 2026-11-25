@@ -3,7 +3,9 @@ using DiagnosticCode = CDelta.Diagnostics.DiagnosticCode;
 using Note = CDelta.Diagnostics.Note;
 using CDelta.Ir;
 using TypeKind = CDelta.Ir.TypeKind;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 
@@ -43,16 +45,15 @@ public sealed class CSharpFrontend : IBodyProvider
         IReadOnlyList<SourceInput> sources,
         string corelibPath,
         string packageName,
+        IReadOnlyList<string> preprocessorSymbols,
+        ImmutableArray<DiagnosticAnalyzer> analyzers,
         DiagnosticBag diagnostics)
     {
-        CSharpCompilation compilation = CompilationFactory.Create(sources, corelibPath, packageName);
+        CSharpCompilation compilation = CompilationFactory.Create(sources, corelibPath, packageName, preprocessorSymbols);
         var builder = new ModuleBuilder(new Module(packageName));
         var frontend = new CSharpFrontend(compilation, builder, diagnostics)
         {
-            BindingErrors = compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error)
-                .Select(FormatBindingError)
-                .ToList(),
+            BindingErrors = ErrorsOf(compilation, analyzers),
         };
         foreach (SourceInput source in sources)
         {
@@ -60,6 +61,20 @@ public sealed class CSharpFrontend : IBodyProvider
         }
 
         return frontend;
+    }
+
+    private static List<string> ErrorsOf(CSharpCompilation compilation, ImmutableArray<DiagnosticAnalyzer> analyzers)
+    {
+        ImmutableArray<Microsoft.CodeAnalysis.Diagnostic> all = analyzers.IsDefaultOrEmpty
+            ? compilation.GetDiagnostics()
+            : compilation.WithAnalyzers(analyzers).GetAllDiagnosticsAsync().GetAwaiter().GetResult();
+        return all
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .OrderBy(d => d.Location.GetLineSpan().Path, StringComparer.Ordinal)
+            .ThenBy(d => d.Location.SourceSpan.Start)
+            .ThenBy(d => d.Id, StringComparer.Ordinal)
+            .Select(FormatBindingError)
+            .ToList();
     }
 
     private static string FormatBindingError(Microsoft.CodeAnalysis.Diagnostic diagnostic)

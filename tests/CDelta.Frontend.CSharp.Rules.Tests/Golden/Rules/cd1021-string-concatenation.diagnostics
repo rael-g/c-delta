@@ -1,0 +1,6 @@
+cd1021-string-concatenation.cs(8,9): CD1020
+cd1021-string-concatenation.cs(9,9): CD1020
+cd1021-string-concatenation.cs(9,17): CD1021
+cd1021-string-concatenation.cs(10,9): CD1020
+cd1021-string-concatenation.cs(10,17): CD1021
+cd1021-string-concatenation.cs(10,17): CS0117

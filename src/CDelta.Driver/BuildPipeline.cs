@@ -2,6 +2,7 @@ using CDelta.Backend.C;
 using CDelta.Core;
 using CDelta.Diagnostics;
 using CDelta.Frontend.CSharp;
+using CDelta.Frontend.CSharp.Rules;
 using CDelta.Ir;
 using CDelta.Toolchain;
 
@@ -71,7 +72,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         }
 
         string packageName = Path.GetFileNameWithoutExtension(sources[0].FullPath);
-        var frontend = CSharpFrontend.Create(sources, LibraryLocator.Corelib(environment), packageName, diagnostics);
+        var frontend = CSharpFrontend.Create(sources, LibraryLocator.Corelib(environment), packageName, BuildSymbols.For(target, options.Mode), SubsetAnalyzers.Create(), diagnostics);
         if (frontend.BindingErrors.Count > 0)
         {
             messages.AddRange(frontend.BindingErrors);

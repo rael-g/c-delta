@@ -474,16 +474,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             throw new UnsupportedConstructException("a string converts only to byte* at this stage", location);
         }
 
-        byte[] encoded;
-        try
-        {
-            encoded = new UTF8Encoding(false, true).GetBytes(text);
-        }
-        catch (EncoderFallbackException)
-        {
-            frontend.Report(DiagnosticCode.CD2007, location, "the literal contains an unpaired surrogate");
-            encoded = [];
-        }
+        byte[] encoded = new UTF8Encoding(false, true).GetBytes(text);
 
         TypeId u8 = _builder.Primitive(TypeKind.U8);
         TypeId constType = _builder.Pointer(u8, TypeFlags.Nullable | TypeFlags.Const | TypeFlags.Many);
