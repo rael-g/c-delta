@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CDelta.Backend.C/CDelta.Backend.C.csproj" />
+    <Project Path="src/CDelta.Backend.CSharp/CDelta.Backend.CSharp.csproj" />
+    <Project Path="src/CDelta.Build.Tasks/CDelta.Build.Tasks.csproj" />
+    <Project Path="src/CDelta.Cli/CDelta.Cli.csproj" />
+    <Project Path="src/CDelta.Core/CDelta.Core.csproj" />
+    <Project Path="src/CDelta.Diagnostics/CDelta.Diagnostics.csproj" />
+    <Project Path="src/CDelta.Driver/CDelta.Driver.csproj" />
+    <Project Path="src/CDelta.Frontend.C/CDelta.Frontend.C.csproj" />
+    <Project Path="src/CDelta.Frontend.CSharp.Rules/CDelta.Frontend.CSharp.Rules.csproj" />
+    <Project Path="src/CDelta.Frontend.CSharp/CDelta.Frontend.CSharp.csproj" />
+    <Project Path="src/CDelta.Ir/CDelta.Ir.csproj" />
+    <Project Path="src/CDelta.Toolchain/CDelta.Toolchain.csproj" />
+  </Folder>
+</Solution>
