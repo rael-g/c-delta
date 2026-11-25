@@ -83,6 +83,7 @@ public enum DiagnosticCode
     CD6007 = 6007,
     CD6008 = 6008,
     CD6009 = 6009,
+    CD6010 = 6010,
     CD9001 = 9001,
     CD9002 = 9002,
 }

@@ -85,6 +85,7 @@ public static class DiagnosticRegistry
         [DiagnosticCode.CD6007] = "this 'DllImport' option is not supported",
         [DiagnosticCode.CD6008] = "'[CMacro]' applies only to 'static extern' methods",
         [DiagnosticCode.CD6009] = "two imports define the same macro differently",
+        [DiagnosticCode.CD6010] = "two '[DllImport]' declarations of one C function have different signatures",
         [DiagnosticCode.CD9001] = "internal compiler error",
         [DiagnosticCode.CD9002] = "internal IR verification failure",
     };
