@@ -132,8 +132,9 @@ Slices, stack memory and optionals:
 | `new T?(v)`, a conversion from `T` to `T?` | `optional.some v` |
 | `null` or `default` of `T?` | `optional.none T` |
 
-- The payload of an optional is variant `0`. Lifted operators and `?.` reach the IR already
-  expanded by Roslyn into these forms.
+- The payload of an optional is variant `0`. `?.` and `??` reach the IR already expanded by
+  Roslyn into these forms; lifted operators are expanded by the frontend
+  ([frontend-csharp.md](frontend-csharp.md#lowering-bodies)).
 - `slice` takes a slice or array place and gives a slice of the same element type (`const` when
   the place's slice is `const` or the destination is a read-only span) over the elements
   `start` to `end` excluded.

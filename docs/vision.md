@@ -43,8 +43,9 @@ These follow from the north and decide most design questions directly.
   meaning.
 - **Valid C# at all times.** Roslyn must report no error on a CΔ program. This keeps every C#
   editor, formatter and refactoring working on CΔ code for free.
-- **Reading code beats writing it.** A call looks like a call. An operator never calls user code.
-  A field access never runs code. Anything that allocates takes an allocator.
+- **Reading code beats writing it.** A call looks like a call. An operator calls user code only on
+  a user type, where it reads as that type's operation, and only through its operands. A field
+  access never runs code. Anything that allocates takes an allocator.
 - **Edge cases are the design.** Overflow, out of range, null, invalid enum values and division by
   zero have a defined answer in every build mode.
 - **A compile error beats a runtime crash, and a runtime crash beats a silent bug.**

@@ -149,6 +149,8 @@ branches, with explicit flow captures for evaluation order. The translation is t
 | `ControlFlowRegion` of kind `LocalLifetime` | `live` and `dead` |
 | `TryAndFinally` region (only from `using`) | the finally body copied on each exit edge, like `Defer` |
 | invocations, operators, conversions, member references | the corresponding rvalues and statements |
+| an operator or conversion whose `OperatorMethod` is a user method | `call direct` of that method; Roslyn has already chosen the `checked` form in a checked context |
+| a lifted operator (`IsLifted`) on optionals | expanded as C# defines it: arithmetic gives `optional.none` unless both operands have a payload; `==` is true when both have none and compares payloads when both have one; `< > <= >=` are false unless both have a payload |
 | `IIsPatternOperation` | pattern lowering, below |
 | enumerator calls of corelib spans and ranges | an index loop |
 | `IFlowAnonymousFunctionOperation` | closure conversion, below |

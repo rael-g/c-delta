@@ -18,13 +18,14 @@ registered in [../compiler/diagnostics.md](../compiler/diagnostics.md).
 
 A construct is removed when it requires a garbage collector or a runtime (classes, arrays,
 `object`, exceptions, `async`), when it makes syntax call user code invisibly (properties,
-indexers, operators, conversions, finalizers, events), or when it duplicates a kept construct with
-hidden behavior.
+indexers, implicit conversions, finalizers, events), or when it duplicates a kept construct with
+hidden behavior. Operators and explicit conversions on user types are kept: the operand's type
+shows that the type's code runs, and an operator receives nothing but its operands (D143).
 
-The corelib is exempt from the hidden-call rule: it declares properties, indexers and operators
-(`Span<T>.Length`, `Span<T>[int]`, operators on primitives, the conversion of a `string` literal),
-because they are intrinsics that the compiler implements directly and Roslyn needs them declared.
-User code, including the std, cannot declare them.
+The corelib is exempt from the hidden-call rule: it declares properties, indexers and implicit
+conversions (`Span<T>.Length`, `Span<T>[int]`, the conversion of a `string` literal), because they
+are intrinsics that the compiler implements directly and Roslyn needs them declared. User code,
+including the std, cannot declare them.
 
 ## Lexical structure
 
@@ -89,7 +90,8 @@ User code, including the std, cannot declare them.
 | Instance methods of structs | Kept: `this` is a reference to the receiver |
 | `readonly` members | Kept |
 | Extension methods, extension blocks (methods only) | Kept |
-| Extension properties and operators | Removed. `CD1004`, `CD1007` |
+| Extension properties | Removed. `CD1004` |
+| Extension operators (in extension blocks) | Kept with the same set as operators below; this is how operators reach imported C structs |
 | Instance constructors of structs, primary constructors of structs | Kept: `new` never allocates |
 | Field initializers in structs | Kept |
 | Static constructors | Removed: static state is initialized at comptime. `CD1009` |
@@ -97,7 +99,9 @@ User code, including the std, cannot declare them.
 | Properties (including auto, `init`, `required`, partial, `field`) | Removed. `CD1004` |
 | Indexers | Removed. `CD1005` |
 | Events | Removed. `CD1006` |
-| Operators and conversion operators | Removed. `CD1007` |
+| Operators: unary `+ - ! ~`; binary `+ - * / % & \| ^ << >> >>>`; `== != < > <= >=`; their `checked` forms | Kept: a call to the operator method (D143) |
+| Explicit conversion operators, and their `checked` forms | Kept: a cast is written at every use |
+| Implicit conversion operators; operators `true`, `false`, `++`, `--`; compound assignment operators | Removed. `CD1007` |
 | `Deconstruct` methods | Removed: tuples deconstruct natively. `CD1024` |
 | `abstract`, `virtual`, `override`, `sealed`, `protected`, `base`, `new` as a modifier | Removed. `CD1003` |
 | `public`, `internal`, `private` on types and methods, `file` | Kept: visibility, see [modules-build.md](modules-build.md) |
@@ -133,8 +137,8 @@ User code, including the std, cannot declare them.
 | Feature | Status |
 |---|---|
 | Arithmetic, bitwise, shift, comparison, logical operators on primitives | Kept |
-| Operators on user types | Not possible: they cannot be declared |
-| `==` on structs | Not available (C# defines none); use `Std.Mem.Eql` |
+| Operators on user types | Kept: the declared operator, called as a function |
+| `==` on structs | Only when the struct declares it; otherwise `Std.Mem.Eql` |
 | Assignment, compound assignment, `??`, `??=`, `?.`, `?:`, `is`, `switch` expressions | Kept |
 | Patterns: constant, relational, logical, declaration, `var`, discard, property, positional, list | Kept; property patterns match fields |
 | Type patterns | Restricted: only on a `[Union]` interface or a type parameter. `CD5004` |
@@ -184,3 +188,4 @@ Site-specific suppression uses a Roslyn `DiagnosticSuppressor`, so the IDE and t
 |---|---|
 | CS0626 | An `extern` method without `DllImport` is the normal form of an imported C function |
 | CS8524 | Unnamed enum values are handled by `CD2001` according to whether the enum is exhaustive |
+| CS0660, CS0661 | A type declaring `==` and `!=` has no `Equals` or `GetHashCode` to override; there is no object model |

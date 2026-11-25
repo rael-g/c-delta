@@ -15,11 +15,11 @@ preference: an existing C# name with that meaning, a CΔ attribute, a CΔ intrin
 
 **D003. The subset checker is an allowlist.** New C# versions add nothing until reviewed.
 
-**D004. No user code can make syntax call user code invisibly.** Properties, indexers, operators,
+**D004. No user code can make syntax call user code invisibly.** Properties, indexers, implicit
 conversions, events, finalizers and `Deconstruct` are removed. The corelib declares such members
 because Roslyn needs them, and the compiler implements them as intrinsics. Exceptions kept:
-`using` (the keyword announces the `Dispose` call) and interpolated string handlers (the `$`
-announces the formatting calls).
+`using` (the keyword announces the `Dispose` call), interpolated string handlers (the `$`
+announces the formatting calls), and operators and explicit conversions on user types (D143).
 
 **D005. `static class` is the module.** C# requires functions to live in a type; a static class
 has no instances, so keeping it costs no object model.
@@ -250,6 +250,14 @@ compilable without toolchain flags.
 Automatic strategies need hidden calls or a runtime, and their explicit versions remove no work.
 Arenas and pools with handles remove the work instead, and are the std's answer; a conservative
 collector can only be a package, behind `IAllocator`.
+
+**D143. User types declare arithmetic, bitwise and comparison operators and explicit
+conversions.** An operator on a user type is visibly an operation on that type, receives nothing
+but its operands, and returns a value, never a `Result`: it can neither allocate behind the
+caller's back nor fail silently. Forbidding operators would force every numeric type (vectors,
+matrices, fixed point, colors) into the compiler as intrinsics, which does not scale. Implicit
+conversions stay removed because nothing in the text shows the call; `true`, `false`, `++`, `--`
+and compound assignment operators stay removed to keep one spelling.
 
 ## Repository
 

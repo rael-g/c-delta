@@ -43,6 +43,8 @@ Accepted when: `hello` prints through `puts`; an overflow program panics in Debu
   except type patterns, tuples, optionals, `Defer`, `using`, `goto`.
 - Global initializers that are constants or collection expressions of constants. Until M6 any
   other initializer is `CD4006`.
+- Operators and explicit conversions on user types, extension operators, lifted operators on
+  optionals (D143).
 - The subset analyzer with every `CD1xxx` and `CD2xxx` rule, and the Roslyn promotions.
 - Layout assertions in generated C; the layout catalog test.
 - IR parser and round trip.
@@ -123,8 +125,8 @@ completion of `C.fopen` and CΔ diagnostics.
 
 ## M4: Abstraction
 
-- Generics with monomorphization, constraints, static abstract members, generic math on
-  primitives.
+- Generics with monomorphization, constraints, static abstract members and operators, generic
+  math on primitives and on user types.
 - Interfaces as constraints, `Dyn<I>`, dispatch tables, `[Union]` interfaces, type patterns.
 - Delegates, lambdas, closure conversion, local functions, function pointers.
 - Every `CD5xxx` rule, `CD2002`.

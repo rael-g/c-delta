@@ -15,9 +15,10 @@ call through a constraint is resolved statically.
   rejected by `CD1000`.
 - Static abstract and static virtual interface members are kept. They are the way to call a
   function of `T` without a value: `T.Zero`, `T.Parse(text)`.
-- Generic math works on primitives: the corelib declares `INumber<T>` and the operator interfaces
-  (`IAdditionOperators<T, T, T>` and the others of C#), implemented by every primitive. User types
-  cannot implement the operator interfaces because they cannot declare operators.
+- Generic math works on primitives and user types: the corelib declares `INumber<T>` and the
+  operator interfaces (`IAdditionOperators<T, T, T>` and the others of C#), implemented by every
+  primitive, and a struct that declares the operators may implement them, so one `Lerp<T>` serves
+  `float` and a `Vector2`.
 - Inside an instantiation, `typeof(T) == typeof(int)` and `value is int i` on a `T` are folded at
   compile time, so generic code can specialize per type with no cost.
 - Instantiation depth is limited to 64 nested generic instantiations (`CD5005`), which catches
@@ -27,8 +28,8 @@ call through a constraint is resolved statically.
 ## Interfaces
 
 An interface is a contract: method signatures, static abstract members, and optionally default
-method bodies. Interfaces may extend other interfaces. They declare no properties, indexers,
-events or operators (`CD1004` to `CD1007`).
+method bodies. Interfaces may extend other interfaces. They declare no properties, indexers or
+events (`CD1004` to `CD1006`); they may declare static abstract operators of the kept set.
 
 A struct implements an interface by listing it, as in C#. There are three ways to use one.
 

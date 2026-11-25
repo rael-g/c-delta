@@ -51,7 +51,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1004 | properties are not part of CΔ; use a field or a method | [../language/subset.md](../language/subset.md#members) |
 | CD1005 | indexers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1006 | events are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
-| CD1007 | operator and conversion declarations are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1007 | implicit conversions and the operators `true`, `false`, `++`, `--` and compound assignment are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1008 | finalizers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1009 | static constructors are not part of CΔ; initialize statics with comptime | [../language/subset.md](../language/subset.md#members) |
 | CD1010 | `try` is not part of CΔ; return a `Result` | [../language/errors.md](../language/errors.md) |
