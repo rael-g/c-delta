@@ -56,7 +56,10 @@ public static class IrNames
         CastKind.IntPtr => "int.ptr",
         CastKind.PtrPtr => "ptr.ptr",
         CastKind.Bitcast => "bitcast",
-        _ => "slice.ptr",
+        CastKind.SlicePtr => "slice.ptr",
+        CastKind.EnumError => "enum.error",
+        CastKind.ErrorEnum => "error.enum",
+        _ => "error.error",
     };
 
     public static string AllocaInit(AllocaInit init) => init switch
@@ -145,7 +148,7 @@ public static class IrNames
 
     public static CastKind? ParseCast(string word)
     {
-        foreach (CastKind kind in new[] { CastKind.IntInt, CastKind.IntFloat, CastKind.FloatInt, CastKind.FloatFloat, CastKind.IntEnum, CastKind.EnumInt, CastKind.PtrInt, CastKind.IntPtr, CastKind.PtrPtr, CastKind.Bitcast, CastKind.SlicePtr })
+        foreach (CastKind kind in new[] { CastKind.IntInt, CastKind.IntFloat, CastKind.FloatInt, CastKind.FloatFloat, CastKind.IntEnum, CastKind.EnumInt, CastKind.PtrInt, CastKind.IntPtr, CastKind.PtrPtr, CastKind.Bitcast, CastKind.SlicePtr, CastKind.EnumError, CastKind.ErrorEnum, CastKind.ErrorError })
         {
             if (Cast(kind) == word)
             {

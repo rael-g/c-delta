@@ -62,6 +62,15 @@ public static partial class IrPrinter
             PrintGlobal(module, global, text);
         }
 
+        if (module.ErrorNames.Count > 0)
+        {
+            text.Append('\n');
+            foreach ((string name, int code) in module.ErrorNames)
+            {
+                text.Append("error ").Append(name).Append(" = ").Append(code).Append('\n');
+            }
+        }
+
         foreach (FunctionId function in OrderedFunctions(module))
         {
             text.Append('\n');
@@ -88,6 +97,12 @@ public static partial class IrPrinter
                 return node.Flags.HasFlag(TypeFlags.Const) ? slice + " const" : slice;
             case TypeKind.Optional:
                 return "optional<" + TypeText(module, new TypeId(node.A)) + ">";
+            case TypeKind.Result:
+                return "result<" + TypeText(module, new TypeId(node.A)) + ", " + TypeText(module, new TypeId(node.B)) + ">";
+            case TypeKind.ErrorSet:
+                return "errorset{" + string.Join(", ", module.TypeLists[node.A].Select(i => module.Strings[i])) + "}";
+            case TypeKind.AnyError:
+                return "anyerror";
             case TypeKind.Array:
                 return "array<" + TypeText(module, new TypeId(node.A)) + ", " + node.B + ">";
             case TypeKind.Fn:
@@ -515,6 +530,15 @@ public static partial class IrPrinter
             case StatementKind.Live:
                 text.Append("live %").Append(statement.Aux);
                 break;
+            case StatementKind.TracePush:
+                text.Append("trace.push");
+                break;
+            case StatementKind.TraceSave:
+                text.Append("trace.save %").Append(statement.Aux);
+                break;
+            case StatementKind.TraceRestore:
+                text.Append("trace.restore %").Append(statement.Aux);
+                break;
             default:
                 text.Append("dead %").Append(statement.Aux);
                 break;
@@ -654,6 +678,9 @@ public static partial class IrPrinter
             case ConstKind.Null:
                 text.Append("null");
                 break;
+            case ConstKind.Error:
+                text.Append("error ").Append(module.Strings[(int)constant.Value]);
+                break;
             case ConstKind.Bytes:
                 text.Append("bytes ").Append(QuoteBytes(module.Bytes[constant.Bytes.Index]));
                 break;
@@ -764,6 +791,41 @@ public static partial class IrPrinter
                 break;
             case RvalueKind.OptionalNone:
                 text.Append("optional.none ").Append(TypeText(module, rvalue.Type));
+                break;
+            case RvalueKind.ResultOk:
+                text.Append("result.ok ").Append(TypeText(module, rvalue.Type));
+                if (!rvalue.A.IsNone)
+                {
+                    text.Append(' ');
+                    PrintOperand(module, body, rvalue.A, text);
+                }
+
+                break;
+            case RvalueKind.ResultErr:
+                text.Append("result.err ").Append(TypeText(module, rvalue.Type)).Append(' ');
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.Err:
+                text.Append("err ");
+                PrintPlace(module, body, rvalue.Place, text);
+                break;
+            case RvalueKind.Errcode:
+                text.Append("errcode ");
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.Intrinsic:
+                text.Append("intrinsic ").Append(module.Strings[rvalue.Aux]).Append('(');
+                for (int i = 0; i < rvalue.Args.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        text.Append(", ");
+                    }
+
+                    PrintOperand(module, body, body.Args[rvalue.Args.Start + i], text);
+                }
+
+                text.Append(')');
                 break;
             case RvalueKind.SizeOf:
                 text.Append("sizeof ").Append(TypeText(module, rvalue.Type));

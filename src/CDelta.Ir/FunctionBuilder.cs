@@ -73,6 +73,17 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public RvalueId OptionalNone(TypeId payload) => AddRvalue(Blank(RvalueKind.OptionalNone) with { Type = payload });
 
+    public RvalueId ResultOk(TypeId type, OperandId value) => AddRvalue(Blank(RvalueKind.ResultOk) with { Type = type, A = value });
+
+    public RvalueId ResultErr(TypeId type, OperandId error) => AddRvalue(Blank(RvalueKind.ResultErr) with { Type = type, A = error });
+
+    public RvalueId Err(PlaceId place) => AddRvalue(Blank(RvalueKind.Err) with { Place = place });
+
+    public RvalueId Errcode(OperandId error) => AddRvalue(Blank(RvalueKind.Errcode) with { A = error });
+
+    public RvalueId Intrinsic(string name, IReadOnlyList<OperandId> args) =>
+        AddRvalue(Blank(RvalueKind.Intrinsic) with { Aux = module.Intern(name).Index, Args = AddArgs(args) });
+
     public RvalueId SizeOf(TypeId type) => AddRvalue(Blank(RvalueKind.SizeOf) with { Type = type });
 
     public RvalueId AlignOf(TypeId type) => AddRvalue(Blank(RvalueKind.AlignOf) with { Type = type });
@@ -112,6 +123,15 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public void Dead(LocalId local, SourceSpan span) =>
         Emit(new Statement(StatementKind.Dead, PlaceId.None, RvalueId.None, OperandId.None, local.Index, StringId.None, span));
+
+    public void TracePush(SourceSpan span) =>
+        Emit(new Statement(StatementKind.TracePush, PlaceId.None, RvalueId.None, OperandId.None, 0, StringId.None, span));
+
+    public void TraceSave(LocalId local, SourceSpan span) =>
+        Emit(new Statement(StatementKind.TraceSave, PlaceId.None, RvalueId.None, OperandId.None, local.Index, StringId.None, span));
+
+    public void TraceRestore(LocalId local, SourceSpan span) =>
+        Emit(new Statement(StatementKind.TraceRestore, PlaceId.None, RvalueId.None, OperandId.None, local.Index, StringId.None, span));
 
     public void Goto(BlockId target, SourceSpan span) =>
         Terminate(new Terminator(TermKind.Goto, OperandId.None, target, BlockId.None, IdRange.Empty, UnreachableMode.Default, span));

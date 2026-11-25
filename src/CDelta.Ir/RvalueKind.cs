@@ -18,4 +18,9 @@ public enum RvalueKind
     HasPayload,
     OptionalSome,
     OptionalNone,
+    ResultOk,
+    ResultErr,
+    Err,
+    Errcode,
+    Intrinsic,
 }

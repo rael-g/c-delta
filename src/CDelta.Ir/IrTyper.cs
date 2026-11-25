@@ -2,6 +2,8 @@ namespace CDelta.Ir;
 
 public static class IrTyper
 {
+    public const string ErrorNameIntrinsic = "error.name";
+
     public static TypeId Pointee(Module module, TypeId pointer)
     {
         if (pointer.IsNone || module.Types[pointer.Index].Kind != TypeKind.Ptr)
@@ -56,7 +58,7 @@ public static class IrTyper
             case ProjectionKind.Index:
                 return node.Kind is TypeKind.Array or TypeKind.Slice ? new TypeId(node.A) : TypeId.None;
             case ProjectionKind.Payload:
-                return node.Kind == TypeKind.Optional && projection.Value == 0 ? new TypeId(node.A) : TypeId.None;
+                return node.Kind is TypeKind.Optional or TypeKind.Result && projection.Value == 0 ? new TypeId(node.A) : TypeId.None;
             default:
                 return TypeId.None;
         }
@@ -139,6 +141,18 @@ public static class IrTyper
                 return payload.IsNone ? TypeId.None : module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, payload.Index, 0));
             case RvalueKind.OptionalNone:
                 return module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, r.Type.Index, 0));
+            case RvalueKind.ResultOk:
+            case RvalueKind.ResultErr:
+                return r.Type;
+            case RvalueKind.Err:
+                TypeId failing = OfPlace(module, body, r.Place);
+                return failing.IsNone || module.Types[failing.Index].Kind != TypeKind.Result ? TypeId.None : new TypeId(module.Types[failing.Index].B);
+            case RvalueKind.Errcode:
+                return module.Type(new TypeNode(TypeKind.U16, TypeFlags.None, 0, 0));
+            case RvalueKind.Intrinsic:
+                return module.Strings[r.Aux] == ErrorNameIntrinsic
+                    ? module.Type(new TypeNode(TypeKind.Slice, TypeFlags.Const, module.Type(new TypeNode(TypeKind.U8, TypeFlags.None, 0, 0)).Index, 0))
+                    : TypeId.None;
             case RvalueKind.Call:
                 if (r.Callee == CalleeKind.Direct)
                 {

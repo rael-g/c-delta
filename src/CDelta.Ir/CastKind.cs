@@ -13,4 +13,7 @@ public enum CastKind
     PtrPtr,
     Bitcast,
     SlicePtr,
+    EnumError,
+    ErrorEnum,
+    ErrorError,
 }

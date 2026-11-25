@@ -111,6 +111,25 @@ internal sealed class BodyParser(
                 string message = cursor.ReadString();
                 _f.Check(kind, condition, message, SpanParser.Parse(cursor));
                 return;
+            case "trace.push":
+                cursor.ReadWord();
+                _f.TracePush(SpanParser.Parse(cursor));
+                return;
+            case "trace.save":
+            case "trace.restore":
+                cursor.ReadWord();
+                cursor.Expect('%');
+                var traced = new LocalId(cursor.ReadInt());
+                if (word == "trace.save")
+                {
+                    _f.TraceSave(traced, SpanParser.Parse(cursor));
+                }
+                else
+                {
+                    _f.TraceRestore(traced, SpanParser.Parse(cursor));
+                }
+
+                return;
             case "live":
             case "dead":
                 cursor.ReadWord();
@@ -318,6 +337,36 @@ internal sealed class BodyParser(
             case "haspayload":
                 cursor.ReadWord();
                 return _f.HasPayload(ParsePlace(cursor));
+            case "err":
+                cursor.ReadWord();
+                return _f.Err(ParsePlace(cursor));
+            case "errcode":
+                cursor.ReadWord();
+                return _f.Errcode(ParseOperand(cursor));
+            case "result.ok":
+                cursor.ReadWord();
+                TypeId okType = types.ParseType(cursor);
+                return _f.ResultOk(okType, OperandStartsHere(cursor) ? ParseOperand(cursor) : OperandId.None);
+            case "result.err":
+                cursor.ReadWord();
+                TypeId errType = types.ParseType(cursor);
+                return _f.ResultErr(errType, ParseOperand(cursor));
+            case "intrinsic":
+                cursor.ReadWord();
+                string intrinsic = cursor.ReadWord();
+                cursor.Expect('(');
+                var intrinsicArgs = new List<OperandId>();
+                while (!cursor.TryChar(')'))
+                {
+                    if (intrinsicArgs.Count > 0)
+                    {
+                        cursor.Expect(',');
+                    }
+
+                    intrinsicArgs.Add(ParseOperand(cursor));
+                }
+
+                return _f.Intrinsic(intrinsic, intrinsicArgs);
             case "optional.some":
                 cursor.ReadWord();
                 return _f.OptionalSome(ParseOperand(cursor));
@@ -340,6 +389,12 @@ internal sealed class BodyParser(
             default:
                 return _f.Use(ParseOperand(cursor));
         }
+    }
+
+    private static bool OperandStartsHere(IrCursor cursor)
+    {
+        string word = cursor.PeekWord();
+        return word is "copy" or "const" or "fnref" or "undef";
     }
 
     private RvalueId ParseCall(IrCursor cursor)

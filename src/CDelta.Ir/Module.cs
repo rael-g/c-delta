@@ -29,6 +29,8 @@ public sealed class Module(string name)
 
     public List<byte[]> Bytes { get; } = [];
 
+    public SortedDictionary<string, int> ErrorNames { get; } = new(StringComparer.Ordinal);
+
     public List<AttributeNode> Attributes { get; } = [];
 
     public List<AttributeArg> AttributeArgs { get; } = [];

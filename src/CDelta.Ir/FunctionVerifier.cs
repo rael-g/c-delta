@@ -149,10 +149,12 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
                 RequireBool(body, statement.Operand);
                 break;
+            case StatementKind.TracePush:
+                break;
             default:
                 if (statement.Aux < 0 || statement.Aux >= body.Locals.Count)
                 {
-                    Fail("live or dead names a missing local");
+                    Fail("a statement names a missing local");
                 }
 
                 break;
@@ -364,9 +366,9 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 return IrTyper.OfRvalue(module, body, rvalue);
             case RvalueKind.HasPayload:
                 TypeId optional = PlaceType(body, r.Place);
-                if (optional.IsNone || KindOf(optional) != TypeKind.Optional)
+                if (optional.IsNone || KindOf(optional) is not (TypeKind.Optional or TypeKind.Result))
                 {
-                    Fail("haspayload of something that is not an optional");
+                    Fail("haspayload of something that is not an optional or a result");
                 }
 
                 return IrTyper.OfRvalue(module, body, rvalue);
@@ -394,6 +396,45 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 return IrTyper.OfRvalue(module, body, rvalue);
             case RvalueKind.OptionalNone:
                 return ValidType(r.Type) ? IrTyper.OfRvalue(module, body, rvalue) : TypeId.None;
+            case RvalueKind.ResultOk:
+                return ResultOkType(body, r);
+            case RvalueKind.ResultErr:
+                return ResultErrType(body, r);
+            case RvalueKind.Err:
+                TypeId failing = PlaceType(body, r.Place);
+                if (failing.IsNone || KindOf(failing) != TypeKind.Result)
+                {
+                    Fail("err of something that is not a result");
+                    return TypeId.None;
+                }
+
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.Errcode:
+                TypeId coded = OperandType(body, r.A);
+                if (!coded.IsNone && KindOf(coded) is not (TypeKind.ErrorSet or TypeKind.AnyError))
+                {
+                    Fail("errcode of something that is not an error");
+                }
+
+                if (stage != ModuleStage.Final)
+                {
+                    Fail("errcode before the final stage");
+                }
+
+                return IrTyper.OfRvalue(module, body, rvalue);
+            case RvalueKind.Intrinsic:
+                foreach (int arg in Enumerable.Range(r.Args.Start, r.Args.Count))
+                {
+                    OperandType(body, body.Args[arg]);
+                }
+
+                TypeId named = IrTyper.OfRvalue(module, body, rvalue);
+                if (named.IsNone)
+                {
+                    Fail("unknown intrinsic " + module.Strings[r.Aux]);
+                }
+
+                return named;
             case RvalueKind.SizeOf:
             case RvalueKind.AlignOf:
             case RvalueKind.OffsetOf:
@@ -401,6 +442,62 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             default:
                 return CallType(body, r);
         }
+    }
+
+    private TypeId ResultOkType(Body body, Rvalue r)
+    {
+        if (!ValidType(r.Type) || KindOf(r.Type) != TypeKind.Result)
+        {
+            Fail("result.ok of a type that is not a result");
+            return TypeId.None;
+        }
+
+        var payload = new TypeId(module.Types[r.Type.Index].A);
+        bool isVoid = KindOf(payload) == TypeKind.Void;
+        if (isVoid != r.A.IsNone)
+        {
+            Fail("result.ok needs a value exactly when the payload is not void");
+        }
+        else if (!isVoid && OperandType(body, r.A) != payload)
+        {
+            Fail("result.ok of the wrong type");
+        }
+
+        return r.Type;
+    }
+
+    private TypeId ResultErrType(Body body, Rvalue r)
+    {
+        if (!ValidType(r.Type) || KindOf(r.Type) != TypeKind.Result)
+        {
+            Fail("result.err of a type that is not a result");
+            return TypeId.None;
+        }
+
+        TypeId error = OperandType(body, r.A);
+        var target = new TypeId(module.Types[r.Type.Index].B);
+        if (!error.IsNone && !ErrorFits(error, target))
+        {
+            Fail("result.err of an error the result cannot hold");
+        }
+
+        return r.Type;
+    }
+
+    private bool ErrorFits(TypeId source, TypeId target)
+    {
+        if (source == target || KindOf(target) == TypeKind.AnyError)
+        {
+            return KindOf(source) is TypeKind.ErrorSet or TypeKind.AnyError;
+        }
+
+        if (KindOf(source) != TypeKind.ErrorSet || KindOf(target) != TypeKind.ErrorSet)
+        {
+            return false;
+        }
+
+        HashSet<int> allowed = [.. module.TypeLists[module.Types[target.Index].A]];
+        return module.TypeLists[module.Types[source.Index].A].All(allowed.Contains);
     }
 
     private bool ConstSliceOf(Body body, TypeId destination, RvalueId rvalue)
@@ -777,6 +874,16 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 case StatementKind.Check:
                     ReadOperand(body, statement.Operand, state, report);
                     break;
+                case StatementKind.TraceSave:
+                    state[statement.Aux] = true;
+                    break;
+                case StatementKind.TraceRestore:
+                    if (report && !state[statement.Aux])
+                    {
+                        Fail("local %" + statement.Aux + " is restored before it is saved");
+                    }
+
+                    break;
             }
         }
 
@@ -820,7 +927,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             ReadOperand(body, r.B, state, report);
         }
 
-        if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate)
+        if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate or RvalueKind.Intrinsic)
         {
             if (r.Kind == RvalueKind.Call && r.Callee == CalleeKind.Indirect)
             {

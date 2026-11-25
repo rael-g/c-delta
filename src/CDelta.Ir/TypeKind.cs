@@ -38,4 +38,7 @@ public enum TypeKind
     Struct,
     Enum,
     Optional,
+    Result,
+    ErrorSet,
+    AnyError,
 }

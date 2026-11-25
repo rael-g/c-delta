@@ -9,4 +9,5 @@ public enum ConstKind
     Bytes,
     Undef,
     Aggregate,
+    Error,
 }

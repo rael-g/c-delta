@@ -79,6 +79,25 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 TypeId payload = ParseType(cursor);
                 cursor.Expect('>');
                 return builder.OptionalOf(payload);
+            case "result":
+                cursor.Expect('<');
+                TypeId valueType = ParseType(cursor);
+                cursor.Expect(',');
+                TypeId errorType = ParseType(cursor);
+                cursor.Expect('>');
+                return builder.ResultOf(valueType, errorType);
+            case "anyerror":
+                return builder.AnyError();
+            case "errorset":
+                cursor.Expect('{');
+                var names = new List<string>();
+                do
+                {
+                    names.Add(cursor.ReadWord());
+                }
+                while (cursor.TryChar(','));
+                cursor.Expect('}');
+                return builder.ErrorSetOf(names);
             case "array":
                 cursor.Expect('<');
                 TypeId item = ParseType(cursor);
@@ -185,6 +204,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 return builder.FloatConstant(type, cursor.ReadHex());
             case "bytes":
                 return builder.BytesConstant(type, cursor.ReadStringBytes());
+            case "error":
+                return builder.ErrorConstant(type, cursor.ReadWord());
             default:
                 return builder.IntConstant(type, Int128.Parse(word));
         }

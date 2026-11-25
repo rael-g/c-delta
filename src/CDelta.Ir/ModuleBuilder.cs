@@ -19,6 +19,25 @@ public sealed class ModuleBuilder(Module module)
 
     public TypeId OptionalOf(TypeId payload) => Module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, payload.Index, 0));
 
+    public TypeId ResultOf(TypeId value, TypeId error) => Module.Type(new TypeNode(TypeKind.Result, TypeFlags.None, value.Index, error.Index));
+
+    public TypeId AnyError() => Module.Type(new TypeNode(TypeKind.AnyError, TypeFlags.None, 0, 0));
+
+    public TypeId ErrorSetOf(IEnumerable<string> names)
+    {
+        string[] sorted = [.. names.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        int[] encoded = new int[sorted.Length];
+        for (int i = 0; i < encoded.Length; i++)
+        {
+            encoded[i] = Module.Intern(sorted[i]).Index;
+        }
+
+        return Module.Type(new TypeNode(TypeKind.ErrorSet, TypeFlags.None, Module.TypeList(encoded).Index, 0));
+    }
+
+    public ConstId ErrorConstant(TypeId type, string name) =>
+        Module.Constant(new ConstNode(ConstKind.Error, type, Module.Intern(name).Index, BytesId.None, TypeListId.None));
+
     public TypeId ArrayOf(TypeId element, int length) => Module.Type(new TypeNode(TypeKind.Array, TypeFlags.None, element.Index, length));
 
     public SigId Signature(CallConv conv, IReadOnlyList<SigParam> parameters, TypeId result, bool variadic, ParamMode returnMode = ParamMode.Value)

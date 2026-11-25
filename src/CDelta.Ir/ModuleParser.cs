@@ -39,6 +39,17 @@ internal sealed class ModuleParser
                 continue;
             }
 
+            if (line.StartsWith("error ", StringComparison.Ordinal))
+            {
+                var errorCursor = new IrCursor(line, i + 1);
+                errorCursor.ExpectWord("error");
+                string errorName = errorCursor.ReadWord();
+                errorCursor.Expect('=');
+                _module.ErrorNames[errorName] = errorCursor.ReadInt();
+                i++;
+                continue;
+            }
+
             if (line.StartsWith("#[", StringComparison.Ordinal))
             {
                 var cursor = new IrCursor(line, i + 1);
