@@ -1,0 +1,17 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/hello.cs" "hello.cs"
+
+#[cdelta.EntryPoint]
+fn Program.Main() -> i32 origin source(csharp) @1:6:16 {
+  local %0: ptr<u8> nullable many temp
+  local %1: ptr<u8> nullable many temp
+  local %2: i32 temp
+bb0:
+  %0 = cast ptr.ptr const ptr<u8> nullable const many bytes "hello" to ptr<u8> nullable many  @1:8:14
+  %1 = copy %0  @1:8:9
+  %2 = call direct "Program.puts(System.Byte*)"(copy %1)  @1:8:9
+  return const i32 0  @1:9:16
+}
+
+fn "Program.puts(System.Byte*)"(text: ptr<u8> nullable many) -> i32 extern origin clibrary("c", "puts") @1:4:23

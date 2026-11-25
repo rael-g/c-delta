@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CDelta.Frontend.CSharp\CDelta.Frontend.CSharp.csproj" />
+    <ProjectReference Include="..\..\src\CDelta.Ir\CDelta.Ir.csproj" />
+    <ProjectReference Include="..\..\src\CDelta.Diagnostics\CDelta.Diagnostics.csproj" />
+    <Compile Include="..\Shared\GoldenFile.cs" Link="GoldenFile.cs" />
     <ProjectReference Include="..\..\lib\corelib\CDelta.Corelib.csproj" ReferenceOutputAssembly="false" OutputItemType="CorelibAssembly" />
   </ItemGroup>
 

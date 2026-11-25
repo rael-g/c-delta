@@ -1,0 +1,7 @@
+<Project>
+
+  <ItemGroup>
+    <Compile Remove="Golden/**" />
+  </ItemGroup>
+
+</Project>

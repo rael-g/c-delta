@@ -1,0 +1,83 @@
+module Golden stage lowered
+
+source 1 "$ROOT/tests/CDelta.Frontend.CSharp.Tests/Golden/Lowering/control.cs" "control.cs"
+
+#[cdelta.EntryPoint]
+fn Control.Main() -> void origin source(csharp) @1:26:17 {
+  local %0: i32 temp
+bb0:
+  call direct Control.Nothing()  @1:28:9
+  %0 = call direct "Control.Sum(System.Int32)"(const i32 5)  @1:29:9
+  return  @1:26:17
+}
+
+fn Control.Nothing() -> void origin source(csharp) @1:22:17 {
+bb0:
+  return  @1:22:17
+}
+
+fn "Control.Sum(System.Int32)"(n: i32) -> i32 origin source(csharp) @1:3:16 {
+  local %0 n: i32 param @1:3:16
+  local %1 total: i32 user @1:3:16
+  local %2 j: i32 user @1:3:16
+  local %3 i: i32 user @1:3:16
+  local %4: bool temp
+  local %5: i32 temp
+  local %6: bool temp
+  local %7: i32 temp
+  local %8: i32 temp
+  local %9: i32 temp
+  local %10: i32 temp
+  local %11: bool temp
+  local %12: i32 temp
+  local %13: i32 temp
+  local %14: i32 temp
+  local %15: i32 temp
+bb0:
+  live %1  @1:3:16
+  live %2  @1:3:16
+  %1 = const i32 0  @1:5:13
+  goto bb1  @1:3:16
+bb1:
+  live %3  @1:3:16
+  %3 = const i32 0  @1:6:18
+  goto bb2  @1:3:16
+bb2:
+  %4 = binop lt copy %3, copy %0  @1:6:25
+  branch copy %4 ? bb3 : bb10  @1:6:25
+bb3:
+  %5 = binop rem copy %3, const i32 2  @1:8:17
+  %6 = binop eq copy %5, const i32 0  @1:8:17
+  branch copy %6 ? bb5 : bb4  @1:8:17
+bb4:
+  %7 = copy %1  @1:9:13
+  %8 = binop add default copy %7, copy %3  @1:9:13
+  %1 = copy %8  @1:9:13
+  goto bb5  @1:3:16
+bb5:
+  %9 = copy %3  @1:6:32
+  %10 = binop add default copy %9, const i32 1  @1:6:32
+  %3 = copy %10  @1:6:32
+  goto bb2  @1:3:16
+bb6:
+  %2 = copy %0  @1:12:13
+  goto bb7  @1:3:16
+bb7:
+  %11 = binop gt copy %2, const i32 0  @1:13:16
+  branch copy %11 ? bb8 : bb9  @1:13:16
+bb8:
+  %12 = copy %2  @1:15:13
+  %13 = binop sub default copy %12, const i32 1  @1:15:13
+  %2 = copy %13  @1:15:13
+  %14 = binop add default copy %1, copy %2  @1:16:21
+  %1 = copy %14  @1:16:13
+  goto bb7  @1:3:16
+bb9:
+  %15 = copy %1  @1:19:16
+  dead %1  @1:19:16
+  dead %2  @1:19:16
+  return copy %15  @1:19:16
+bb10:
+  dead %3  @1:6:25
+  goto bb6  @1:6:25
+}
