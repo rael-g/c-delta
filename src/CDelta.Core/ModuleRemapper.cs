@@ -21,6 +21,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
         {
             case TypeKind.Ptr:
             case TypeKind.Slice:
+            case TypeKind.Optional:
             case TypeKind.Array:
                 return destination.Type(node with { A = Type(new TypeId(node.A)).Index });
             case TypeKind.Fn:
