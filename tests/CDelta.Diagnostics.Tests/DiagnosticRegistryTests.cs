@@ -14,11 +14,11 @@ public sealed partial class DiagnosticRegistryTests
     [Fact]
     public void RegistryMatchesTheDocument()
     {
-        var documented = ReadDocumentedRegistry();
+        Dictionary<string, string> documented = ReadDocumentedRegistry();
         var actual = DiagnosticRegistry.Messages.ToDictionary(p => p.Key.ToString(), p => p.Value);
 
         Assert.Equal(documented.Keys.Order(), actual.Keys.Order());
-        foreach (var (code, message) in documented)
+        foreach ((string code, string message) in documented)
         {
             Assert.Equal(message, actual[code]);
         }
@@ -27,7 +27,7 @@ public sealed partial class DiagnosticRegistryTests
     [Fact]
     public void EveryCodeHasItsNumberAsValue()
     {
-        foreach (var code in Enum.GetValues<DiagnosticCode>())
+        foreach (DiagnosticCode code in Enum.GetValues<DiagnosticCode>())
         {
             Assert.Equal("CD" + ((int)code).ToString("D4"), code.ToString());
             Assert.True(DiagnosticRegistry.Messages.ContainsKey(code));
@@ -45,10 +45,10 @@ public sealed partial class DiagnosticRegistryTests
 
     private static Dictionary<string, string> ReadDocumentedRegistry()
     {
-        var path = Path.Combine(RepositoryRoot(), "docs", "compiler", "diagnostics.md");
+        string path = Path.Combine(RepositoryRoot(), "docs", "compiler", "diagnostics.md");
         var rows = new Dictionary<string, string>();
-        var inRegistry = false;
-        foreach (var line in File.ReadAllLines(path))
+        bool inRegistry = false;
+        foreach (string line in File.ReadAllLines(path))
         {
             if (line.StartsWith(RegistryHeading, StringComparison.Ordinal))
             {
@@ -61,7 +61,7 @@ public sealed partial class DiagnosticRegistryTests
                 break;
             }
 
-            var match = RowPattern().Match(line);
+            Match match = RowPattern().Match(line);
             if (inRegistry && match.Success)
             {
                 rows.Add(match.Groups[1].Value, match.Groups[2].Value.Replace('`', '\''));
