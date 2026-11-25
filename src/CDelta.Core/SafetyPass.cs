@@ -23,6 +23,7 @@ public static class SafetyPass
             new FunctionSafety(module, body, options.Target, checksOn).Run();
         }
 
+        LayoutPass.Run(module, options.Target);
         module.Stage = ModuleStage.Final;
         module.Target = options.Target;
     }

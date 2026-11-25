@@ -4,6 +4,8 @@ namespace CDelta.Core;
 
 internal sealed class ModuleRemapper(Module source, Module destination)
 {
+    private readonly Dictionary<int, StructId> _structs = [];
+
     public StringId String(StringId id) => id.IsNone ? id : destination.Intern(source.Text(id));
 
     public TypeId Type(TypeId id)
@@ -22,9 +24,51 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 return destination.Type(node with { A = Type(new TypeId(node.A)).Index });
             case TypeKind.Fn:
                 return destination.Type(node with { A = Sig(new SigId(node.A)).Index });
+            case TypeKind.Struct:
+                return destination.Type(node with { A = Struct(new StructId(node.A)).Index });
             default:
                 return destination.Type(node);
         }
+    }
+
+    public StructId Struct(StructId id)
+    {
+        if (_structs.TryGetValue(id.Index, out StructId existing))
+        {
+            return existing;
+        }
+
+        StructDecl declaration = source.Structs[id.Index];
+        var created = new StructId(destination.Structs.Count);
+        destination.Structs.Add(declaration);
+        destination.StructsByKey.Add(source.Text(declaration.Key), created);
+        _structs.Add(id.Index, created);
+
+        var fields = new List<FieldDecl>();
+        for (int i = 0; i < declaration.Fields.Count; i++)
+        {
+            FieldDecl field = source.Fields[declaration.Fields.Start + i];
+            fields.Add(field with { Name = String(field.Name), Type = Type(field.Type), Attributes = IdRange.Empty });
+        }
+
+        int fieldStart = destination.Fields.Count;
+        destination.Fields.AddRange(fields);
+        int attributeStart = destination.Attributes.Count;
+        for (int i = 0; i < declaration.Attributes.Count; i++)
+        {
+            AttributeNode attribute = source.Attributes[declaration.Attributes.Start + i];
+            destination.Attributes.Add(new AttributeNode(String(attribute.Name), IdRange.Empty));
+        }
+
+        destination.Structs[created.Index] = declaration with
+        {
+            Key = String(declaration.Key),
+            Name = String(declaration.Name),
+            Origin = Origin(declaration.Origin),
+            Fields = new IdRange(fieldStart, fields.Count),
+            Attributes = new IdRange(attributeStart, declaration.Attributes.Count),
+        };
+        return created;
     }
 
     public SigId Sig(SigId id)
