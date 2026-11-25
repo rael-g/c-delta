@@ -1,0 +1,45 @@
+module Sample stage final target x86_64-linux-gnu
+
+source 1 "$ROOT/Program.cs" "Program.cs"
+
+fn "Sample.Program.Divide(System.Int32,System.Int32)"(a: i32, b: i32) -> i32 origin source(csharp) @1:3:5 {
+  local %0 a: i32 param @1:3:5
+  local %1 b: i32 param @1:3:5
+  local %2: i32 temp @1:3:5
+  local %3: i32 temp @1:3:5
+  local %4: bool temp
+  local %5: bool temp
+  local %6: bool temp
+  local %7: bool temp
+  local %8: bool temp
+bb0:
+  %4 = binop ne copy %1, const i32 0  @1:3:5
+  check divzero copy %4 "division by zero"  @1:3:5
+  %5 = binop eq copy %0, const i32 -2147483648  @1:3:5
+  %6 = binop eq copy %1, const i32 -1  @1:3:5
+  %7 = binop and copy %5, copy %6  @1:3:5
+  %8 = unop not copy %7  @1:3:5
+  check divzero copy %8 "integer overflow"  @1:3:5
+  %2 = binop div copy %0, copy %1  @1:3:5
+  %3 = binop add trap copy %2, const i32 1  @1:3:5
+  return copy %3  @1:3:5
+}
+
+#[cdelta.EntryPoint]
+fn Sample.Program.Main() -> i32 origin source(csharp) @1:3:5 {
+  local %0: i32 temp @1:3:5
+bb0:
+  %0 = call direct "Sample.Program.Divide(System.Int32,System.Int32)"(const i32 7, const i32 2)  @1:3:5
+  return copy %0  @1:3:5
+}
+
+fn "synthetic:main"(argc: c.int, argv: ptr<ptr<c.char> nullable many> nullable many) -> c.int export("main") origin synthetic @0:0:0 {
+  local %0 argc: c.int param
+  local %1 argv: ptr<ptr<c.char> nullable many> nullable many param
+  local %2: i32 temp
+  local %3: c.int temp
+bb0:
+  %2 = call direct Sample.Program.Main()  @0:0:0
+  %3 = cast int.int wrap copy %2 to c.int  @0:0:0
+  return copy %3  @0:0:0
+}

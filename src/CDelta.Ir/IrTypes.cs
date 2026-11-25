@@ -15,6 +15,18 @@ public static class IrTypes
         _ => false,
     };
 
+    public static int BitWidth(TypeKind kind, Target target) => kind switch
+    {
+        TypeKind.I8 or TypeKind.U8 or TypeKind.CChar or TypeKind.CSChar or TypeKind.CUChar => 8,
+        TypeKind.I16 or TypeKind.U16 or TypeKind.CShort or TypeKind.CUShort => 16,
+        TypeKind.I32 or TypeKind.U32 or TypeKind.CInt or TypeKind.CUInt => 32,
+        TypeKind.I64 or TypeKind.U64 or TypeKind.CLongLong or TypeKind.CULongLong => 64,
+        TypeKind.I128 or TypeKind.U128 => 128,
+        TypeKind.ISize or TypeKind.USize => target.PointerSize * 8,
+        TypeKind.CLong or TypeKind.CULong => target.CLongSize * 8,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
     public static string Name(TypeKind kind) => kind switch
     {
         TypeKind.Void => "void",

@@ -3,6 +3,7 @@ namespace CDelta.Ir;
 public sealed class FunctionBuilder(Module module, Body body)
 {
     private BlockId _current = BlockId.None;
+    private List<StatementId>? _sink;
 
     public Body Body { get; } = body;
 
@@ -22,6 +23,8 @@ public sealed class FunctionBuilder(Module module, Body body)
     }
 
     public void SetBlock(BlockId block) => _current = block;
+
+    public void RedirectStatements(List<StatementId>? sink) => _sink = sink;
 
     public bool IsTerminated(BlockId block) => Body.Blocks[block.Index].Terminator is not null;
 
@@ -118,7 +121,7 @@ public sealed class FunctionBuilder(Module module, Body body)
     private void Emit(Statement statement)
     {
         Body.Statements.Add(statement);
-        Body.Blocks[_current.Index].Statements.Add(new StatementId(Body.Statements.Count - 1));
+        (_sink ?? Body.Blocks[_current.Index].Statements).Add(new StatementId(Body.Statements.Count - 1));
     }
 
     private void Terminate(Terminator terminator)
