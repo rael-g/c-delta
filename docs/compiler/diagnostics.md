@@ -1,0 +1,123 @@
+# Diagnostics
+
+## Format
+
+```
+src/Program.cs(12,9): error CD3004: the Result returned by 'Close' is discarded; handle it or write '_ ='
+```
+
+- Path, line and column of the start of the offending code; the MSBuild format, so every C# tool
+  links it.
+- Severity is `error` or `warning`. CΔ has very few warnings: a rule is either a rule or not.
+- The message names the construct and says what to write instead.
+- Notes follow on their own lines with their own locations (`note: the error set is declared
+  here`).
+
+## Ranges
+
+| Range | Area | Produced by |
+|---|---|---|
+| `CD0xxx` | driver, project, toolchain | driver |
+| `CD1xxx` | removed C# constructs | subset analyzer (IDE and build) |
+| `CD2xxx` | types and memory | subset analyzer |
+| `CD3xxx` | errors and panics | subset analyzer, except `CD3010` (core) |
+| `CD4xxx` | comptime | core (build only) |
+| `CD5xxx` | generics, interfaces, delegates | subset analyzer, except `CD5005` (core) |
+| `CD6xxx` | C interop | C frontend and subset analyzer |
+| `CD9xxx` | internal compiler errors | driver |
+
+A code is never reused for another meaning. A retired code stays in this table marked retired.
+
+## Registry
+
+| Code | Message | Document |
+|---|---|---|
+| CD0001 | invalid project, option or package graph (including a dependency cycle) | [driver-toolchain-sdk.md](driver-toolchain-sdk.md) |
+| CD0002 | no C toolchain supports the target, or the toolchain is older than the minimum | [driver-toolchain-sdk.md](driver-toolchain-sdk.md#c-toolchain) |
+| CD0003 | the C compiler rejected generated C; this is a compiler bug | [driver-toolchain-sdk.md](driver-toolchain-sdk.md#c-toolchain) |
+| CD0004 | the C compiler rejected a C source of the project | [driver-toolchain-sdk.md](driver-toolchain-sdk.md#c-toolchain) |
+| CD0005 | linking failed | [driver-toolchain-sdk.md](driver-toolchain-sdk.md#c-toolchain) |
+| CD0006 | the target is not supported | [../language/modules-build.md](../language/modules-build.md#targets) |
+| CD0007 | an executable has no `Main` | [../language/errors.md](../language/errors.md#main) |
+| CD0008 | the corelib does not match the compiler | [frontend-csharp.md](frontend-csharp.md#the-corelib) |
+| CD1000 | this C# construct is not part of CΔ | [../language/subset.md](../language/subset.md) |
+| CD1001 | classes are not part of CΔ; use a struct, or a static class for a module | [../language/subset.md](../language/subset.md#types) |
+| CD1002 | records are not part of CΔ | [../language/subset.md](../language/subset.md#types) |
+| CD1003 | inheritance modifiers and `base` are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1004 | properties are not part of CΔ; use a field or a method | [../language/subset.md](../language/subset.md#members) |
+| CD1005 | indexers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1006 | events are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1007 | operator and conversion declarations are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1008 | finalizers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1009 | static constructors are not part of CΔ; initialize statics with comptime | [../language/subset.md](../language/subset.md#members) |
+| CD1010 | `try` is not part of CΔ; return a `Result` | [../language/errors.md](../language/errors.md) |
+| CD1011 | `throw` only accepts `Panic(...)` or `Unreachable()` | [../language/errors.md](../language/errors.md#panics) |
+| CD1012 | `async` and `await` are not part of CΔ | [../language/subset.md](../language/subset.md#statements) |
+| CD1013 | iterators are not part of CΔ | [../language/subset.md](../language/subset.md#statements) |
+| CD1014 | query expressions are not part of CΔ | [../language/subset.md](../language/subset.md#expressions) |
+| CD1015 | `lock` is not part of CΔ; use `Std.Thread.Mutex` | [../language/subset.md](../language/subset.md#statements) |
+| CD1016 | `dynamic` is not part of CΔ | [../language/subset.md](../language/subset.md#types) |
+| CD1017 | `object` and boxing are not part of CΔ | [../language/subset.md](../language/subset.md#types) |
+| CD1018 | anonymous types are not part of CΔ; use a tuple | [../language/subset.md](../language/subset.md#types) |
+| CD1019 | arrays are only allowed as initialized `static readonly` fields | [../language/types.md](../language/types.md#arrays) |
+| CD1020 | `string` only exists as a constant; use `ReadOnlySpan<byte>` | [../language/types.md](../language/types.md#text) |
+| CD1021 | only constant strings concatenate, and interpolation needs a handler type | [../language/types.md](../language/types.md#text) |
+| CD1022 | top-level statements are not part of CΔ; declare `Main` | [../language/subset.md](../language/subset.md#namespaces-and-compilation-units) |
+| CD1023 | `#define` and `#undef` are not part of CΔ, and `#if` only tests build symbols | [../language/modules-build.md](../language/modules-build.md#conditional-compilation) |
+| CD1024 | `Deconstruct` methods are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1025 | fields must be `public` | [../language/modules-build.md](../language/modules-build.md#visibility) |
+| CD1026 | `as` is not part of CΔ | [../language/subset.md](../language/subset.md#expressions) |
+| CD1027 | `TypedReference` constructs are not part of CΔ, and `__arglist` is only for variadic C functions | [../language/c-interop.md](../language/c-interop.md#what-a-header-becomes) |
+| CD1028 | `params` arrays are not part of CΔ; use `params ReadOnlySpan<T>` | [../language/subset.md](../language/subset.md#members) |
+| CD1029 | delegates do not combine | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#delegates) |
+| CD2001 | this switch does not cover every value; add the missing members or `default` | [../language/types.md](../language/types.md#enums) |
+| CD2002 | a capturing lambda cannot outlive the function that created it | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
+| CD2003 | an opaque type can only be used behind a pointer | [../language/types.md](../language/types.md#opaque-structs) |
+| CD2004 | invalid bit-field | [../language/types.md](../language/types.md#layout) |
+| CD2005 | `[ThreadStatic]` applies only to static fields | [../language/memory.md](../language/memory.md#threads-and-atomics) |
+| CD2006 | this returns memory of the current stack frame | [../language/memory.md](../language/memory.md#lifetimes) |
+| CD2007 | this string literal is not valid UTF-16 and cannot be encoded as UTF-8 | [../language/types.md](../language/types.md#text) |
+| CD3001 | `Try` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#try) |
+| CD3002 | the error set returned here lacks errors `Try` can propagate | [../language/errors.md](../language/errors.md#try) |
+| CD3003 | `ErrDefer` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#errdefer) |
+| CD3004 | a `Result` is discarded | [../language/errors.md](../language/errors.md#a-result-cannot-be-dropped) |
+| CD3005 | `Defer` and `ErrDefer` need a lambda written in place | [../language/errors.md](../language/errors.md#errdefer) |
+| CD3006 | invalid `Main` signature | [../language/errors.md](../language/errors.md#main) |
+| CD3007 | `Panic` and `Unreachable` must be thrown | [../language/errors.md](../language/errors.md#panics) |
+| CD3008 | more than one `[PanicHandler]`, or a handler with the wrong signature | [../language/errors.md](../language/errors.md#the-panic-handler) |
+| CD3009 | `Try` cannot be used in a deferred body | [../language/memory.md](../language/memory.md#defer) |
+| CD3010 | the program has more than 65535 error names | [../language/errors.md](../language/errors.md#error-unions) |
+| CD4001 | comptime code cannot call an extern function | [../language/comptime.md](../language/comptime.md#what-comptime-code-can-do) |
+| CD4002 | comptime branch quota exceeded | [../language/comptime.md](../language/comptime.md#what-comptime-code-can-do) |
+| CD4003 | this argument must be known at comptime | [../language/comptime.md](../language/comptime.md#comptime-parameters) |
+| CD4004 | compile error raised by `CompileError` | [../language/comptime.md](../language/comptime.md#errors-at-comptime) |
+| CD4005 | a comptime-only value reaches run time | [../language/comptime.md](../language/comptime.md#comptime-only-values) |
+| CD4006 | this static initializer cannot be evaluated at comptime | [../language/comptime.md](../language/comptime.md#what-runs-at-comptime) |
+| CD4007 | illegal behavior during comptime | [../language/comptime.md](../language/comptime.md#what-comptime-code-can-do) |
+| CD4008 | `Embed` path not found or outside the package | [../language/comptime.md](../language/comptime.md) |
+| CD4009 | a comptime result points into a comptime stack frame | [../language/comptime.md](../language/comptime.md#results-of-comptime) |
+| CD4010 | this operation is not available at comptime | [../language/comptime.md](../language/comptime.md#what-comptime-code-can-do) |
+| CD5001 | a struct converts to an interface only through `Dyn<I>.Of(ref x)`, or to a `[Union]` interface | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#2-as-a-value-dynamic-dispatch) |
+| CD5002 | a `[Union]` member must be a non-generic, non-ref struct of the same package | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#3-as-a-tagged-union-union) |
+| CD5003 | variance is not part of CΔ | [../language/subset.md](../language/subset.md#types) |
+| CD5004 | type patterns only apply to `[Union]` values and type parameters | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#3-as-a-tagged-union-union) |
+| CD5005 | generic instantiation nested too deeply | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#generics) |
+| CD5006 | `Dyn<I>` needs an interface that is not a `[Union]` | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#2-as-a-value-dynamic-dispatch) |
+| CD5007 | a delegate cannot be made from an instance method of a struct; use a lambda | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#delegates) |
+| CD6001 | the C header could not be read | [frontend-c.md](frontend-c.md#the-translation-unit) |
+| CD6002 | `[Import]` applies only to a `static partial class` | [../language/c-interop.md](../language/c-interop.md#importing-a-header) |
+| CD6003 | this C declaration could not be translated | [../language/c-interop.md](../language/c-interop.md#what-a-header-becomes) |
+| CD6004 | an exported signature uses a type C cannot represent | [../language/c-interop.md](../language/c-interop.md#exporting) |
+| CD6005 | two exports have the same name | [../language/c-interop.md](../language/c-interop.md#exporting) |
+| CD6006 | generic and variadic functions cannot be exported | [../language/c-interop.md](../language/c-interop.md#exporting) |
+| CD6007 | this `DllImport` option is not supported | [../language/c-interop.md](../language/c-interop.md#declaring-a-c-function-by-hand) |
+| CD6008 | `[CMacro]` applies only to `static extern` methods | [../language/c-interop.md](../language/c-interop.md#macros) |
+| CD6009 | two imports define the same macro differently | [frontend-c.md](frontend-c.md#the-translation-unit) |
+| CD9001 | internal compiler error | [architecture.md](architecture.md#internal-errors) |
+| CD9002 | internal IR verification failure | [ir.md](ir.md#verifier) |
+
+## In the code
+
+The registry lives in `CDelta.Diagnostics` as one static table of `DiagnosticDescriptor`s, one
+per code, with its message format. A test checks that this document and the table list the same
+codes with the same messages, so neither can drift from the other.
