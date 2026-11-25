@@ -807,9 +807,25 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         Location location = binary.Syntax.GetLocation();
+        SourceSpan span = SpanOf(binary);
+        if (binary.IsLifted)
+        {
+            return LowerLiftedBinary(binary, span);
+        }
+
+        if (UserOperator(binary.OperatorMethod) is { } method)
+        {
+            OperandId first = LowerValue(binary.LeftOperand);
+            if (!IsPure(binary.RightOperand))
+            {
+                first = Snapshot(first, span);
+            }
+
+            return CallOperator(method, [first, Snapshot(LowerValue(binary.RightOperand), span)], span)!.Value;
+        }
+
         BinOp op = BinaryOperator(binary.OperatorKind)
             ?? throw new UnsupportedConstructException("the operator " + binary.OperatorKind + " is not supported yet", location);
-        SourceSpan span = SpanOf(binary);
         OperandId left = LowerValue(binary.LeftOperand);
         if (!IsPure(binary.RightOperand))
         {
@@ -826,6 +842,96 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         TypeId result = frontend.Types.Map(binary.Type!, location);
         return Emit(result, _f.Binop(op, ModeOf(binary), left, right), span);
+    }
+
+    private static IMethodSymbol? UserOperator(IMethodSymbol? method) =>
+        method is { IsImplicitlyDeclared: false } && method.Locations.Any(location => location.IsInSource) ? method : null;
+
+    private OperandId? CallOperator(IMethodSymbol method, IReadOnlyList<OperandId> arguments, SourceSpan span)
+    {
+        FunctionId callee = frontend.Declare(method);
+        return Emit(_module.Functions[callee.Index].Return, _f.CallDirect(callee, arguments.ToList()), span);
+    }
+
+    private PlaceId SpillToPlace(OperandId operand, SourceSpan span)
+    {
+        LocalId temp = NewTemp(OperandType(operand));
+        _f.Assign(_f.LocalPlace(temp), _f.Use(operand), span);
+        return _f.LocalPlace(temp);
+    }
+
+    private OperandId LowerLiftedBinary(IBinaryOperation binary, SourceSpan span)
+    {
+        Location location = binary.Syntax.GetLocation();
+        IMethodSymbol? method = UserOperator(binary.OperatorMethod);
+        BinOp op = BinaryOperator(binary.OperatorKind)
+            ?? throw new UnsupportedConstructException("the operator " + binary.OperatorKind + " is not supported yet", location);
+        if (binary.OperatorKind is BinaryOperatorKind.And or BinaryOperatorKind.Or
+            && binary.LeftOperand.Type is INamedTypeSymbol { TypeArguments: [{ SpecialType: SpecialType.System_Boolean }] } lifted
+            && TypeMapper.IsNullable(lifted))
+        {
+            throw new UnsupportedConstructException("the three valued logic of bool? operators is not supported", location);
+        }
+
+        OperandId first = LowerValue(binary.LeftOperand);
+        if (!IsPure(binary.RightOperand))
+        {
+            first = Snapshot(first, span);
+        }
+
+        PlaceId left = SpillToPlace(first, span);
+        PlaceId right = SpillToPlace(LowerValue(binary.RightOperand), span);
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId resultType = frontend.Types.Map(binary.Type!, location);
+        bool optionalResult = TypeMapper.IsNullable(binary.Type);
+        bool equality = op is BinOp.Eq or BinOp.Ne;
+        OperandId leftPresent = Emit(boolean, _f.HasPayload(left), span);
+        OperandId rightPresent = Emit(boolean, _f.HasPayload(right), span);
+        LocalId result = NewTemp(resultType);
+        OperandId initial = equality
+            ? Emit(boolean, _f.Binop(op, ArithMode.Default, leftPresent, rightPresent), span)
+            : optionalResult
+                ? Emit(resultType, _f.OptionalNone(new TypeId(_module.Types[resultType.Index].A)), span)
+                : _f.Const(_builder.BoolConstant(boolean, false));
+        _f.Assign(_f.LocalPlace(result), _f.Use(initial), span);
+        BlockId checkRight = _f.NewBlock();
+        BlockId compute = _f.NewBlock();
+        BlockId join = _f.NewBlock();
+        _f.Branch(leftPresent, checkRight, join, span);
+        _f.SetBlock(checkRight);
+        _f.Branch(rightPresent, compute, join, span);
+        _f.SetBlock(compute);
+        OperandId a = _f.Copy(_f.Project(left, ProjectionKind.Payload, 0));
+        OperandId b = _f.Copy(_f.Project(right, ProjectionKind.Payload, 0));
+        OperandId value = method is not null
+            ? CallOperator(method, [a, b], span)!.Value
+            : Emit(optionalResult ? new TypeId(_module.Types[resultType.Index].A) : boolean, _f.Binop(op, ModeOf(binary), a, b), span);
+        OperandId stored = optionalResult ? Emit(resultType, _f.OptionalSome(value), span) : value;
+        _f.Assign(_f.LocalPlace(result), _f.Use(stored), span);
+        _f.Goto(join, span);
+        _f.SetBlock(join);
+        return _f.Copy(_f.LocalPlace(result));
+    }
+
+    private OperandId LowerLiftedUnary(IUnaryOperation unary, SourceSpan span)
+    {
+        Location location = unary.Syntax.GetLocation();
+        TypeId resultType = frontend.Types.Map(unary.Type!, location);
+        TypeId payloadType = new(_module.Types[resultType.Index].A);
+        PlaceId operand = SpillToPlace(LowerValue(unary.Operand), span);
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        OperandId present = Emit(boolean, _f.HasPayload(operand), span);
+        LocalId result = NewTemp(resultType);
+        _f.Assign(_f.LocalPlace(result), _f.Use(Emit(resultType, _f.OptionalNone(payloadType), span)), span);
+        BlockId compute = _f.NewBlock();
+        BlockId join = _f.NewBlock();
+        _f.Branch(present, compute, join, span);
+        _f.SetBlock(compute);
+        OperandId value = ApplyUnary(unary, _f.Copy(_f.Project(operand, ProjectionKind.Payload, 0)), payloadType, span);
+        _f.Assign(_f.LocalPlace(result), _f.Use(Emit(resultType, _f.OptionalSome(value), span)), span);
+        _f.Goto(join, span);
+        _f.SetBlock(join);
+        return _f.Copy(_f.LocalPlace(result));
     }
 
     private bool IsPointer(OperandId operand)
@@ -859,8 +965,23 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     {
         Location location = unary.Syntax.GetLocation();
         SourceSpan span = SpanOf(unary);
+        if (unary.IsLifted)
+        {
+            return LowerLiftedUnary(unary, span);
+        }
+
         OperandId operand = LowerValue(unary.Operand);
         TypeId type = frontend.Types.Map(unary.Type!, location);
+        return ApplyUnary(unary, operand, type, span);
+    }
+
+    private OperandId ApplyUnary(IUnaryOperation unary, OperandId operand, TypeId type, SourceSpan span)
+    {
+        if (UserOperator(unary.OperatorMethod) is { } method)
+        {
+            return CallOperator(method, [operand], span)!.Value;
+        }
+
         switch (unary.OperatorKind)
         {
             case UnaryOperatorKind.Plus:
@@ -872,13 +993,18 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             case UnaryOperatorKind.BitwiseNegation:
                 return Emit(type, _f.Unop(UnOp.BitNot, ArithMode.Default, operand), span);
             default:
-                throw new UnsupportedConstructException("the operator " + unary.OperatorKind + " is not supported yet", location);
+                throw new UnsupportedConstructException("the operator " + unary.OperatorKind + " is not supported yet", unary.Syntax.GetLocation());
         }
     }
 
     private OperandId LowerConversion(IConversionOperation conversion)
     {
         Location location = conversion.Syntax.GetLocation();
+        if (UserOperator(conversion.OperatorMethod) is { } converter)
+        {
+            return CallOperator(converter, [Snapshot(LowerValue(conversion.Operand), SpanOf(conversion))], SpanOf(conversion))!.Value;
+        }
+
         ITypeSymbol target = conversion.Type!;
         ITypeSymbol? source = conversion.Operand.Type;
         if (source is null && TypeMapper.IsNullable(target) && conversion.Operand.ConstantValue is { HasValue: true, Value: null })
