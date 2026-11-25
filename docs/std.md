@@ -51,7 +51,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | `Std.Mem` | `Copy`, `Set`, `Eql`, `IndexOf`, `StartsWith`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
 | `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `DebugAllocator` | the OS page API, libc |
 | `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `HashMap<K, V, THash>` with `IHasher<K>`, `Deque<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer) | itself |
-| `Std.Text` | UTF-8 validation and iteration, `Ascii`, parsing and formatting of integers and floats | itself, since formatting runs at comptime |
+| `Std.Text` | extension members on `string`: `StartsWith`, `EndsWith`, `Contains`, `IndexOf`, `Split`, `SplitOnce`, `Trim`, `EqualsIgnoreCase`, `Runes`; `FromUtf8` validation; `Concat(allocator, ...)`, `ToUpper(allocator)`, `ToLower(allocator)`; static extensions `int.Parse(string)` and the other numeric types returning `Result`; `Ascii`; formatting of integers and floats | itself, since formatting runs at comptime |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |
 | `Std.Fs` | `File`, `Dir`, open, read, write, stat, iterate, paths | POSIX through libc; Win32 |
@@ -61,7 +61,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | `Std.Math` | the functions of `<math.h>`, checked and wrapping integer helpers with explicit overflow results | libm and compiler builtins |
 | `Std.Debug` | `Print` to standard error, `Assert`, stack traces where the platform gives them | `Std.Io`, libc `backtrace` where available |
 | `Std.Testing` | `Expect`, `ExpectEqual`, `ExpectError`, `Allocator` | `Std.Debug` |
-| `Std.C` | helpers for C interop: NUL-terminated text, `Flexible<T>`, `errno` | libc |
+| `Std.C` | helpers for C interop: `CString`, `ToCString(string, allocator)`, `Flexible<T>`, `errno` | libc |
 
 ## The MVP subset
 
@@ -71,7 +71,7 @@ and no formatting:
 | Member | Signature |
 |---|---|
 | `Std.C.CString` | `struct CString { public byte* Pointer; public ReadOnlySpan<byte> AsSpan(); }`, the bytes before the NUL |
-| `Std.Process.Args` | `static ReadOnlySpan<CString> Args()`, `argv` as stored by the entry point |
+| `Std.Process.Args` | `static ReadOnlySpan<CString> Args()`, `argv` as stored by the entry point; from M4 it returns `ReadOnlySpan<string>` |
 | `Std.Process.Exit` | `static void Exit(int code)`, never returns |
 | `Std.Debug.Print` | `static void Print(ReadOnlySpan<byte> text)`, to standard error |
 | `Std.Mem.Eql` | `static bool Eql(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)` |

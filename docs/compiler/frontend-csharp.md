@@ -61,6 +61,8 @@ carry the exact BCL signature, are never called by lowering, and are listed here
 | `fixed` over a span | `Span<T>.GetPinnableReference()`, `ReadOnlySpan<T>.GetPinnableReference()` |
 | a static array converted to a span | the implicit conversions `T[]` to `Span<T>` and to `ReadOnlySpan<T>` |
 | `x.GetValueOrDefault()` | `Nullable<T>.GetValueOrDefault()`, `Nullable<T>.GetValueOrDefault(T)` |
+| `where T : unmanaged` | `System.Runtime.InteropServices.UnmanagedType` |
+| `foreach` over a string | `String.GetEnumerator()` returning `System.Text.StringRuneEnumerator` with `Current` and `MoveNext()` |
 
 When Roslyn needs another member to bind a kept construct, adding it with its BCL signature and a
 row here is implementation, not design: the same commit adds the member, the row and a probe that
@@ -74,6 +76,8 @@ IR:
 |---|---|
 | `Span<T>`, `ReadOnlySpan<T>` | `nint _pointer; int _length;` |
 | `Nullable<T>` | `T _value; bool _hasValue;` |
+| `String` | `nint _pointer; int _length;` (a `readonly struct`) |
+| `System.Text.Rune` | `int _value;` |
 | `Result` | `ushort _code;` |
 | `Result<T>`, `Result<T, E>` | `T _value; ushort _code;` |
 | `Error` | `ushort _code;` |
@@ -136,6 +140,7 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | `Result`, `Result<T>`, `Result<T, E>` | `result<void, anyerror>`, `result<T, anyerror>`, `result<T, errorset(E)>` |
 | `Error` | `anyerror` |
 | `Span<T>`, `ReadOnlySpan<T>` | `slice<T>`, `slice<T> const` |
+| `string` | `slice<u8> const text` |
 | `T*`, `ref T`, `in T` | `ptr<T>` with the matching flags; a `ref`, `in` or `out` parameter also has its mode |
 | method | `Function`; instance methods get `this` as the first parameter ([ir.md](ir.md#functions)) |
 | static field | `Global` |
@@ -242,9 +247,11 @@ No decision tree is built: the C compiler optimizes chains of comparisons.
 
 ### Strings
 
-A `string` constant converted by the corelib's `op_Implicit` to `ReadOnlySpan<byte>` or `byte*`
-becomes a `bytes` constant: the UTF-8 encoding of the C# string, with a NUL after it. Equal
-literals share one constant.
+A `string` constant becomes a `bytes` constant: the UTF-8 encoding of the C# string, with a NUL
+after it, typed `slice<u8> const text`, or `ptr<u8> const nullable many` when converted to
+`byte*`. Equal literals share one constant. `Length`, the indexers and the range indexer of
+`String` lower as those of `ReadOnlySpan<byte>`; the other forms are in
+[ir.md](ir.md#places-operands-and-values).
 
 ### Interpolated strings
 

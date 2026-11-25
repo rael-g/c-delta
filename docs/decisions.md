@@ -281,6 +281,12 @@ permissive license, allocation through per-context hooks, no hidden global state
 return values and reentrancy; otherwise it gives nothing over `[Import]`. Modules needed at
 comptime, on freestanding targets or generically stay CΔ.
 
+**D148. `string` is UTF-8 text: a corelib struct of pointer and length.** Text is too common for
+`ReadOnlySpan<byte>` and free functions; Roslyn accepts a struct `System.String`, so CΔ keeps C#'s
+own name, literals, `==`, `switch` and `foreach` with no class, no GC and no hidden allocation.
+`Length` counts bytes and indexing gives bytes, the price of UTF-8; characters are `Rune`, and
+`char` remains only for constants.
+
 ## Repository
 
 **D201. Documents and code are in English.**

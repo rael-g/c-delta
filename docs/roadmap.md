@@ -129,6 +129,9 @@ completion of `C.fopen` and CΔ diagnostics.
   math on primitives and on user types.
 - Interfaces as constraints, `Dyn<I>`, dispatch tables, `[Union]` interfaces, type patterns.
 - Delegates, lambdas, closure conversion, local functions, function pointers (D144) and `CD1030`.
+- `string` as UTF-8 text (D148): the corelib struct, equality, string `switch` and patterns,
+  `foreach` over runes, `Rune`, `Startup.Args()` and `Process.Args()` as strings, `CD1031`,
+  `CD1032`, `CD1020` retired.
 - Every `CD5xxx` rule, `CD2002`.
 
 Accepted when: `generics` conformance passes; a generic `List<T>` and a `Dyn<IAllocator>` arena
@@ -155,7 +158,8 @@ Accepted when: `comptime` conformance passes; differential tests pass.
 
 ## M7: Std and SDK
 
-- The first version of [std.md](std.md), with its own tests.
+- The first version of [std.md](std.md), with its own tests, including the `string` members of
+  `Std.Text`.
 - `CDelta.Sdk`, `cdc test`, `cdc fmt`, `cdc init`, package format, NuGet packaging, the `cdelta`
   tool.
 - Cross compilation to every tier 1 and 2 target.

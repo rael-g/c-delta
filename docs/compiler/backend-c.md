@@ -95,6 +95,8 @@ program uses it; each is `static` (`static inline` for arithmetic).
 | `cd_trace`, `cd_trace_len` | `_Thread_local` ring of 32 `{ const char* file; int32_t line; }` and its count |
 | `void cd_trace_push(const char* file, int32_t line)` | writes at `cd_trace_len % 32`, then increments |
 | `void cd_trace_print(void)` | the trace block below, when `cd_trace_len > 0` |
+| `bool cd_text_eql(cd_T_slice_const_uint8_t a, cd_T_slice_const_uint8_t b)` | `intrinsic text.eql`: equal lengths and `__builtin_memcmp` |
+| `int32_t cd_utf8_next(cd_T_slice_const_uint8_t s, int32_t* offset)` | `intrinsic utf8.next`: decodes one scalar at `*offset` and advances past it; an invalid or truncated sequence gives `0xFFFD` and advances by one |
 | `void cd_report_error(const uint8_t* name, int32_t len)` | `intrinsic error.report`: writes `error: `, the name and a newline through `cd_libc_write_stderr`, then calls `cd_trace_print` |
 | `<to> cd_f2i_wrap_<from>_<to>(<from> v)` | saturating conversion, `NaN` to `0` |
 | `<to> cd_f2i_trap_<from>_<to>(<from> v, const char* file, int32_t line)` | panics "float cast out of range" when not representable |

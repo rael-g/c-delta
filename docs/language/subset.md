@@ -67,7 +67,8 @@ including the std, cannot declare them.
 | Variance (`in`, `out` on type parameters) | Removed. `CD5003` |
 | `object`, boxing | Removed. `CD1017` |
 | `dynamic` | Removed. `CD1016` |
-| `string` | Restricted: only constants and literals. `CD1020` |
+| `string` | Kept as UTF-8 text, a struct view of bytes ([types.md](types.md#text)) |
+| `char` | Restricted: only constants. `CD1031` |
 | Arrays `T[]` | Restricted: only as the type of a `static readonly` field initialized with a constant-length initializer. `CD1019` |
 | Array creation `new T[n]` | Removed. `CD1019` |
 | Anonymous types | Removed. `CD1018` |

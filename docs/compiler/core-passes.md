@@ -90,7 +90,9 @@ of the source set is a compiler bug, since `CD3002` already rejected it in the s
 
 - An executable gets a synthetic C `main(int argc, char** argv)`: it stores `argc` and `argv` in
   the synthetic globals `synthetic:argc` and `synthetic:argv`, which the intrinsics
-  `Startup.ArgCount()` and `Startup.ArgValues()` read and `Std.Process.Args()` wraps, calls `Main`, and converts its result into the exit code
+  `Startup.ArgCount()` and `Startup.ArgValues()` read and `Std.Process.Args()` wraps. When
+  `Startup.Args()` is reachable, it also measures each argument once into a stack array of
+  `argc` strings (`alloca`) held by `synthetic:args`, which `Startup.Args()` returns as a slice; calls `Main`, and converts its result into the exit code
   of [../language/errors.md](../language/errors.md#main). A freestanding target gets no `main`.
 - For a `Main` returning `Result` or `Result<int>`, the synthetic `main` branches on
   `haspayload`. The success edge returns `0` or the payload. The error edge reads `err`, copies

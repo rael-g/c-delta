@@ -12,7 +12,7 @@ Every primitive keeps its C# size and meaning. The C column is what the C backen
 | `nint`, `nuint` | pointer | signed and unsigned pointer-sized | `intptr_t`, `uintptr_t` |
 | `Int128`, `UInt128` | 16 | 128-bit integers | `__int128` or a struct where unsupported |
 | `Half`, `float`, `double` | 2, 4, 8 | IEEE 754 binary16, binary32, binary64 | `_Float16` or a struct, `float`, `double` |
-| `char` | 2 | a UTF-16 code unit, as in C# | `uint16_t` |
+| `char` | 2 | a UTF-16 code unit, as in C#; only as a constant (`CD1031`) | `uint16_t` |
 | `CLong`, `CULong` | target | C `long` and `unsigned long` | `long`, `unsigned long` |
 | `void` | 0 | no value | `void` |
 
@@ -140,25 +140,47 @@ Pointers are already nullable; `T*?` does not exist, as in C#.
 
 ## Text
 
-There is no string type at run time. Text is UTF-8 in `ReadOnlySpan<byte>` (read only) or
-`Span<byte>`.
+`string` is text: a read-only view of UTF-8 bytes, a pointer and a length, the size of a span. It
+is a struct of the corelib, not a class, so it is unmanaged, may be a field of any struct and is
+laid out as `struct { const uint8_t* ptr; int32_t len; }` (D148).
 
-A `string` literal or `const string` is a compile-time value with these conversions, declared by the
-corelib:
+```csharp
+string cmd = Try(ReadLine(input, buffer));
+switch (cmd)
+{
+    case "help": ShowHelp(); break;
+    case "quit": return default;
+}
+if (line.StartsWith("GET ")) { }
+foreach (var rune in name) { }
+struct Player { public string Name; public int Score; }
+```
 
-| Target | Result |
+| Operation | Meaning |
 |---|---|
-| `ReadOnlySpan<byte>` | the UTF-8 bytes in static memory, without the terminating NUL in `Length` |
-| `byte*` | a pointer to the same bytes, NUL-terminated, for C |
+| a literal or `const string` | the UTF-8 bytes in static memory, NUL-terminated after `Length` |
+| `s.Length` | the length in **bytes**: `"José".Length` is `5` |
+| `s[i]` | the byte at `i`, bounds-checked in safe modes |
+| `s[a..b]` | the `string` of the bytes from `a` to `b`, bounds-checked; no check that it splits on a character |
+| `a == b`, `!=` | content equality |
+| `switch` and `is` with string constants | content equality against each constant, in order |
+| `foreach (var r in s)` | each `Rune` (Unicode scalar) of the UTF-8; an invalid byte gives U+FFFD and advances by one |
+| conversion to `ReadOnlySpan<byte>` | implicit, the same bytes |
+| conversion to `byte*` | implicit from a constant only, NUL-terminated for C; a run-time `string` has no NUL (`CD1032`), use `Std.C.ToCString(s, allocator)` |
+| `default`, `""` | the empty string; `string` is never null, and `string?` is an optional |
 
-The compiler re-encodes the UTF-16 literal of C# into UTF-8 at compile time; a literal containing
-a lone surrogate is an error (`CD2007`). `"text"u8` is also kept and means the same `ReadOnlySpan<byte>`.
-
-A `string` cannot be the type of a local, field, parameter or return (`CD1020`), and only constants
-concatenate (`CD1021`). Comparing text is `Std.Mem.Eql(a, b)`.
-
-An interpolated string is allowed only when converted to an interpolated string handler type,
-which is how the std formats without allocation ([std.md](../std.md)).
+- A `string` owns nothing. It points into static memory or into a buffer someone else owns, like
+  a span; it must not outlive that buffer.
+- `string` is UTF-8 by convention, not by proof: literals are valid by construction (a lone
+  surrogate is `CD2007`), and `Std.Text.FromUtf8(bytes)` validates bytes from outside and returns
+  a `Result`. `"text"u8` is kept and means the same bytes as a `ReadOnlySpan<byte>`.
+- Only constants concatenate (`CD1021`); building text at run time takes an allocator
+  (`Std.Text.Concat(allocator, ...)`) or a buffer (`Std.Fmt.To(buffer, $"...")`). An interpolated
+  string is allowed only when converted to an interpolated string handler type, which is how the
+  std formats without allocation ([std.md](../std.md)).
+- `System.Text.Rune` is a Unicode scalar value, the character of CΔ text. `char` remains only for
+  constants (`'a'`, compared with a byte or a `Rune`); a `char` local, field, parameter or return is
+  `CD1031`.
 
 ## Integer semantics
 

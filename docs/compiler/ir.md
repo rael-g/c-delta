@@ -72,7 +72,7 @@ Every declaration has an id (its index in its table), a `Key`, a `Name`, a `Span
 | `f16 f32 f64` | |
 | `c.char c.schar c.uchar c.short c.ushort c.int c.uint c.long c.ulong c.longlong c.ulonglong` | C types whose spelling matters to the backend; sizes come from the target |
 | `ptr<T>` with flags `nullable`, `const`, `volatile`, `many` | `ref T` is `ptr<T>` not nullable, not many; `T*` is nullable and many |
-| `slice<T>` with flag `const` | pointer and `i32` length |
+| `slice<T>` with flag `const` | pointer and `i32` length; `slice<u8> const text` is a `string`, the same value marked as text for projections and diagnostics |
 | `array<T, N>` | value array |
 | `fn(sig)` | function pointer; `sig` = calling convention, parameters, return, variadic |
 | `closure(sig)` | function pointer and context pointer |
@@ -123,6 +123,9 @@ Slices, stack memory and optionals:
 | a static array or inline array converted to `Span<T>` or `ReadOnlySpan<T>` | `slice(place, 0, N)` over the array's place, so the slice points at its storage |
 | a collection expression converted to `Span<T>` or `ReadOnlySpan<T>` | a `temp` local of type `array<T, N>` assigned an `aggregate` of the elements (a constant when every element is constant), then `slice(%arr, 0, N)` |
 | `fixed (T* p = s)` over a span | `cast slice.ptr` |
+| a `string` converted to `ReadOnlySpan<byte>`, or back | `cast bitcast` between `slice<u8> const text` and `slice<u8> const` |
+| `a == b`, `a != b` on strings, and a string constant pattern | `intrinsic text.eql(a, b)` of type `bool`, negated by `unop not` for `!=` |
+| `foreach (var r in s)` over a string | an `i32` offset local from `0`; while `offset < len s`, `intrinsic utf8.next(s, addr.mut %offset)` gives the scalar as `i32` and advances the offset; the `Rune` is `aggregate struct System.Text.Rune(scalar)` |
 | `fixed (T* p = a)` over a static array | `addr.mut a[0]` then `cast ptr.ptr` |
 | `stackalloc T[N]` with a constant `N`, with or without an initializer | a `temp` local of type `array<T, N>` assigned the zero constant of its type, the initializer's `aggregate`, or nothing under `[SkipLocalsInit]`; then `addr.mut %arr[0]` and `cast ptr.ptr` to `T*` |
 | `stackalloc T[n]` with a run-time `n` | `alloca T, n, init`: `n` converted to `usize` with `cast int.int default`, `init` `zero`, or `undef` under `[SkipLocalsInit]` |
@@ -399,7 +402,7 @@ targ        = type | constant
 type        = "void" | "noreturn" | "bool" | int-type | "isize" | "usize" | "f16" | "f32" | "f64"
             | "c." ident
             | "ptr" "<" type ">" {"nullable" | "const" | "volatile" | "many"}
-            | "slice" "<" type ">" ["const"]
+            | "slice" "<" type ">" ["const" ["text"]]
             | "array" "<" type "," int ">"
             | "fn" sig | "closure" sig
             | "dyn" "<" type ">"
