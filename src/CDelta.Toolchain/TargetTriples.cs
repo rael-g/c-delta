@@ -1,6 +1,6 @@
 namespace CDelta.Toolchain;
 
-internal static class TargetTriples
+public static class TargetTriples
 {
     private static readonly (string Target, string Zig, string Clang)[] _table =
     [

@@ -28,7 +28,6 @@ public sealed class Instantiator
     public Module Run(IReadOnlyList<FunctionId> roots)
     {
         _destination.Sources.AddRange(_source.Sources);
-        _destination.CImports.AddRange(_source.CImports);
         foreach (FunctionId root in roots)
         {
             Reach(root);
@@ -52,6 +51,7 @@ public sealed class Instantiator
             _destination.Bodies[_mapped[id.Index].Index] = CopyBody(body);
         }
 
+        _destination.CImports.AddRange(_source.CImports);
         return _destination;
     }
 

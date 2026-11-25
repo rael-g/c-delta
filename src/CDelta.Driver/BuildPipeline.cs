@@ -1,6 +1,8 @@
 using CDelta.Backend.C;
+using CDelta.Backend.CSharp;
 using CDelta.Core;
 using CDelta.Diagnostics;
+using CDelta.Frontend.C;
 using CDelta.Frontend.CSharp;
 using CDelta.Frontend.CSharp.Rules;
 using CDelta.Ir;
@@ -75,6 +77,14 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         }
 
         string packageName = Path.GetFileNameWithoutExtension(sources[0].FullPath);
+        string intermediate = BuildPaths.IntermediateForFiles(environment, sources.ConvertAll(s => s.FullPath));
+        Directory.CreateDirectory(intermediate);
+        List<string> includeDirectories = [];
+        if (!ImportC(sources, toolchain, target, packageName, intermediate, includeDirectories, diagnostics))
+        {
+            return null;
+        }
+
         var frontend = CSharpFrontend.Create(sources, LibraryLocator.Corelib(environment), packageName, BuildSymbols.For(target, options.Mode), SubsetAnalyzers.Create(), diagnostics);
         if (frontend.BindingErrors.Count > 0)
         {
@@ -91,15 +101,13 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
 
         var bodies = new CachingBodyProvider(frontend, frontend.Builder);
         Module? final = CorePipeline.Run(frontend.Module, bodies, new CoreOptions(mode, targetData), diagnostics);
-        string intermediate = BuildPaths.IntermediateForFiles(environment, sources.ConvertAll(s => s.FullPath));
-        Directory.CreateDirectory(intermediate);
         DumpIr(options, intermediate, frontend.Module, final);
         if (final is null)
         {
             return null;
         }
 
-        return Native(options, diagnostics, toolchain, final, target, mode, intermediate, packageName, messages);
+        return Native(options, diagnostics, toolchain, final, target, mode, intermediate, packageName, includeDirectories, messages);
     }
 
     private string? Native(
@@ -111,6 +119,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         BuildMode mode,
         string intermediate,
         string packageName,
+        List<string> includeDirectories,
         List<string> messages)
     {
         bool debugInfo = mode is BuildMode.Debug or BuildMode.ReleaseSafe;
@@ -132,7 +141,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         foreach (string source in sources)
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
-            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, [], []));
+            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, includeDirectories, []));
             Trace(options, compiled, messages);
             if (compiled.ExitCode != 0)
             {
@@ -218,6 +227,53 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
 
     private static bool TryParseMode(string text, out BuildMode mode) =>
         Enum.TryParse(text, false, out mode) && Enum.IsDefined(mode);
+
+    private static bool ImportC(
+        List<SourceInput> sources,
+        IToolchainProvider toolchain,
+        string target,
+        string packageName,
+        string intermediate,
+        List<string> includeDirectories,
+        DiagnosticBag diagnostics)
+    {
+        List<ImportDeclaration> declarations = ImportScanner.Scan(sources);
+        if (declarations.Count == 0)
+        {
+            return true;
+        }
+
+        var requests = new List<ImportRequest>();
+        foreach (ImportDeclaration declaration in declarations)
+        {
+            string baseDirectory = Path.GetDirectoryName(declaration.SourcePath)!;
+            List<string> directories = [.. declaration.IncludeDirs.Select(d => Path.GetFullPath(d, baseDirectory))];
+            includeDirectories.AddRange(directories);
+            requests.Add(new ImportRequest(declaration.Headers, declaration.Defines, directories, declaration.Only));
+        }
+
+        string clangTarget = TargetTriples.Clang(target) ?? target;
+        var options = new ReadOptions(clangTarget, toolchain.SystemIncludeDirectories(target), [], []);
+        CImportResult read = CHeaderReader.Read(packageName, requests, options, diagnostics);
+        if (diagnostics.HasError)
+        {
+            return false;
+        }
+
+        List<StubMacro> macros = [.. read.Macros.Select(m => new StubMacro(m.Name, (StubMacroKind)(int)m.Kind, m.CType, m.Integer, m.Float, m.Text))];
+        string stubs = Path.Combine(intermediate, "imports");
+        Directory.CreateDirectory(stubs);
+        for (int i = 0; i < declarations.Count; i++)
+        {
+            ImportDeclaration declaration = declarations[i];
+            string text = StubWriter.Write(read.Module, macros, read.Unsupported, new StubOptions(declaration.Namespace, declaration.ClassName, declaration.Only));
+            string path = Path.Combine(stubs, declaration.ClassName + ".g.cs");
+            File.WriteAllText(path, text);
+            sources.Add(new SourceInput(path, declaration.ClassName + ".g.cs", text));
+        }
+
+        return true;
+    }
 
     private static List<SourceInput> ReadSources(CompilerOptions options, DiagnosticBag diagnostics)
     {

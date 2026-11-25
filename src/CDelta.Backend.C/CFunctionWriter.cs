@@ -381,12 +381,13 @@ internal sealed partial class CFunctionWriter(
     private string ErrorHelper(string direction, TypeId enumType)
     {
         (direction == "from" ? state.ErrorFromEnums : state.ErrorToEnums).Add(module.Types[enumType.Index].A);
-        return "cd_err_" + direction + "_" + names.Enum(new EnumId(module.Types[enumType.Index].A));
+        return "cd_err_" + direction + "_" + CNames.MangleSpelling(names.Enum(new EnumId(module.Types[enumType.Index].A)));
     }
 
     private string CallText(Rvalue rvalue)
     {
         var text = new StringBuilder();
+        bool imported = rvalue.Callee == CalleeKind.Direct && module.Functions[rvalue.CalleeId].Origin.Kind == OriginKind.CHeader;
         if (rvalue.Callee == CalleeKind.Direct)
         {
             text.Append(names.Function(new FunctionId(rvalue.CalleeId)));
@@ -404,10 +405,18 @@ internal sealed partial class CFunctionWriter(
                 text.Append(", ");
             }
 
-            text.Append(OperandText(_body.Args[rvalue.Args.Start + i]));
+            OperandId argument = _body.Args[rvalue.Args.Start + i];
+            bool castToVoid = imported && module.Types[IrTyper.OfOperand(module, _body, argument).Index].Kind == TypeKind.Ptr;
+            text.Append(castToVoid ? "(void*)(" + OperandText(argument) + ")" : OperandText(argument));
         }
 
-        return text.Append(')').ToString();
+        text.Append(')');
+        if (imported && module.Types[module.Functions[rvalue.CalleeId].Return.Index].Kind == TypeKind.Ptr)
+        {
+            return "(" + CTypes.Spell(module, names, module.Functions[rvalue.CalleeId].Return) + ")" + text;
+        }
+
+        return text.ToString();
     }
 
     private void WriteAssign(Statement statement)

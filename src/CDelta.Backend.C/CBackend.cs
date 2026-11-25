@@ -15,7 +15,11 @@ public static class CBackend
         var definitions = new StringBuilder();
         foreach (FunctionId function in order)
         {
-            prototypes.Append(CFunctionWriter.Signature(module, function, names, false, null)).Append(";\n");
+            if (module.Functions[function.Index].Origin.Kind != OriginKind.CHeader)
+            {
+                prototypes.Append(CFunctionWriter.Signature(module, function, names, false, null)).Append(";\n");
+            }
+
             if (module.Bodies[function.Index] is not null)
             {
                 definitions.Append('\n').Append(new CFunctionWriter(module, function, names, options, state).Write());
@@ -23,7 +27,8 @@ public static class CBackend
         }
 
         FunctionId? handler = PanicHandler(module);
-        var text = new StringBuilder(CPrelude.Includes);
+        var text = new StringBuilder(ImportLines(module));
+        text.Append(CPrelude.Includes);
         if (state.UsesUnusedMarker)
         {
             text.Append('\n').Append(CPrelude.UnusedMarker);
@@ -106,6 +111,11 @@ public static class CBackend
         foreach (EnumId id in IrPrinter.OrderedEnums(module))
         {
             EnumDecl declaration = module.Enums[id.Index];
+            if (CNames.IsImported(module, declaration.Origin))
+            {
+                continue;
+            }
+
             enums.Append("typedef ").Append(CTypes.Spell(module, names, declaration.Underlying)).Append(' ').Append(names.Enum(id)).Append(";\n");
         }
 
@@ -169,6 +179,7 @@ public static class CBackend
         {
             EnumDecl declaration = module.Enums[index];
             string type = names.Enum(new EnumId(index));
+            string suffix = CNames.MangleSpelling(type);
             var forward = new StringBuilder();
             var reverse = new StringBuilder();
             for (int i = 0; i < declaration.Members.Count; i++)
@@ -182,14 +193,37 @@ public static class CBackend
 
             if (state.ErrorFromEnums.Contains(index))
             {
-                text.Append("static uint16_t cd_err_from_").Append(type).Append('(').Append(type).Append(" value)\n{\n    switch (value)\n    {\n");
+                text.Append("static uint16_t cd_err_from_").Append(suffix).Append('(').Append(type).Append(" value)\n{\n    switch (value)\n    {\n");
                 text.Append(forward).Append("    default: return 0;\n    }\n}\n\n");
             }
 
             if (state.ErrorToEnums.Contains(index))
             {
-                text.Append("static ").Append(type).Append(" cd_err_to_").Append(type).Append("(uint16_t code)\n{\n    switch (code)\n    {\n");
+                text.Append("static ").Append(type).Append(" cd_err_to_").Append(suffix).Append("(uint16_t code)\n{\n    switch (code)\n    {\n");
                 text.Append(reverse).Append("    default: return (").Append(type).Append(")0;\n    }\n}\n\n");
+            }
+        }
+
+        return text.ToString();
+    }
+
+    private static string ImportLines(Module module)
+    {
+        var text = new StringBuilder();
+        foreach (CImportDecl import in module.CImports)
+        {
+            foreach (string define in import.Defines)
+            {
+                int equals = define.IndexOf('=');
+                text.Append("#define ").Append(equals < 0 ? define + " 1" : define[..equals] + " " + define[(equals + 1)..]).Append('\n');
+            }
+        }
+
+        foreach (CImportDecl import in module.CImports)
+        {
+            foreach (string header in import.Headers)
+            {
+                text.Append("#include \"").Append(header).Append("\"\n");
             }
         }
 

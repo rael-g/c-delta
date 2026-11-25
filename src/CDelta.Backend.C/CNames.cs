@@ -21,7 +21,7 @@ internal sealed class CNames
         {
             EnumDecl declaration = module.Enums[i];
             string name = TypePrefix + Mangle(module.Text(declaration.Name));
-            _enumNames[i] = name + "__" + CHash.Hash8(module.Text(declaration.Key));
+            _enumNames[i] = IsImported(module, declaration.Origin) ? module.Text(declaration.Origin.CName) : name + "__" + CHash.Hash8(module.Text(declaration.Key));
             _taken.Add(_enumNames[i]);
         }
 
@@ -60,7 +60,9 @@ internal sealed class CNames
             StructDecl declaration = module.Structs[i];
             string name = module.Text(declaration.Name);
             string mangled = TypePrefix + Mangle(name);
-            _structNames[i] = structsByName[name] > 1 ? mangled + "__" + CHash.Hash8(module.Text(declaration.Key)) : mangled;
+            _structNames[i] = IsImported(module, declaration.Origin)
+                ? module.Text(declaration.Origin.CName)
+                : structsByName[name] > 1 ? mangled + "__" + CHash.Hash8(module.Text(declaration.Key)) : mangled;
             _taken.Add(_structNames[i]);
         }
 
@@ -80,6 +82,9 @@ internal sealed class CNames
             _taken.Add(name);
         }
     }
+
+    public static bool IsImported(Module module, Origin origin) =>
+        origin.Kind == OriginKind.CHeader && module.Text(origin.CName).Length > 0;
 
     public string Function(FunctionId id) => _functionNames[id.Index];
 

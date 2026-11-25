@@ -40,6 +40,11 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         var text = new StringBuilder();
         foreach (StructId id in order)
         {
+            if (CNames.IsImported(module, module.Structs[id.Index].Origin))
+            {
+                continue;
+            }
+
             string name = names.Struct(id);
             text.Append("typedef struct ").Append(name).Append(' ').Append(name).Append(";\n");
         }
@@ -74,7 +79,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                     text.Append(definition);
                 }
             }
-            else
+            else if (!CNames.IsImported(module, module.Structs[structIndex].Origin))
             {
                 text.Append(Definition(new StructId(structIndex))).Append('\n');
             }
@@ -89,6 +94,11 @@ internal sealed partial class CStructWriter(Module module, CNames names)
         foreach (StructId id in order)
         {
             StructDecl declaration = module.Structs[id.Index];
+            if (declaration.Origin.Kind == OriginKind.CHeader && !CNames.IsImported(module, declaration.Origin))
+            {
+                continue;
+            }
+
             string name = names.Struct(id);
             string display = module.Text(declaration.Name);
             text.Append("_Static_assert(sizeof(").Append(name).Append(") == ").Append(declaration.Size)

@@ -413,23 +413,31 @@ public sealed class CSharpFrontend : IBodyProvider
         if (method.IsExtern)
         {
             DllImportData? import = method.GetDllImportData();
-            if (import is null)
+            int importId = ImportIdOf(method.ContainingType);
+            if (import is null && importId < 0)
             {
                 throw new UnsupportedConstructException("an extern method needs [DllImport] at this stage", location);
             }
 
-            origin = Origin.FromLibrary(
-                module.Intern(import.ModuleName ?? string.Empty),
-                module.Intern(import.EntryPointName ?? method.Name));
             linkage = LinkageKind.Extern;
-            conv = import.CallingConvention switch
+            if (import is null)
             {
-                System.Runtime.InteropServices.CallingConvention.Cdecl => CallConv.Cdecl,
-                System.Runtime.InteropServices.CallingConvention.StdCall => CallConv.Stdcall,
-                System.Runtime.InteropServices.CallingConvention.FastCall => CallConv.Fastcall,
-                System.Runtime.InteropServices.CallingConvention.ThisCall => CallConv.Thiscall,
-                _ => CallConv.Default,
-            };
+                origin = new Origin(OriginKind.CHeader, StringId.None, importId, StringId.None, module.Intern(CNameOf(method)));
+            }
+            else
+            {
+                origin = Origin.FromLibrary(
+                    module.Intern(import.ModuleName ?? string.Empty),
+                    module.Intern(import.EntryPointName ?? method.Name));
+                conv = import.CallingConvention switch
+                {
+                    System.Runtime.InteropServices.CallingConvention.Cdecl => CallConv.Cdecl,
+                    System.Runtime.InteropServices.CallingConvention.StdCall => CallConv.Stdcall,
+                    System.Runtime.InteropServices.CallingConvention.FastCall => CallConv.Fastcall,
+                    System.Runtime.InteropServices.CallingConvention.ThisCall => CallConv.Thiscall,
+                    _ => CallConv.Default,
+                };
+            }
         }
 
         FunctionId id = Builder.DeclareFunction(
@@ -438,7 +446,7 @@ public sealed class CSharpFrontend : IBodyProvider
             SpanOf(location),
             origin,
             parameters,
-            false,
+            method.IsVararg,
             _types.ReferenceType(_types.Map(method.ReturnType, location), method.RefKind),
             conv,
             linkage,
@@ -448,5 +456,44 @@ public sealed class CSharpFrontend : IBodyProvider
         _functions.Add(method, id);
         _symbols.Add(method);
         return id;
+    }
+
+    private readonly Dictionary<INamedTypeSymbol, int> _imports = new(SymbolEqualityComparer.Default);
+
+    internal int ImportIdOf(INamedTypeSymbol? type)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.ContainingType)
+        {
+            AttributeData? attribute = current.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "CDelta.ImportAttribute");
+            if (attribute is null)
+            {
+                continue;
+            }
+
+            if (_imports.TryGetValue(current, out int existing))
+            {
+                return existing;
+            }
+
+            var headers = new List<string>();
+            if (attribute.ConstructorArguments.Length > 0)
+            {
+                headers.AddRange(attribute.ConstructorArguments[0].Values.Select(v => (string)v.Value!));
+            }
+
+            List<string> Named(string name) =>
+                [.. attribute.NamedArguments.Where(a => a.Key == name).SelectMany(a => a.Value.Values).Select(v => (string)v.Value!)];
+            int id = Builder.AddCImport(new CImportDecl(headers, Named("Defines"), Named("IncludeDirs")));
+            _imports[current] = id;
+            return id;
+        }
+
+        return -1;
+    }
+
+    internal static string CNameOf(ISymbol symbol)
+    {
+        AttributeData? attribute = symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "CDelta.CNameAttribute");
+        return attribute is { ConstructorArguments.Length: > 0 } ? (string)attribute.ConstructorArguments[0].Value! : symbol.Name;
     }
 }
