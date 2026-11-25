@@ -41,4 +41,5 @@ public enum TypeKind
     Result,
     ErrorSet,
     AnyError,
+    Opaque,
 }

@@ -45,6 +45,12 @@ public sealed class Module(string name)
 
     public Dictionary<string, EnumId> EnumsByKey { get; } = [];
 
+    public List<OpaqueDecl> Opaques { get; } = [];
+
+    public Dictionary<string, OpaqueId> OpaquesByKey { get; } = [];
+
+    public List<CImportDecl> CImports { get; } = [];
+
     public List<StructDecl> Structs { get; } = [];
 
     public Dictionary<string, StructId> StructsByKey { get; } = [];

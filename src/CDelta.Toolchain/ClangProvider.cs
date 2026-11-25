@@ -17,6 +17,9 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
         return result.ExitCode == 0 && Versions.TryParse(version, out int major, out _, out _) && major >= MinimumMajor;
     }
 
+    public IReadOnlyList<string> SystemIncludeDirectories(string target) =>
+        IncludeProbe.Directories(runner, Executable, ["--target=" + TargetTriples.Clang(target)]);
+
     public ToolResult Compile(CompileRequest request)
     {
         var arguments = new List<string> { "--target=" + TargetTriples.Clang(request.Target), "-c" };

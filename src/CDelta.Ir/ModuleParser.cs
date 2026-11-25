@@ -169,7 +169,40 @@ internal sealed class ModuleParser
             {
                 DeclareStructShell(start, attributes);
             }
+            else if (kind == "opaque")
+            {
+                DeclareOpaque(start);
+            }
+            else if (kind == "cimport")
+            {
+                DeclareCImport(start, end);
+            }
         }
+    }
+
+    private void DeclareOpaque(int start)
+    {
+        var cursor = new IrCursor(_lines[start], start + 1);
+        cursor.ExpectWord("opaque");
+        string key = cursor.ReadReference();
+        Origin origin = ParseOrigin(cursor);
+        _builder.DeclareOpaque(key, key, ParseSpan(cursor), origin);
+    }
+
+    private void DeclareCImport(int start, int end)
+    {
+        var headers = new List<string>();
+        var defines = new List<string>();
+        var includes = new List<string>();
+        for (int i = start + 1; i < end; i++)
+        {
+            var cursor = new IrCursor(_lines[i], i + 1);
+            string word = cursor.ReadWord();
+            string value = cursor.ReadString();
+            (word == "header" ? headers : word == "define" ? defines : includes).Add(value);
+        }
+
+        _builder.AddCImport(new CImportDecl(headers, defines, includes));
     }
 
     private void DeclareEnum(int start, int end)

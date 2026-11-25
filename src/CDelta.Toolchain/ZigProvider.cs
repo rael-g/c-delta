@@ -24,6 +24,9 @@ public sealed class ZigProvider(IProcessRunner runner, string executable) : IToo
         return (major, minor, patch).CompareTo((MinimumMajor, MinimumMinor, MinimumPatch)) >= 0;
     }
 
+    public IReadOnlyList<string> SystemIncludeDirectories(string target) =>
+        IncludeProbe.Directories(runner, Executable, ["cc", "-target", TargetTriples.Zig(target)!]);
+
     public ToolResult Compile(CompileRequest request)
     {
         var arguments = new List<string> { "cc", "-target", TargetTriples.Zig(request.Target)!, "-c" };

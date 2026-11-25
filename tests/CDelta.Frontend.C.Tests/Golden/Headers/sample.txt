@@ -1,0 +1,42 @@
+module probe stage lowered
+
+cimport 1 {
+  header "sample.h"
+}
+
+enum mode: c.uint origin cheader(0, "enum mode") @0:0:0 {
+  MODE_A = 0
+  MODE_B = 5
+}
+
+struct number layout explicit size 4 align 4 origin cheader(0, "union number") @0:0:0 {
+  i: c.int @0
+  f: f32 @0
+}
+
+struct pair layout c size 24 align 8 origin cheader(0, "struct pair") @0:0:0 {
+  a: c.int @0
+  b: c.long @8
+  tag: array<c.uchar, 4> @16
+}
+
+struct point layout c size 8 align 4 origin cheader(0, "point") @0:0:0 {
+  x: c.int @0
+  y: c.int @4
+}
+
+opaque sample origin cheader(0, "sample") @0:0:0
+
+global sample_count: c.int mutable extern origin cheader(0, "sample_count") @0:0:0
+
+fn sample_log(format: ptr<c.char> nullable const many, ...) -> c.int extern origin cheader(0, "sample_log") @0:0:0
+
+fn sample_open(path: ptr<c.char> nullable const many, out: ptr<ptr<opaque sample> nullable many> nullable many) -> c.int extern origin cheader(0, "sample_open") @0:0:0
+
+fn sample_origin() -> struct point extern origin cheader(0, "sample_origin") @0:0:0
+
+fn sample_twice(v: c.int) -> c.int extern origin cheader(0, "sample_twice") @0:0:0
+macro SAMPLE_LETTER Integer int 120
+macro SAMPLE_NAME Text char* sample
+macro SAMPLE_OK Integer int 0
+macro SAMPLE_RATIO Float double 0.5

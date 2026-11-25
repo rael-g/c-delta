@@ -44,6 +44,11 @@ public static partial class IrPrinter
             }
         }
 
+        for (int i = 0; i < module.CImports.Count; i++)
+        {
+            PrintCImport(module.CImports[i], i + 1, text);
+        }
+
         foreach (EnumId declaration in OrderedEnums(module))
         {
             text.Append('\n');
@@ -54,6 +59,15 @@ public static partial class IrPrinter
         {
             text.Append('\n');
             PrintStruct(module, declaration, text);
+        }
+
+        foreach (OpaqueId opaque in OrderedOpaques(module))
+        {
+            text.Append('\n');
+            OpaqueDecl declaration = module.Opaques[opaque.Index];
+            text.Append("opaque ").Append(Reference(module.Text(declaration.Key)));
+            PrintOrigin(module, declaration.Origin, text);
+            text.Append(' ').Append(Span(declaration.Span)).Append('\n');
         }
 
         foreach (GlobalId global in OrderedGlobals(module))
@@ -111,6 +125,8 @@ public static partial class IrPrinter
                 return "struct " + Reference(module.Text(module.Structs[node.A].Key));
             case TypeKind.Enum:
                 return "enum " + Reference(module.Text(module.Enums[node.A].Key));
+            case TypeKind.Opaque:
+                return "opaque " + Reference(module.Text(module.Opaques[node.A].Key));
             default:
                 return IrTypes.Name(node.Kind);
         }
@@ -225,6 +241,41 @@ public static partial class IrPrinter
         {
             EnumMember member = module.EnumMembers[declaration.Members.Start + i];
             text.Append(Indent).Append(module.Text(member.Name)).Append(" = ").Append(member.Value.ToString()).Append('\n');
+        }
+
+        text.Append("}\n");
+    }
+
+    public static List<OpaqueId> OrderedOpaques(Module module)
+    {
+        var ids = new List<OpaqueId>();
+        for (int i = 0; i < module.Opaques.Count; i++)
+        {
+            ids.Add(new OpaqueId(i));
+        }
+
+        ids.Sort((a, b) => string.CompareOrdinal(
+            module.Text(module.Opaques[a.Index].Key),
+            module.Text(module.Opaques[b.Index].Key)));
+        return ids;
+    }
+
+    private static void PrintCImport(CImportDecl import, int number, StringBuilder text)
+    {
+        text.Append('\n').Append("cimport ").Append(number).Append(" {\n");
+        foreach (string header in import.Headers)
+        {
+            text.Append(Indent).Append("header ").Append(Quote(header)).Append('\n');
+        }
+
+        foreach (string define in import.Defines)
+        {
+            text.Append(Indent).Append("define ").Append(Quote(define)).Append('\n');
+        }
+
+        foreach (string include in import.IncludeDirs)
+        {
+            text.Append(Indent).Append("include ").Append(Quote(include)).Append('\n');
         }
 
         text.Append("}\n");

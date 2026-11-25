@@ -10,6 +10,8 @@ public interface IToolchainProvider
 
     bool MeetsMinimumVersion(out string version);
 
+    IReadOnlyList<string> SystemIncludeDirectories(string target);
+
     ToolResult Compile(CompileRequest request);
 
     ToolResult Link(LinkRequest request);

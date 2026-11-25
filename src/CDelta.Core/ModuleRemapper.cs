@@ -35,6 +35,8 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 return destination.Type(node with { A = Struct(new StructId(node.A)).Index });
             case TypeKind.Enum:
                 return destination.Type(node with { A = Enum(new EnumId(node.A)).Index });
+            case TypeKind.Opaque:
+                return destination.Type(node with { A = Opaque(new OpaqueId(node.A)).Index });
             default:
                 return destination.Type(node);
         }
@@ -66,6 +68,18 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             members);
         _enums.Add(id.Index, created);
         return created;
+    }
+
+    public OpaqueId Opaque(OpaqueId id)
+    {
+        OpaqueDecl declaration = source.Opaques[id.Index];
+        string key = source.Text(declaration.Key);
+        if (destination.OpaquesByKey.TryGetValue(key, out OpaqueId existing))
+        {
+            return existing;
+        }
+
+        return new ModuleBuilder(destination).DeclareOpaque(key, source.Text(declaration.Name), declaration.Span, Origin(declaration.Origin));
     }
 
     public StructId Struct(StructId id)

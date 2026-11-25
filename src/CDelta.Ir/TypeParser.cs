@@ -115,6 +115,14 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 }
 
                 return builder.StructType(structId);
+            case "opaque":
+                string opaqueKey = cursor.ReadReference();
+                if (!module.OpaquesByKey.TryGetValue(opaqueKey, out OpaqueId opaqueId))
+                {
+                    throw cursor.Error("unknown opaque " + opaqueKey);
+                }
+
+                return builder.OpaqueType(opaqueId);
             case "enum":
                 string enumKey = cursor.ReadReference();
                 if (!module.EnumsByKey.TryGetValue(enumKey, out EnumId enumId))

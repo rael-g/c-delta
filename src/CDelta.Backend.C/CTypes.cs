@@ -29,6 +29,9 @@ internal static class CTypes
                 return names.Struct(new StructId(node.A));
             case TypeKind.Enum:
                 return names.Enum(new EnumId(node.A));
+            case TypeKind.Opaque:
+                OpaqueDecl opaque = module.Opaques[node.A];
+                return module.Text(opaque.Origin.CName);
             case TypeKind.I128 or TypeKind.U128 when module.Target is { NativeInt128: false }:
                 return node.Kind == TypeKind.I128 ? "cd_i128" : "cd_u128";
             default:

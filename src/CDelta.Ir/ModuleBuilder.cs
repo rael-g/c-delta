@@ -141,6 +141,22 @@ public sealed class ModuleBuilder(Module module)
         return id;
     }
 
+    public OpaqueId DeclareOpaque(string key, string name, SourceSpan span, Origin origin)
+    {
+        var id = new OpaqueId(Module.Opaques.Count);
+        Module.Opaques.Add(new OpaqueDecl(Module.Intern(key), Module.Intern(name), span, origin, IdRange.Empty));
+        Module.OpaquesByKey.Add(key, id);
+        return id;
+    }
+
+    public TypeId OpaqueType(OpaqueId id) => Module.Type(new TypeNode(TypeKind.Opaque, TypeFlags.None, id.Index, 0));
+
+    public int AddCImport(CImportDecl import)
+    {
+        Module.CImports.Add(import);
+        return Module.CImports.Count - 1;
+    }
+
     public TypeId EnumType(EnumId id) => Module.Type(new TypeNode(TypeKind.Enum, TypeFlags.None, id.Index, 0));
 
     public StructId DeclareStruct(

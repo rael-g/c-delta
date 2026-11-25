@@ -28,6 +28,7 @@ public sealed class Instantiator
     public Module Run(IReadOnlyList<FunctionId> roots)
     {
         _destination.Sources.AddRange(_source.Sources);
+        _destination.CImports.AddRange(_source.CImports);
         foreach (FunctionId root in roots)
         {
             Reach(root);
