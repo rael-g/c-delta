@@ -24,7 +24,9 @@ public sealed class StrictCTests
         try
         {
             string target = HostTarget.Resolve() ?? "x86_64-linux-gnu";
-            var options = new CompilerOptions([source], target, Mode, Path.Combine(directory, "reference"), "auto", true, null, false, false);
+            string isolated = Path.Combine(directory, "case.cs");
+            File.Copy(source, isolated);
+            var options = new CompilerOptions([isolated], target, Mode, Path.Combine(directory, "reference"), "auto", true, null, false, false);
             BuildResult result = new BuildPipeline(new ProcessRunner(), Environment.GetEnvironmentVariable).Build(options);
             Assert.True(result.ExitCode == 0, string.Join("\n", result.Messages));
 

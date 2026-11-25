@@ -16,7 +16,7 @@ public static class CorePipeline
         }
 
         EntryPointPass.Run(instantiated);
-        SafetyPass.Run(instantiated, options);
+        SafetyPass.Run(instantiated, options, diagnostics);
         DiagnosticBag verification = IrVerifier.Verify(instantiated, ModuleStage.Final);
         foreach (CDelta.Diagnostics.Diagnostic item in verification.Items)
         {

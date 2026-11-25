@@ -1,10 +1,11 @@
+using CDelta.Diagnostics;
 using CDelta.Ir;
 
 namespace CDelta.Core;
 
 public static class SafetyPass
 {
-    public static void Run(Module module, CoreOptions options)
+    public static void Run(Module module, CoreOptions options, DiagnosticBag diagnostics)
     {
         for (int i = 0; i < module.Functions.Count; i++)
         {
@@ -23,7 +24,7 @@ public static class SafetyPass
             new FunctionSafety(module, body, options.Target, checksOn).Run();
         }
 
-        LayoutPass.Run(module, options.Target);
+        LayoutPass.Run(module, options.Target, diagnostics);
         module.Stage = ModuleStage.Final;
         module.Target = options.Target;
     }
