@@ -23,6 +23,11 @@ public static class CBackend
         }
 
         var text = new StringBuilder(CPrelude.Includes);
+        if (state.UsesUnusedMarker)
+        {
+            text.Append('\n').Append(CPrelude.UnusedMarker);
+        }
+
         if (state.UsesPanic)
         {
             if (options.LinkLibC)

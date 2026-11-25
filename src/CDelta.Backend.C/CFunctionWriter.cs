@@ -25,7 +25,7 @@ internal sealed partial class CFunctionWriter(
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex Identifier();
 
-    public static string Signature(Module module, FunctionId id, CNames names, bool withNames, string[]? localNames)
+    public static string Signature(Module module, FunctionId id, CNames names, bool withNames, string[]? localNames, bool[]? unread = null)
     {
         FunctionDecl function = module.Functions[id.Index];
         var text = new StringBuilder();
@@ -51,6 +51,10 @@ internal sealed partial class CFunctionWriter(
             if (withNames)
             {
                 text.Append(' ').Append(localNames![i]);
+                if (unread is not null && unread[i])
+                {
+                    text.Append(" CD_UNUSED");
+                }
             }
         }
 
@@ -65,13 +69,20 @@ internal sealed partial class CFunctionWriter(
     public string Write()
     {
         _locals = NameLocals();
-        _text.Append(Signature(module, id, names, true, _locals)).Append('\n').Append("{\n");
+        bool[] unread = UnreadLocals();
+        foreach (bool flag in unread)
+        {
+            state.UsesUnusedMarker |= flag;
+        }
+
+        _text.Append(Signature(module, id, names, true, _locals, unread)).Append('\n').Append("{\n");
         for (int i = _function.Params.Count; i < _body.Locals.Count; i++)
         {
             TypeId type = _body.Locals[i].Type;
             if (module.Types[type.Index].Kind != TypeKind.Void)
             {
-                _text.Append(Indent).Append(CTypes.Spell(module, names, type)).Append(' ').Append(_locals[i]).Append(";\n");
+                _text.Append(Indent).Append(CTypes.Spell(module, names, type)).Append(' ').Append(_locals[i])
+                    .Append(unread[i] ? " CD_UNUSED" : string.Empty).Append(";\n");
             }
         }
 
@@ -93,6 +104,110 @@ internal sealed partial class CFunctionWriter(
         }
 
         return _text.Append("}\n").ToString();
+    }
+
+    private bool[] UnreadLocals()
+    {
+        bool[] read = new bool[_body.Locals.Count];
+        foreach (Block block in _body.Blocks)
+        {
+            foreach (StatementId statementId in block.Statements)
+            {
+                Statement statement = _body.Statements[statementId.Index];
+                if (!statement.Place.IsNone)
+                {
+                    Place destination = _body.Places[statement.Place.Index];
+                    if (destination.Base == PlaceBase.DerefLocal)
+                    {
+                        read[destination.Id] = true;
+                    }
+
+                    MarkIndexReads(destination, read);
+                }
+
+                if (!statement.Rvalue.IsNone)
+                {
+                    MarkRvalueReads(_body.Rvalues[statement.Rvalue.Index], read);
+                }
+
+                if (!statement.Operand.IsNone)
+                {
+                    MarkOperandReads(statement.Operand, read);
+                }
+            }
+
+            if (block.Terminator is Terminator terminator && !terminator.Operand.IsNone)
+            {
+                MarkOperandReads(terminator.Operand, read);
+            }
+        }
+
+        bool[] unread = new bool[read.Length];
+        for (int i = 0; i < read.Length; i++)
+        {
+            unread[i] = !read[i];
+        }
+
+        return unread;
+    }
+
+    private void MarkRvalueReads(Rvalue rvalue, bool[] read)
+    {
+        if (!rvalue.A.IsNone)
+        {
+            MarkOperandReads(rvalue.A, read);
+        }
+
+        if (!rvalue.B.IsNone)
+        {
+            MarkOperandReads(rvalue.B, read);
+        }
+
+        if (!rvalue.Place.IsNone)
+        {
+            MarkPlaceRead(_body.Places[rvalue.Place.Index], read);
+        }
+
+        if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Indirect)
+        {
+            MarkOperandReads(new OperandId(rvalue.CalleeId), read);
+        }
+
+        for (int i = 0; i < rvalue.Args.Count && rvalue.Kind is RvalueKind.Call or RvalueKind.Aggregate; i++)
+        {
+            MarkOperandReads(_body.Args[rvalue.Args.Start + i], read);
+        }
+    }
+
+    private void MarkOperandReads(OperandId id, bool[] read)
+    {
+        Operand operand = _body.Operands[id.Index];
+        if (operand.Kind == OperandKind.Copy)
+        {
+            MarkPlaceRead(_body.Places[operand.A], read);
+        }
+    }
+
+    private void MarkPlaceRead(Place place, bool[] read)
+    {
+        if (place.Base != PlaceBase.Global)
+        {
+            read[place.Id] = true;
+        }
+
+        MarkIndexReads(place, read);
+    }
+
+    private void MarkIndexReads(Place place, bool[] read)
+    {
+        for (int i = 0; i < place.Projections.Count; i++)
+        {
+            Projection projection = _body.Projections[place.Projections.Start + i];
+            if (projection.Kind == ProjectionKind.Index)
+            {
+                MarkOperandReads(new OperandId(projection.Value), read);
+            }
+        }
     }
 
     private string[] NameLocals()
@@ -503,7 +618,10 @@ internal sealed partial class CFunctionWriter(
         if (rvalue.Mode == ArithMode.Trap && !Fits(from, to))
         {
             string source = CTypes.Spell(module, names, sourceType);
-            Statement("if (__builtin_expect((((" + source + ")" + destination + " != " + a + ") || ((" + destination + " < 0) != (" + a + " < 0))), 0)) " + PanicCall(CastTruncated, span));
+            bool fromSigned = IrTypes.IsSigned(from, module.Target);
+            bool toSigned = IrTypes.IsSigned(to, module.Target);
+            string signCheck = fromSigned == toSigned ? string.Empty : fromSigned ? " || (" + a + " < 0)" : " || (" + destination + " < 0)";
+            Statement("if (__builtin_expect((((" + source + ")" + destination + " != " + a + ")" + signCheck + "), 0)) " + PanicCall(CastTruncated, span));
         }
     }
 

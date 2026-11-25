@@ -17,6 +17,15 @@ internal static class CPrelude
 
         """;
 
+    public const string UnusedMarker = """
+        #if defined(__GNUC__) || defined(__clang__)
+        #define CD_UNUSED __attribute__((unused))
+        #else
+        #define CD_UNUSED
+        #endif
+
+        """;
+
     public const string LibcProtocol = """
         void cd_libc_write_stderr(const uint8_t* bytes, size_t length);
         noreturn void cd_libc_abort(void);

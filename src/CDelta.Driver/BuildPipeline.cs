@@ -16,14 +16,17 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
     private const string NativeTarget = "native";
     private const string WindowsMarker = "-windows-";
 
+    private readonly List<string> _generated = [];
+
     public BuildResult Build(CompilerOptions options)
     {
+        _generated.Clear();
         var messages = new List<string>();
         var diagnostics = new DiagnosticBag();
         try
         {
             string? output = Run(options, diagnostics, messages);
-            return Finish(diagnostics, messages, output);
+            return Finish(diagnostics, messages, output) with { GeneratedC = [.. _generated] };
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -147,6 +150,11 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         {
             diagnostics.Add(DiagnosticCode.CD0005, new Location(output, 0, 0), new Note(null, linked.StandardError.Trim()));
             return null;
+        }
+
+        if (options.EmitC)
+        {
+            _generated.AddRange(sources);
         }
 
         if (!options.EmitC)
