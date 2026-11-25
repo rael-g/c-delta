@@ -287,6 +287,10 @@ own name, literals, `==`, `switch` and `foreach` with no class, no GC and no hid
 `Length` counts bytes and indexing gives bytes, the price of UTF-8; characters are `Rune`, and
 `char` remains only for constants.
 
+**D149. Std types take the BCL's names when they keep its meaning.** `Dictionary`, `HashSet`,
+`Queue`, `Stack`, `StringBuilder`, `Random`, `Stopwatch` are structs over explicit allocators, but
+a C# programmer finds them where expected (D002).
+
 ## Repository
 
 **D201. Documents and code are in English.**

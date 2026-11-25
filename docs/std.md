@@ -50,13 +50,14 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 |---|---|---|
 | `Std.Mem` | `Copy`, `Set`, `Eql`, `IndexOf`, `StartsWith`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
 | `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `DebugAllocator` | the OS page API, libc |
-| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `HashMap<K, V, THash>` with `IHasher<K>`, `Deque<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer) | itself |
-| `Std.Text` | extension members on `string`: `StartsWith`, `EndsWith`, `Contains`, `IndexOf`, `Split`, `SplitOnce`, `Trim`, `EqualsIgnoreCase`, `Runes`; `FromUtf8` validation; `Concat(allocator, ...)`, `ToUpper(allocator)`, `ToLower(allocator)`; static extensions `int.Parse(string)` and the other numeric types returning `Result`; `Ascii`; formatting of integers and floats | itself, since formatting runs at comptime |
+| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `Dictionary<TKey, TValue>` and `HashSet<T>` (hashing chosen at comptime from the key type: primitives, `string`, enums, structs field by field), `Dictionary<TKey, TValue, THasher>` and `HashSet<T, THasher>` with an `IHasher<T>`, `Queue<T>`, `Stack<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer); every growing operation takes the allocator given at construction and returns a `Result` | itself |
+| `Std.Text` | `StringBuilder` (a struct over an allocator, with an interpolated string handler for `Append($"...")`, `ToString()` giving a `string` over its buffer); extension members on `string`: `StartsWith`, `EndsWith`, `Contains`, `IndexOf`, `Split`, `SplitOnce`, `Trim`, `EqualsIgnoreCase`, `Runes`; `FromUtf8` validation; `Concat(allocator, ...)`, `ToUpper(allocator)`, `ToLower(allocator)`; static extensions `int.Parse(string)` and the other numeric types returning `Result`; `Ascii`; formatting of integers and floats | itself, since formatting runs at comptime |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |
 | `Std.Fs` | `File`, `Dir`, open, read, write, stat, iterate, paths | POSIX through libc; Win32 |
 | `Std.Process` | `Args()`, `Env`, `Exit`, child processes | libc; Win32 |
-| `Std.Time` | monotonic and wall clocks, `Sleep` | `clock_gettime`; Win32 |
+| `Std.Time` | monotonic and wall clocks, `Sleep`, `Stopwatch`, `TimeSpan`, `DateTime` (UTC; time zones are later) | `clock_gettime`; Win32 |
+| `Std.Random` | `Random`, a struct with an explicit seed; `Random.Shared`, one per thread, seeded from the OS | itself; the OS for seeding |
 | `Std.Thread` | `Thread`, `Mutex`, `Condition`, `Once`, `Atomic<T>` | C11 `<threads.h>` or pthreads; Win32 |
 | `Std.Math` | the functions of `<math.h>`, checked and wrapping integer helpers with explicit overflow results | libm and compiler builtins |
 | `Std.Debug` | `Print` to standard error, `Assert`, stack traces where the platform gives them | `Std.Io`, libc `backtrace` where available |
