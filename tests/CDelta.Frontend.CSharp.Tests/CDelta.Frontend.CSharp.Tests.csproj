@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CDelta.Frontend.CSharp\CDelta.Frontend.CSharp.csproj" />
+    <ProjectReference Include="..\..\lib\corelib\CDelta.Corelib.csproj" ReferenceOutputAssembly="false" OutputItemType="CorelibAssembly" />
+  </ItemGroup>
+
+  <Target Name="CopyCorelib" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <None Include="@(CorelibAssembly)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
+</Project>
