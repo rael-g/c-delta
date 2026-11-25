@@ -9,6 +9,7 @@ public static class CorePipeline
     {
         List<FunctionId> roots = RootsPass.Find(lowered);
         Module instantiated = new Instantiator(lowered, provider, diagnostics).Run(roots);
+        DllImportPass.Run(instantiated, diagnostics);
         if (diagnostics.HasError)
         {
             return null;
