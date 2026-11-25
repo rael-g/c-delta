@@ -24,6 +24,18 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
             body.Rvalues[i] = rvalue with { Mode = resolved };
         }
 
+        if (checksOn)
+        {
+            for (int i = 0; i < body.Rvalues.Count; i++)
+            {
+                Rvalue rvalue = body.Rvalues[i];
+                if (rvalue.Kind == RvalueKind.Alloca && (AllocaInit)rvalue.Aux == AllocaInit.Undef)
+                {
+                    body.Rvalues[i] = rvalue with { Aux = (int)AllocaInit.Fill };
+                }
+            }
+        }
+
         for (int b = 0; b < body.Blocks.Count; b++)
         {
             Block block = body.Blocks[b];
@@ -106,6 +118,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
     {
         var places = new List<PlaceId>();
         var addressed = new List<PlaceId>();
+        PlaceId destination = statement.Place;
         if (!statement.Place.IsNone)
         {
             places.Add(statement.Place);
@@ -131,12 +144,17 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
         {
             foreach (PlaceId place in places)
             {
-                CheckPlace(place, statement.Span, true);
+                CheckPlace(place, statement.Span, true, place != destination);
+            }
+
+            if (!statement.Rvalue.IsNone)
+            {
+                CheckRvalue(body.Rvalues[statement.Rvalue.Index], statement.Span);
             }
 
             foreach (PlaceId place in addressed)
             {
-                CheckPlace(place, statement.Span, false);
+                CheckPlace(place, statement.Span, false, false);
             }
         }
         finally
@@ -177,7 +195,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
         }
     }
 
-    private void CheckPlace(PlaceId id, SourceSpan span, bool checkNull)
+    private void CheckPlace(PlaceId id, SourceSpan span, bool checkNull, bool isRead)
     {
         Place place = body.Places[id.Index];
         TypeId boolean = _builder.Primitive(TypeKind.Bool);
@@ -208,7 +226,47 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 CheckIndex(place, i, current, projection, span);
             }
 
+            if (projection.Kind == ProjectionKind.Payload && isRead)
+            {
+                OperandId present = Emit(boolean, _f.HasPayload(PrefixPlace(place, i)), span);
+                _f.Check(CheckKind.Optional, present, "optional has no value", span);
+            }
+
             current = IrTyper.Project(module, current, projection);
+        }
+    }
+
+    private PlaceId PrefixPlace(Place place, int depth)
+    {
+        body.Places.Add(place with { Projections = new IdRange(place.Projections.Start, depth) });
+        return new PlaceId(body.Places.Count - 1);
+    }
+
+    private void CheckRvalue(Rvalue rvalue, SourceSpan span)
+    {
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId usize = _builder.Primitive(TypeKind.USize);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        if (rvalue.Kind == RvalueKind.Slice)
+        {
+            TypeId container = IrTyper.OfPlace(module, body, rvalue.Place);
+            TypeNode node = module.Types[container.Index];
+            OperandId length = node.Kind == TypeKind.Array
+                ? _f.Const(_builder.IntConstant(i32, node.B))
+                : Emit(i32, _f.Len(rvalue.Place), span);
+            OperandId start = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, rvalue.A, usize), span);
+            OperandId end = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, rvalue.B, usize), span);
+            OperandId limit = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, length, usize), span);
+            OperandId ordered = Emit(boolean, _f.Binop(BinOp.Le, ArithMode.Default, start, end), span);
+            OperandId inside = Emit(boolean, _f.Binop(BinOp.Le, ArithMode.Default, end, limit), span);
+            OperandId valid = Emit(boolean, _f.Binop(BinOp.And, ArithMode.Default, ordered, inside), span);
+            _f.Check(CheckKind.Bounds, valid, "slice out of bounds", span);
+        }
+        else if (rvalue.Kind == RvalueKind.Aggregate && module.Types[rvalue.Type.Index].Kind == TypeKind.Slice)
+        {
+            OperandId count = body.Args[rvalue.Args.Start + 1];
+            OperandId nonNegative = Emit(boolean, _f.Binop(BinOp.Ge, ArithMode.Default, count, _f.Const(_builder.IntConstant(i32, 0))), span);
+            _f.Check(CheckKind.Bounds, nonNegative, "negative slice length", span);
         }
     }
 
@@ -226,9 +284,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
         }
         else
         {
-            body.Places.Add(place with { Projections = new IdRange(place.Projections.Start, depth) });
-            var prefix = new PlaceId(body.Places.Count - 1);
-            OperandId length = Emit(_builder.Primitive(TypeKind.I32), _f.Len(prefix), span);
+            OperandId length = Emit(_builder.Primitive(TypeKind.I32), _f.Len(PrefixPlace(place, depth)), span);
             limit = Emit(usize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, length, usize), span);
         }
 

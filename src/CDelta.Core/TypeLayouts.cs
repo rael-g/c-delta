@@ -23,6 +23,9 @@ public sealed class TypeLayouts(Module module, Target target)
             case TypeKind.Array:
                 TypeSizes element = Of(new TypeId(node.A));
                 return new TypeSizes(element.Size * node.B, element.Alignment);
+            case TypeKind.Optional:
+                TypeSizes payload = Of(new TypeId(node.A));
+                return new TypeSizes(AlignUp(payload.Size + 1, payload.Alignment), payload.Alignment);
             case TypeKind.Struct:
                 return OfStruct(new StructId(node.A));
             case TypeKind.Enum:
