@@ -1,7 +1,8 @@
 # Standard library
 
-The std is a CΔ package shipped with the compiler. It is minimal and lazy: where a C library
-already solves a problem well, the std wraps it instead of reimplementing it.
+The std is a CΔ package shipped with the compiler. It is not a BCL, but it closes the largest
+gaps the absence of one leaves, and it is lazy: where a C library already solves a problem well
+and fits CΔ's rules, the std projects it instead of reimplementing it (D147).
 
 ## Rules
 
@@ -15,6 +16,34 @@ already solves a problem well, the std wraps it instead of reimplementing it.
   libc is absent or worse (Windows uses Win32 directly).
 - The std follows the same subset rules as user code; it gets no exemption.
 
+## What is CΔ and what is projected
+
+A module is written in CΔ when any of these holds:
+
+- it must work at comptime (the interpreter runs no C bodies before M9);
+- it must work on freestanding targets, where there is no libc;
+- it is generic: a CΔ `List<T>` is monomorphized and typed, a C container is `void*`.
+
+Otherwise it may be built on a C library, which the std vendors as `CSource` items compiled by the
+same toolchain, with the same target and mode, and links statically. A C library qualifies only
+when all of these hold:
+
+| Criterion | Why |
+|---|---|
+| a permissive license (MIT, BSD, ISC, zlib, Apache-2.0, public domain); never GPL or LGPL | the license of a static library binds the user's program |
+| it allocates nothing, or through hooks given per object or context, so each maps to an `IAllocator` | every function that allocates takes an allocator; a process-wide allocator hook does not qualify |
+| no hidden mutable global state, or the projection can confine it completely | locale, static buffers and global initialization change behavior at a distance |
+| errors come back as return values, never through `abort`, `exit` or `longjmp` | they become `Result` |
+| reentrant per context | `Std.Thread` makes no global lock |
+| it builds as C99 or C11 from a list of files on every tier 1 target, without its own build system | the std is built by `cdc`, from pinned sources |
+
+A library that fails a criterion is not part of the std. A program that accepts its defects uses
+it directly with `[Import]`, which is already zero cost.
+
+A projected module is the projection backend's output over the library's headers (errno and
+status codes to `Result`, pointer and length pairs to spans, allocation hooks to `IAllocator`),
+plus a thin hand-written layer where the semantics need it. Its public surface speaks CΔ only.
+
 ## First version
 
 | Module | Contents | Built on |
@@ -22,7 +51,7 @@ already solves a problem well, the std wraps it instead of reimplementing it.
 | `Std.Mem` | `Copy`, `Set`, `Eql`, `IndexOf`, `StartsWith`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
 | `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `DebugAllocator` | the OS page API, libc |
 | `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `HashMap<K, V, THash>` with `IHasher<K>`, `Deque<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer) | itself |
-| `Std.Text` | UTF-8 validation and iteration, `Ascii`, parsing and formatting of integers and floats | itself; float formatting and parsing wrap a C implementation |
+| `Std.Text` | UTF-8 validation and iteration, `Ascii`, parsing and formatting of integers and floats | itself, since formatting runs at comptime |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |
 | `Std.Fs` | `File`, `Dir`, open, read, write, stat, iterate, paths | POSIX through libc; Win32 |
@@ -81,6 +110,18 @@ Checked views as `ref struct` types (a scoped span over stack or arena memory), 
 analyzer package with the memory lints of [language/memory.md](language/memory.md#lifetimes),
 outside the std and installed by choice.
 
-Networking, a JSON reader and writer, compression and hashing wrappers (zlib, xxhash),
-`Std.Build` for build steps in CΔ, SIMD vectors. Each enters the std only when a real program
-needs it.
+Projected modules that close the largest BCL gaps, each over a library that meets the criteria
+above:
+
+| Module | Contents | Built on |
+|---|---|---|
+| `Std.Json` | reading into a document, writing, and reading into structs through `TypeInfo` | yyjson, with its per-document allocator |
+| `Std.Compress` | deflate, gzip and zlib streams; zstd | zlib (`zalloc` and `zfree` per stream), zstd (custom memory per context) |
+| `Std.Hash` | xxHash, CRC-32 | xxHash (one-shot and caller-owned states), zlib |
+| `Std.Crypto` | SHA-2, BLAKE2b, HMAC, ChaCha20-Poly1305, X25519, Ed25519, secure random from the OS | BearSSL and Monocypher, neither of which allocates |
+| `Std.Net` | sockets, addresses, name resolution; TLS client and server | POSIX sockets and Winsock; BearSSL |
+| `Std.Regex` | compiled patterns, matching and captures | PCRE2, with a general context per pattern carrying its allocator |
+
+`Std.Build` for build steps in CΔ and SIMD vectors are CΔ. A module enters the std when a real
+program needs it, in the order of the table unless a program asks otherwise; a library is
+replaced only by a decision.

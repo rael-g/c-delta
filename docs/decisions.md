@@ -275,6 +275,12 @@ borrow checker needs move semantics and lifetime syntax that C# lacks, and an op
 proves little. Roslyn's ref safety on `ref struct` types gives checked views for free, an
 analyzer package gives lints, and the debug allocator and pools catch the rest at run time.
 
+**D147. The std grows by projecting C libraries that meet CΔ's rules.** Projection lets a small
+std close the largest gaps left by the BCL with mature code. A library qualifies only with a
+permissive license, allocation through per-context hooks, no hidden global state, errors as
+return values and reentrancy; otherwise it gives nothing over `[Import]`. Modules needed at
+comptime, on freestanding targets or generically stay CΔ.
+
 ## Repository
 
 **D201. Documents and code are in English.**
