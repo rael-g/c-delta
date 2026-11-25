@@ -63,7 +63,8 @@ the language documents (`types`, `errors`, `memory`, `generics`, `comptime`, `in
 ## Strict C
 
 CI compiles all generated C of the conformance suite with `-std=c11 -Wall -Wextra -Werror
--pedantic` (extensions allowed only behind feature tests) and runs it under UBSan and ASan in
+-pedantic` (extensions allowed only behind feature tests), with Clang and with GCC, and runs it
+under UBSan and ASan, built with GCC, whose sanitizer runtime ships with it, in
 Debug mode. A sanitizer report on a program without illegal behavior is a backend bug.
 
 ## Layouts

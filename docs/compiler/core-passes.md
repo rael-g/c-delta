@@ -133,9 +133,9 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 
 | Check kind | Before |
 |---|---|
-| `bounds` | element access and slicing of slices and arrays |
+| `bounds` | element access of slices and arrays (`0 <= i < len`); `slice` rvalues (`0 <= start <= end <= len`); an `aggregate` of a slice type (`len >= 0`) |
 | `null` | dereference of a nullable pointer; calls through function pointers, closures and dyn values |
-| `optional` | `optional` payload read |
+| `optional` | every read of `payload(0)` of an optional, `haspayload` true; none is elided |
 | `result.value`, `result.error` | `result` payload or error read outside `Try` and `TryGet` |
 | `enum` | integer to exhaustive enum conversion in `trap` mode |
 | `align` | pointer casts to a type of larger alignment |
@@ -146,7 +146,8 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 
 ## 8. Debug instrumentation
 
-With checks on: `fill.undef` after `Unsafe.SkipInit` and uninitialized `stackalloc`. The
+With checks on: `fill.undef` after `Unsafe.SkipInit` and after the array local of a constant
+`stackalloc` under `[SkipLocalsInit]`, and `alloca` with `undef` becomes `alloca` with `fill`. The
 frontend emits every `trace.push`, `trace.save` and `trace.restore`; this pass keeps them when
 `ErrorReturnTrace` is enabled and removes them otherwise.
 

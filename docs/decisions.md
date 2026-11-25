@@ -228,6 +228,21 @@ illegal behavior that is always wrong.
 
 **D136. `const` declarations take any visibility; every field is public.**
 
+**D137. Stack memory of constant size is a function-wide array local; of run-time size, an
+`alloca` rvalue.** One storage per constant `stackalloc` or collection expression keeps the stack
+bounded in loops, as in C; run-time sizes need `alloca`, which the IR names with its
+initialization so Debug can fill it.
+
+**D138. Slicing is one IR rvalue over a slice or array place.** It never copies an array, gives
+the core one place to check bounds, and replaces the `array.slice` cast.
+
+**D139. An optional's payload is variant `0`, and every read of it is checked in safe modes.**
+The core does no flow analysis to elide checks.
+
+**D140. The generated C silences GCC's built-in declaration mismatch in the file itself.**
+`[DllImport]` prototypes keep the IR's types, the ABI is the same, and the C file stays
+compilable without toolchain flags.
+
 ## Repository
 
 **D201. Documents and code are in English.**

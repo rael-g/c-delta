@@ -37,6 +37,18 @@ A `[DllImport]` function whose C name an imported header also declares gets no p
 through the header's declaration, with arguments cast as for any imported function. Two
 `[DllImport]` declarations of one C name must have identical IR signatures (`CD6010`).
 
+GCC knows libc functions as built-ins and warns when a prototype differs from the built-in's
+type (`-Wbuiltin-declaration-mismatch`), even when the ABI is the same. When the unit has
+`[DllImport]` prototypes, they are preceded by:
+
+```c
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Wbuiltin-declaration-mismatch"
+#endif
+```
+
+so the generated C compiles under `-Werror` with every toolchain and needs no extra flag.
+
 The translation unit is ordered:
 
 1. `#include <stdint.h>`, `<stddef.h>`, `<stdbool.h>`, `<stdalign.h>`, `<stdnoreturn.h>`, which
@@ -85,7 +97,7 @@ program uses it; each is `static` (`static inline` for arithmetic).
 | `void cd_trace_print(void)` | the trace block below, when `cd_trace_len > 0` |
 | `<to> cd_f2i_wrap_<from>_<to>(<from> v)` | saturating conversion, `NaN` to `0` |
 | `<to> cd_f2i_trap_<from>_<to>(<from> v, const char* file, int32_t line)` | panics "float cast out of range" when not representable |
-| `void* cd_alloca(size_t n)` | `__builtin_alloca`, or `_alloca` on MSVC |
+| `cd_alloca(n, a)` | a macro, since the memory must belong to the caller's frame: `n` bytes aligned to `a`, through `__builtin_alloca` (`_alloca` on MSVC) of `n + a - 1` bytes with the address rounded up |
 
 `<from>` and `<to>` are the IR type names (`f64`, `i32`). Integer overflow checks are written in
 place with `__builtin_add_overflow`, `__builtin_sub_overflow` and `__builtin_mul_overflow` and a
@@ -136,7 +148,7 @@ then the exit code `1`. The error name table is always emitted when `Main` retur
 | `fn(sig)` | `R (*)(params)` through a `typedef` |
 | `closure(sig)` | `struct { R (*fn)(void* ctx, params); void* ctx; }` |
 | `dyn<I>` | `struct { void* self; const cd_T_vtable_<I>* vt; }` |
-| `optional<T>` | `struct { T value; bool has; }` |
+| `optional<T>` | `typedef struct { T value; bool has; } cd_T_optional_<T>`; `payload(0)` is `value` |
 | `result<T, E>` | `struct { T value; uint16_t err; }`; `uint16_t` alone when `T` is `void` |
 | `struct` | `struct` with the fields in IR order and `_Alignas` where the IR alignment exceeds natural |
 | explicit layout | `union` of one `struct` per field, each with a leading `char` padding array of the field's offset; a member struct whose field offset is not a multiple of the field's alignment is packed (`__attribute__((packed))`, `#pragma pack(1)` on MSVC), and the union has `_Alignas` of the IR alignment |
@@ -147,7 +159,7 @@ then the exit code `1`. The error name table is always emitted when `Main` retur
 
 In these names, `<T>` is the C spelling of the element type with `*` written `_p`, spaces written
 `_` and any other character outside `[A-Za-z0-9_]` written `_xHH`: `cd_T_slice_const_uint8_t`,
-`cd_T_array_4_cd_T_Hello_Vec2`, `cd_T_slice_int32_t_p`.
+`cd_T_array_4_cd_T_Hello_Vec2`, `cd_T_slice_int32_t_p`, `cd_T_optional_int32_t`.
 
 ### Layout assertions
 
@@ -170,8 +182,13 @@ reading of clang), on every build.
   with `goto` in each case, `return`, and the unreachable and panic forms below.
 - The IR already sequences every operation through temps, so each C statement has at most one
   side effect and C's unspecified evaluation order never matters.
-- `stackalloc` of a constant size is a local array; of a run-time size, `alloca` from the prelude
-  (`__builtin_alloca`, or `_alloca` on MSVC), never a variable-length array.
+- A constant `stackalloc` is already an array local in the IR. `alloca T, n, init` is
+  `(T*)cd_alloca(n * sizeof(T), _Alignof(T))`, never a variable-length array, followed for `zero`
+  by `__builtin_memset` with `0` and for `fill` with `0xAA`; `undef` writes nothing. The byte
+  count is computed in `size_t` without a check: a count that overflows it is illegal behavior,
+  like any stack overflow.
+- `slice(place, a, b)` is `{ base + a, b - a }`, where `base` is the slice's `ptr` or the array's
+  `e`.
 
 ### Arithmetic
 

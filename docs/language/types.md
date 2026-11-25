@@ -89,10 +89,15 @@ It may only be used behind a pointer. `CD2003`
 - Because spans are not ref structs, Roslyn does not convert `stackalloc` to a span (`CS8346`);
   `stackalloc` has only its pointer form, and a span over it is built with
   `new Span<T>(pointer, length)`.
+- A `stackalloc` of constant size and a collection expression converted to a span each have one
+  storage in the function, reused by every evaluation: inside a loop, every iteration gets the
+  same memory, refilled. A `stackalloc` of run-time size gets new memory on each evaluation, freed
+  when the function returns.
+- `fixed (T* p = span)` gives the span's pointer as built, which for an empty span is not
+  necessarily `null`.
 - `Length` is `int`, as in C#. Indexing, slicing (`s[a..b]`, `s[^1]`), `foreach` and list patterns
   are intrinsics; indexing is bounds-checked in safe modes.
-- `fixed (T* p = span)` takes the address of the first element. Nothing is pinned because nothing
-  moves.
+- Nothing is pinned by `fixed` because nothing moves.
 - Dereferencing a null `T*` is illegal behavior.
 
 ## Arrays

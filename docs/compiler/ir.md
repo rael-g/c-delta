@@ -112,6 +112,38 @@ Pointer operations:
 Pointer operations have no mode and no safety check: an offset outside the object is illegal
 behavior that is not detected.
 
+Slices, stack memory and optionals:
+
+| Source | IR |
+|---|---|
+| `new Span<T>(p, n)`, `new ReadOnlySpan<T>(p, n)` | `aggregate slice<T>(p, n)` (`slice<T> const` for a read-only span): the pointer as `ptr<T> nullable many` and the `i32` length |
+| `default(Span<T>)`, `[]` to a span | `const slice<T> {null, 0}` |
+| `s[a..b]`, `s[a..]`, `s[..b]`, `s[^k..]`, `s.Slice(a, n)`, `s.Slice(a)` on a slice or array place | `slice(place, start, end)`, `start` and `end` as `i32`: `^k` is `len place` minus `k`, an omitted start is `0`, an omitted end is `len place`, `Slice(a, n)` ends at `a + n` (`binop add default`) |
+| `s[^k]` | the place `place[len place - k]` |
+| a static array or inline array converted to `Span<T>` or `ReadOnlySpan<T>` | `slice(place, 0, N)` over the array's place, so the slice points at its storage |
+| a collection expression converted to `Span<T>` or `ReadOnlySpan<T>` | a `temp` local of type `array<T, N>` assigned an `aggregate` of the elements (a constant when every element is constant), then `slice(%arr, 0, N)` |
+| `fixed (T* p = s)` over a span | `cast slice.ptr` |
+| `fixed (T* p = a)` over a static array | `addr.mut a[0]` then `cast ptr.ptr` |
+| `stackalloc T[N]` with a constant `N`, with or without an initializer | a `temp` local of type `array<T, N>` assigned the zero constant of its type, the initializer's `aggregate`, or nothing under `[SkipLocalsInit]`; then `addr.mut %arr[0]` and `cast ptr.ptr` to `T*` |
+| `stackalloc T[n]` with a run-time `n` | `alloca T, n, init`: `n` converted to `usize` with `cast int.int default`, `init` `zero`, or `undef` under `[SkipLocalsInit]` |
+| `x.HasValue`, `x != null`, `x is not null` | `haspayload x`, negated by `unop not` for `== null` and `is null` |
+| `x.Value`, and a cast from `T?` to `T` | the place `x.payload(0)` |
+| `x.GetValueOrDefault()`, `x.GetValueOrDefault(d)` | `branch` on `haspayload x`: one block copies `x.payload(0)`, the other the zero constant of `T` or `d` |
+| `new T?(v)`, a conversion from `T` to `T?` | `optional.some v` |
+| `null` or `default` of `T?` | `optional.none T` |
+
+- The payload of an optional is variant `0`. Lifted operators and `?.` reach the IR already
+  expanded by Roslyn into these forms.
+- `slice` takes a slice or array place and gives a slice of the same element type (`const` when
+  the place's slice is `const` or the destination is a read-only span) over the elements
+  `start` to `end` excluded.
+- `alloca` gives `ptr<T> nullable many` to `count` elements of fresh stack memory that lives
+  until the function returns. `init` is `zero`, `undef` or `fill`; only the core writes `fill`
+  ([core-passes.md](core-passes.md#8-debug-instrumentation)).
+- The array local of a constant `stackalloc` or a collection expression lives for the whole body,
+  with no `live` and `dead`: one storage per source expression, reused by every evaluation of it,
+  so a pointer from an earlier iteration of a loop sees the elements of the latest one.
+
 ### Declarations of types
 
 ```
@@ -166,6 +198,8 @@ Rvalue   := Operand
           | closure.make(Function, Operand context)
           | dyn.make(Impl, Operand self)
           | len(Place) | tag(Place) | haspayload(Place) | errcode(Operand)
+          | slice(Place, Operand start, Operand end)
+          | alloca(Type, Operand count, init)
           | sizeof(Type) | alignof(Type) | offsetof(Type, field)
           | call(Callee, Operand...)
           | intrinsic(name, Operand...)
@@ -181,7 +215,8 @@ Rvalue   := Operand
   assumed impossible). The core rewrites `default` to `trap` or `assume` by build mode and safety
   overrides. Other operations have no mode.
 - `cast kind`: `int.int`, `int.float`, `float.int`, `float.float`, `int.enum`, `enum.int`,
-  `ptr.int`, `int.ptr`, `ptr.ptr`, `bitcast`, `array.slice`, `slice.ptr`.
+  `ptr.int`, `int.ptr`, `ptr.ptr`, `bitcast`, `slice.ptr`. `slice.ptr` gives the pointer a slice
+  holds, as `ptr<T> nullable many` (`const` for a `const` slice).
 - `Callee`: `direct(Function<args>)`, `indirect(Operand)` for function pointers,
   `closure(Operand)`, `dyn(Operand, method)`, `constrained(param T, Interface.method)` (Lowered
   only, resolved by instantiation), `c.macro(name)`.
@@ -373,6 +408,8 @@ rvalue      = operand
             | "closure.make" ref [targs] "," operand
             | "dyn.make" ref "," operand
             | ("len" | "tag" | "haspayload") place | "errcode" operand
+            | "slice" place "," operand "," operand
+            | "alloca" type "," operand "," ("zero" | "undef" | "fill")
             | ("sizeof" | "alignof") type | "offsetof" type int
             | "call" callee "(" [operand {"," operand}] ")"
             | "intrinsic" ident "(" [operand {"," operand}] ")"
@@ -381,7 +418,7 @@ callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
             | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" string
 mode        = "default" | "trap" | "wrap" | "assume"
 castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
-            | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "array.slice" | "slice.ptr"
+            | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr"
 ```
 
 - A field written `@n` has byte offset `n`: required for `layout explicit`, printed for every field
@@ -391,7 +428,7 @@ castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum"
   a byte offset and, for a bit-field, a width and a bit offset.
 - `bytes` constants have type `slice<u8> const` (the length excludes the terminating NUL) or
   `ptr<u8> const nullable many`; the data always carries a terminating NUL.
-- An aggregate constant lists the values of the fields, elements or `{has, value}` of its type in
+- An aggregate constant lists the values of the fields, elements, `{ptr, len}` or `{value, has}` of its type in
   order; nested aggregates nest braces.
 - The deref base takes a local only: a pointer held anywhere else is first copied into a temp.
 - `dyn` callees name the method by its index in the interface; `union.make` names the member by
