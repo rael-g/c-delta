@@ -28,8 +28,9 @@ call through a constraint is resolved statically.
 ## Interfaces
 
 An interface is a contract: method signatures, static abstract members, and optionally default
-method bodies. Interfaces may extend other interfaces. They declare no properties, indexers or
-events (`CD1004` to `CD1006`); they may declare static abstract operators of the kept set.
+method bodies. Interfaces may extend other interfaces. They declare no properties, indexer
+setters or events (`CD1004` to `CD1006`); they may declare indexer getters and static abstract
+operators of the kept set.
 
 A struct implements an interface by listing it, as in C#. There are three ways to use one.
 

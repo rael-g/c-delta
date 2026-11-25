@@ -115,6 +115,22 @@ A `static readonly` array is static data of constant length, mutable element by 
 converts implicitly to `Span<T>` and `ReadOnlySpan<T>`. `new T[n]` does not exist; dynamic arrays
 come from an allocator ([memory.md](memory.md)).
 
+## Indexers
+
+A struct may declare indexers with a getter only (D150). A `ref` getter makes the element
+writable in place:
+
+```csharp
+public ref T this[int index] => ref Items[index];
+public ref TValue this[TKey key] => ref Find(key);
+```
+
+`list[i] = x`, `list[i].X++` and `dict[key] = v` write through the returned reference. A setter
+does not exist because in C# `dict[key] = v` inserts, and inserting allocates: insertion is a
+method that takes the collection's allocator and returns a `Result` (`Try(dict.Add(key, v))`). A
+missing key in a getter is a panic, as `KeyNotFoundException` is in C#; `TryGetValue` is the
+fallible form.
+
 ## Enums
 
 C# enums with their underlying integer type.

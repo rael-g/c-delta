@@ -18,7 +18,7 @@ registered in [../compiler/diagnostics.md](../compiler/diagnostics.md).
 
 A construct is removed when it requires a garbage collector or a runtime (classes, arrays,
 `object`, exceptions, `async`), when it makes syntax call user code invisibly (properties,
-indexers, implicit conversions, finalizers, events), or when it duplicates a kept construct with
+indexer setters, implicit conversions, finalizers, events), or when it duplicates a kept construct with
 hidden behavior. Operators and explicit conversions on user types are kept: the operand's type
 shows that the type's code runs, and an operator receives nothing but its operands (D143).
 
@@ -98,7 +98,7 @@ including the std, cannot declare them.
 | Static constructors | Removed: static state is initialized at comptime. `CD1009` |
 | Finalizers | Removed. `CD1008` |
 | Properties (including auto, `init`, `required`, partial, `field`) | Removed. `CD1004` |
-| Indexers | Removed. `CD1005` |
+| Indexers | Restricted: a getter only, returning a value or a `ref` (`ref T this[int i] => ...`); a `set` accessor is `CD1005` (D150) |
 | Events | Removed. `CD1006` |
 | Operators: unary `+ - ! ~`; binary `+ - * / % & \| ^ << >> >>>`; `== != < > <= >=`; their `checked` forms | Kept: a call to the operator method (D143) |
 | Explicit conversion operators, and their `checked` forms | Kept: a cast is written at every use |
@@ -128,9 +128,9 @@ including the std, cannot declare them.
 | `using` statements and declarations | Kept: equivalent to `Defer(() => x.Dispose())` |
 | `try`, `catch`, `finally` | Removed. `CD1010` |
 | `throw` | Restricted: only `throw Panic(...)` and `throw Unreachable()`. `CD1011` |
-| `yield` | Removed. `CD1013` |
+| `yield` | Removed until iterators are implemented (D151). `CD1013` |
 | `lock` | Removed. `CD1015` |
-| `await`, `async` | Removed. `CD1012` |
+| `await`, `async` | Removed; a direction is recorded (D152). `CD1012` |
 | Labeled statements | Kept |
 
 ## Expressions

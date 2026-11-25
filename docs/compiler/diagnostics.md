@@ -49,7 +49,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1002 | records are not part of CΔ | [../language/subset.md](../language/subset.md#types) |
 | CD1003 | inheritance modifiers and `base` are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1004 | properties are not part of CΔ; use a field or a method | [../language/subset.md](../language/subset.md#members) |
-| CD1005 | indexers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
+| CD1005 | indexers have only a getter | [../language/subset.md](../language/subset.md#members) |
 | CD1006 | events are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1007 | implicit conversions and the operators `true`, `false`, `++`, `--` and compound assignment are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1008 | finalizers are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
