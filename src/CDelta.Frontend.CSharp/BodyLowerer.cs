@@ -20,6 +20,7 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private readonly Dictionary<CaptureId, LocalId> _captures = [];
     private readonly Dictionary<int, BlockId> _blocks = [];
     private readonly Dictionary<int, List<ILocalSymbol>> _regionLocals = [];
+    private LocalId _thisLocal = LocalId.None;
     private FunctionBuilder _f = null!;
     private ControlFlowGraph _cfg = null!;
 
@@ -28,17 +29,25 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         Location location = method.Locations[0];
         SyntaxNode syntax = method.DeclaringSyntaxReferences[0].GetSyntax();
         SemanticModel model = frontend.Compilation.GetSemanticModel(syntax.SyntaxTree);
-        if (model.GetOperation(syntax) is not IMethodBodyOperation operation)
+        IOperation? operation = model.GetOperation(syntax);
+        _cfg = operation switch
         {
-            throw new UnsupportedConstructException("the method body has no operation tree", location);
-        }
-
-        _cfg = ControlFlowGraph.Create(operation);
+            IMethodBodyOperation methodBody => ControlFlowGraph.Create(methodBody),
+            IConstructorBodyOperation constructorBody => ControlFlowGraph.Create(constructorBody),
+            _ => throw new UnsupportedConstructException("the method body has no operation tree", location),
+        };
         _f = new FunctionBuilder(_module, _body);
         SourceSpan methodSpan = frontend.SpanOf(location);
+        if (!method.IsStatic)
+        {
+            TypeId self = frontend.Types.Map(method.ContainingType, location);
+            TypeFlags constness = frontend.IsReadOnlyMember(method) ? TypeFlags.Const : TypeFlags.None;
+            _thisLocal = _f.NewLocal("this", _builder.Pointer(self, constness), LocalKind.Param, methodSpan);
+        }
+
         foreach (IParameterSymbol parameter in method.Parameters)
         {
-            _locals[parameter] = _f.NewLocal(parameter.Name, frontend.Types.Map(parameter.Type, location), LocalKind.Param, methodSpan);
+            _locals[parameter] = _f.NewLocal(parameter.Name, frontend.Types.ParameterType(parameter, location), LocalKind.Param, methodSpan);
         }
 
         CollectRegionLocals(_cfg.Root);
@@ -93,7 +102,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         if (!_locals.TryGetValue(symbol, out LocalId id))
         {
             Location location = symbol.Locations.FirstOrDefault() ?? Location.None;
-            id = _f.NewLocal(symbol.Name, frontend.Types.Map(symbol.Type, location), LocalKind.User, span);
+            TypeId type = frontend.Types.ReferenceType(frontend.Types.Map(symbol.Type, location), symbol.RefKind);
+            id = _f.NewLocal(symbol.Name, type, LocalKind.User, span);
             _locals[symbol] = id;
         }
 
@@ -270,12 +280,19 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 
         switch (operation)
         {
-            case ILocalReferenceOperation local:
-                return _f.Copy(_f.LocalPlace(LocalOf(local.Local, SpanOf(operation))));
-            case IParameterReferenceOperation parameter:
-                return _f.Copy(_f.LocalPlace(_locals[parameter.Parameter]));
-            case IFlowCaptureReferenceOperation reference:
-                return _f.Copy(_f.LocalPlace(_captures[reference.Id]));
+            case ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
+                or IFieldReferenceOperation or IInstanceReferenceOperation or IDeclarationExpressionOperation:
+                return _f.Copy(PlaceOf(operation));
+            case IOperation { Kind: OperationKind.None } when IsPointerForm(operation):
+                return _f.Copy(PlaceOf(operation));
+            case IObjectCreationOperation creation:
+                return LowerObjectCreation(creation);
+            case IDefaultValueOperation:
+                return Zero(frontend.Types.Map(operation.Type!, location), SpanOf(operation));
+            case IAddressOfOperation address:
+                return LowerAddressOf(address);
+            case ISizeOfOperation sizeOf:
+                return Emit(_builder.Primitive(TypeKind.I32), _f.SizeOf(frontend.Types.Map(sizeOf.TypeOperand, location)), SpanOf(operation));
             case IParenthesizedOperation parenthesized:
                 return LowerExpression(parenthesized.Operand);
             case IBinaryOperation binary:
@@ -284,6 +301,8 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
                 return LowerUnary(unary);
             case IConversionOperation conversion:
                 return LowerConversion(conversion);
+            case ISimpleAssignmentOperation { IsRef: true } refAssignment:
+                return LowerRefAssignment(refAssignment);
             case ISimpleAssignmentOperation assignment:
                 return LowerAssignment(assignment.Target, LowerValue(assignment.Value), assignment);
             case ICompoundAssignmentOperation compound:
@@ -402,8 +421,42 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         OperandId right = LowerValue(binary.RightOperand);
+        bool leftPointer = IsPointer(left);
+        bool rightPointer = IsPointer(right);
+        if (leftPointer || rightPointer)
+        {
+            return LowerPointerBinary(binary, op, left, right, span);
+        }
+
         TypeId result = frontend.Types.Map(binary.Type!, location);
         return Emit(result, _f.Binop(op, ModeOf(binary), left, right), span);
+    }
+
+    private bool IsPointer(OperandId operand)
+    {
+        TypeId type = OperandType(operand);
+        return !type.IsNone && _module.Types[type.Index].Kind == TypeKind.Ptr;
+    }
+
+    private OperandId LowerPointerBinary(IBinaryOperation binary, BinOp op, OperandId left, OperandId right, SourceSpan span)
+    {
+        if (op >= BinOp.Eq)
+        {
+            return Emit(_builder.Primitive(TypeKind.Bool), _f.Binop(op, ArithMode.Default, left, right), span);
+        }
+
+        if (IsPointer(left) && IsPointer(right))
+        {
+            OperandId difference = Emit(_builder.Primitive(TypeKind.ISize), _f.Binop(BinOp.Sub, ArithMode.Default, left, right), span);
+            TypeId result = frontend.Types.Map(binary.Type!, binary.Syntax.GetLocation());
+            return result == OperandType(difference)
+                ? difference
+                : Emit(result, _f.Cast(CastKind.IntInt, ArithMode.Wrap, difference, result), span);
+        }
+
+        OperandId pointer = IsPointer(left) ? left : right;
+        OperandId count = ToIndexType(IsPointer(left) ? right : left, span);
+        return Emit(OperandType(pointer), _f.Binop(op, ArithMode.Default, pointer, count), span);
     }
 
     private OperandId LowerUnary(IUnaryOperation unary)
@@ -432,6 +485,11 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         Location location = conversion.Syntax.GetLocation();
         ITypeSymbol target = conversion.Type!;
         ITypeSymbol? source = conversion.Operand.Type;
+        if (source is null && conversion.Operand.ConstantValue is { HasValue: true, Value: null })
+        {
+            return _f.Const(_builder.NullConstant(frontend.Types.Map(target, location)));
+        }
+
         if (conversion.Operand.ConstantValue is { HasValue: true, Value: string text } && source?.SpecialType == SpecialType.System_String)
         {
             return LowerStringToPointer(text, target, conversion, location);
@@ -464,6 +522,16 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
             return Emit(targetType, _f.Cast(CastKind.PtrPtr, ArithMode.Default, operand, targetType), span);
         }
 
+        if (sourceKind == TypeKind.Ptr && IrTypes.IsInteger(targetKind))
+        {
+            return Emit(targetType, _f.Cast(CastKind.PtrInt, ArithMode.Default, operand, targetType), span);
+        }
+
+        if (IrTypes.IsInteger(sourceKind) && targetKind == TypeKind.Ptr)
+        {
+            return Emit(targetType, _f.Cast(CastKind.IntPtr, ArithMode.Default, operand, targetType), span);
+        }
+
         throw new UnsupportedConstructException("the conversion from " + source.ToDisplayString() + " to " + target.ToDisplayString() + " is not supported yet", location);
     }
 
@@ -490,13 +558,86 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         return _f.Copy(place);
     }
 
-    private PlaceId PlaceOf(IOperation target) => target switch
+    private static bool IsPointerForm(IOperation operation) =>
+        operation.Syntax.IsKind(SyntaxKind.PointerIndirectionExpression)
+        || operation.Syntax.IsKind(SyntaxKind.ElementAccessExpression)
+        || operation.Syntax.Parent?.IsKind(SyntaxKind.PointerMemberAccessExpression) == true;
+
+    private PlaceId PlaceOf(IOperation target)
     {
-        ILocalReferenceOperation local => _f.LocalPlace(LocalOf(local.Local, SpanOf(target))),
-        IParameterReferenceOperation parameter => _f.LocalPlace(_locals[parameter.Parameter]),
-        IFlowCaptureReferenceOperation reference => _f.LocalPlace(_captures[reference.Id]),
-        _ => throw new UnsupportedConstructException("the assignment target " + Describe(target) + " is not supported yet", target.Syntax.GetLocation()),
-    };
+        switch (target)
+        {
+            case ILocalReferenceOperation local:
+                return ValuePlace(LocalOf(local.Local, SpanOf(target)), local.Local.RefKind);
+            case IParameterReferenceOperation parameter:
+                return ValuePlace(_locals[parameter.Parameter], parameter.Parameter.RefKind);
+            case IFlowCaptureReferenceOperation reference:
+                return _f.LocalPlace(_captures[reference.Id]);
+            case IParenthesizedOperation parenthesized:
+                return PlaceOf(parenthesized.Operand);
+            case IInstanceReferenceOperation:
+                return _f.DerefPlace(_thisLocal);
+            case IDeclarationExpressionOperation declaration:
+                return PlaceOf(declaration.Expression);
+            case IDiscardOperation discard:
+                return _f.LocalPlace(NewTemp(discard.Type!, discard.Syntax.GetLocation()));
+            case IFieldReferenceOperation field when field.Field.IsStatic:
+                return _f.GlobalPlace(frontend.DeclareGlobal(field.Field));
+            case IFieldReferenceOperation field:
+                PlaceId owner = PlaceOf(field.Instance!);
+                int index = frontend.Types.FieldIndex((INamedTypeSymbol)field.Field.ContainingType, field.Field);
+                return _f.Project(owner, ProjectionKind.Field, index);
+            case IOperation { Kind: OperationKind.None } when target.Syntax.IsKind(SyntaxKind.PointerIndirectionExpression)
+                || target.Syntax.Parent?.IsKind(SyntaxKind.PointerMemberAccessExpression) == true:
+                return _f.DerefPlace(PointerLocal(target.ChildOperations.First()));
+            case IOperation { Kind: OperationKind.None } when target.Syntax.IsKind(SyntaxKind.ElementAccessExpression):
+                return ElementThroughPointer(target);
+            default:
+                OperandId value = LowerValue(target);
+                LocalId spill = NewTemp(OperandType(value));
+                _f.Assign(_f.LocalPlace(spill), _f.Use(value), SpanOf(target));
+                return _f.LocalPlace(spill);
+        }
+    }
+
+    private PlaceId ValuePlace(LocalId local, RefKind kind) =>
+        kind == RefKind.None ? _f.LocalPlace(local) : _f.DerefPlace(local);
+
+    private LocalId PointerLocal(IOperation pointer)
+    {
+        OperandId value = LowerValue(pointer);
+        Operand operand = _body.Operands[value.Index];
+        if (operand.Kind == OperandKind.Copy)
+        {
+            Place place = _body.Places[operand.A];
+            if (place.Base == PlaceBase.Local && place.Projections.Count == 0)
+            {
+                return new LocalId(place.Id);
+            }
+        }
+
+        LocalId spill = NewTemp(OperandType(value));
+        _f.Assign(_f.LocalPlace(spill), _f.Use(value), SpanOf(pointer));
+        return spill;
+    }
+
+    private PlaceId ElementThroughPointer(IOperation access)
+    {
+        IOperation[] children = access.ChildOperations.ToArray();
+        SourceSpan span = SpanOf(access);
+        OperandId pointer = LowerValue(children[0]);
+        OperandId offset = ToIndexType(LowerValue(children[1]), span);
+        TypeId pointerType = OperandType(pointer);
+        OperandId moved = Emit(pointerType, _f.Binop(BinOp.Add, ArithMode.Default, pointer, offset), span);
+        Operand operand = _body.Operands[moved.Index];
+        return _f.DerefPlace(new LocalId(_body.Places[operand.A].Id));
+    }
+
+    private OperandId ToIndexType(OperandId value, SourceSpan span)
+    {
+        TypeId isize = _builder.Primitive(TypeKind.ISize);
+        return OperandType(value) == isize ? value : Emit(isize, _f.Cast(CastKind.IntInt, ArithMode.Wrap, value, isize), span);
+    }
 
     private OperandId LowerCompound(ICompoundAssignmentOperation compound)
     {
@@ -529,19 +670,20 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
     private OperandId? LowerInvocation(IInvocationOperation invocation)
     {
         Location location = invocation.Syntax.GetLocation();
-        if (!invocation.TargetMethod.IsStatic)
+        SourceSpan span = SpanOf(invocation);
+        IMethodSymbol target = invocation.TargetMethod;
+        var arguments = new List<OperandId>();
+        if (!target.IsStatic)
         {
-            throw new UnsupportedConstructException("instance methods are not supported yet", location);
+            arguments.Add(ReceiverAddress(invocation.Instance!, frontend.IsReadOnlyMember(target), span));
         }
 
-        SourceSpan span = SpanOf(invocation);
-        var arguments = new List<OperandId>();
         foreach (IArgumentOperation argument in invocation.Arguments)
         {
-            arguments.Add(Snapshot(LowerValue(argument.Value), span));
+            arguments.Add(LowerArgument(argument, span));
         }
 
-        FunctionId callee = frontend.Declare(invocation.TargetMethod);
+        FunctionId callee = frontend.Declare(target);
         RvalueId call = _f.CallDirect(callee, arguments);
         TypeId returnType = _module.Functions[callee.Index].Return;
         if (_module.Types[returnType.Index].Kind == TypeKind.Void)
@@ -551,5 +693,112 @@ internal sealed class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
         }
 
         return Emit(returnType, call, span);
+    }
+
+    private OperandId ReceiverAddress(IOperation instance, bool readOnly, SourceSpan span)
+    {
+        PlaceId place = PlaceOf(instance);
+        TypeId pointee = IrTyper.OfPlace(_module, _body, place);
+        TypeId pointer = _builder.Pointer(pointee, readOnly ? TypeFlags.Const : TypeFlags.None);
+        return Emit(pointer, _f.Addr(place, !readOnly), span);
+    }
+
+    private OperandId LowerArgument(IArgumentOperation argument, SourceSpan span)
+    {
+        RefKind kind = argument.Parameter?.RefKind ?? RefKind.None;
+        if (kind == RefKind.None)
+        {
+            return Snapshot(LowerValue(argument.Value), span);
+        }
+
+        PlaceId place = PlaceOf(argument.Value);
+        bool mutable = kind is RefKind.Ref or RefKind.Out;
+        TypeId pointee = IrTyper.OfPlace(_module, _body, place);
+        TypeId pointer = _builder.Pointer(pointee, mutable ? TypeFlags.None : TypeFlags.Const);
+        return Emit(pointer, _f.Addr(place, mutable), span);
+    }
+
+    private OperandId LowerObjectCreation(IObjectCreationOperation creation)
+    {
+        Location location = creation.Syntax.GetLocation();
+        SourceSpan span = SpanOf(creation);
+        TypeId type = frontend.Types.Map(creation.Type!, location);
+        IMethodSymbol? constructor = creation.Constructor;
+        if (constructor is null || constructor.IsImplicitlyDeclared)
+        {
+            return Zero(type, span);
+        }
+
+        LocalId temp = NewTemp(type);
+        _f.Assign(_f.LocalPlace(temp), _f.Use(Zero(type, span)), span);
+        TypeId pointer = _builder.Pointer(type, TypeFlags.None);
+        var arguments = new List<OperandId> { Emit(pointer, _f.Addr(_f.LocalPlace(temp), true), span) };
+        foreach (IArgumentOperation argument in creation.Arguments)
+        {
+            arguments.Add(LowerArgument(argument, span));
+        }
+
+        _f.CallStatement(_f.CallDirect(frontend.Declare(constructor), arguments), span);
+        return _f.Copy(_f.LocalPlace(temp));
+    }
+
+    private OperandId LowerAddressOf(IAddressOfOperation address)
+    {
+        SourceSpan span = SpanOf(address);
+        PlaceId place = PlaceOf(address.Reference);
+        TypeId pointee = IrTyper.OfPlace(_module, _body, place);
+        OperandId pointer = Emit(_builder.Pointer(pointee, TypeFlags.None), _f.Addr(place, true), span);
+        TypeId target = frontend.Types.Map(address.Type!, address.Syntax.GetLocation());
+        return Emit(target, _f.Cast(CastKind.PtrPtr, ArithMode.Default, pointer, target), span);
+    }
+
+    private OperandId LowerRefAssignment(ISimpleAssignmentOperation assignment)
+    {
+        SourceSpan span = SpanOf(assignment);
+        LocalId target = assignment.Target switch
+        {
+            ILocalReferenceOperation local => LocalOf(local.Local, span),
+            IParameterReferenceOperation parameter => _locals[parameter.Parameter],
+            _ => throw new UnsupportedConstructException("a ref assignment target is not supported yet", assignment.Syntax.GetLocation()),
+        };
+        PlaceId source = PlaceOf(assignment.Value);
+        bool mutable = assignment.Target is ILocalReferenceOperation { Local.RefKind: RefKind.Ref } or IParameterReferenceOperation { Parameter.RefKind: RefKind.Ref };
+        _f.Assign(_f.LocalPlace(target), _f.Addr(source, mutable), span);
+        return _f.Copy(_f.LocalPlace(target));
+    }
+
+    private OperandId Zero(TypeId type, SourceSpan span) => _f.Const(ZeroConstant(type));
+
+    private ConstId ZeroConstant(TypeId type)
+    {
+        TypeNode node = _module.Types[type.Index];
+        switch (node.Kind)
+        {
+            case TypeKind.Bool:
+                return _builder.BoolConstant(type, false);
+            case TypeKind.Ptr:
+                return _builder.NullConstant(type);
+            case TypeKind.F32 or TypeKind.F64 or TypeKind.F16:
+                return _builder.FloatConstant(type, 0);
+            case TypeKind.Array:
+                var elements = new List<ConstId>();
+                for (int i = 0; i < node.B; i++)
+                {
+                    elements.Add(ZeroConstant(new TypeId(node.A)));
+                }
+
+                return _builder.AggregateConstant(type, elements);
+            case TypeKind.Struct:
+                StructDecl declaration = _module.Structs[node.A];
+                var fields = new List<ConstId>();
+                for (int i = 0; i < declaration.Fields.Count; i++)
+                {
+                    fields.Add(ZeroConstant(_module.Fields[declaration.Fields.Start + i].Type));
+                }
+
+                return _builder.AggregateConstant(type, fields);
+            default:
+                return _builder.IntConstant(type, 0);
+        }
     }
 }

@@ -24,6 +24,7 @@ public sealed class CSharpFrontend : IBodyProvider
     private readonly DiagnosticBag _diagnostics;
     private readonly Dictionary<IMethodSymbol, FunctionId> _functions = new(SymbolEqualityComparer.Default);
     private readonly List<IMethodSymbol> _symbols = [];
+    private readonly Dictionary<IFieldSymbol, GlobalId> _globals = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<string, SourceId> _sourceIds = [];
     private readonly TypeMapper _types;
 
@@ -32,7 +33,7 @@ public sealed class CSharpFrontend : IBodyProvider
         _compilation = compilation;
         Builder = builder;
         _diagnostics = diagnostics;
-        _types = new TypeMapper(builder);
+        _types = new TypeMapper(builder, location => SpanOf(location));
     }
 
     public ModuleBuilder Builder { get; }
@@ -118,6 +119,117 @@ public sealed class CSharpFrontend : IBodyProvider
 
     internal CSharpCompilation Compilation => _compilation;
 
+    internal bool IsReadOnlyMember(IMethodSymbol method) => method.IsReadOnly || method.ContainingType.IsReadOnly;
+
+    internal GlobalId DeclareGlobal(IFieldSymbol field)
+    {
+        field = field.OriginalDefinition;
+        if (_globals.TryGetValue(field, out GlobalId existing))
+        {
+            return existing;
+        }
+
+        Location location = field.Locations.FirstOrDefault() ?? Location.None;
+        Module module = Module;
+        TypeId type = _types.Map(field.Type, location);
+        ConstId initializer = StaticInitializer(field, type, location);
+        GlobalId id = Builder.DeclareGlobal(
+            field.GetDocumentationCommentId()![2..],
+            field.ContainingType.ToDisplayString(_typeFormat) + "." + field.Name,
+            SpanOf(location),
+            Origin.FromSource(module.Intern(Language)),
+            type,
+            !field.IsReadOnly,
+            field.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "System.ThreadStaticAttribute"),
+            initializer,
+            LinkageKind.Internal,
+            null);
+        _globals.Add(field, id);
+        return id;
+    }
+
+    private ConstId StaticInitializer(IFieldSymbol field, TypeId type, Location location)
+    {
+        foreach (SyntaxReference reference in field.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax { Initializer: { } initializer })
+            {
+                SemanticModel model = _compilation.GetSemanticModel(initializer.SyntaxTree);
+                Optional<object?> constant = model.GetConstantValue(initializer.Value);
+                if (constant.HasValue)
+                {
+                    return ConstantOf(constant.Value, type, field.Type);
+                }
+
+                Report(DiagnosticCode.CD4006, initializer.GetLocation(), "this initializer is not a constant");
+                return ZeroConstant(type);
+            }
+        }
+
+        return ZeroConstant(type);
+    }
+
+    private ConstId ConstantOf(object? value, TypeId type, ITypeSymbol symbol)
+    {
+        if (value is null)
+        {
+            return Builder.NullConstant(type);
+        }
+
+        if (value is bool flag)
+        {
+            return Builder.BoolConstant(type, flag);
+        }
+
+        Int128 number = value switch
+        {
+            sbyte v => v,
+            byte v => v,
+            short v => v,
+            ushort v => v,
+            int v => v,
+            uint v => v,
+            long v => v,
+            ulong v => v,
+            char v => v,
+            _ => throw new UnsupportedConstructException("the constant of type " + symbol.ToDisplayString() + " is not supported yet", Location.None),
+        };
+        return Builder.IntConstant(type, number);
+    }
+
+    private ConstId ZeroConstant(TypeId type)
+    {
+        TypeNode node = Module.Types[type.Index];
+        switch (node.Kind)
+        {
+            case TypeKind.Bool:
+                return Builder.BoolConstant(type, false);
+            case TypeKind.Ptr:
+                return Builder.NullConstant(type);
+            case TypeKind.F32 or TypeKind.F64 or TypeKind.F16:
+                return Builder.FloatConstant(type, 0);
+            case TypeKind.Array:
+                var elements = new List<ConstId>();
+                for (int i = 0; i < node.B; i++)
+                {
+                    elements.Add(ZeroConstant(new TypeId(node.A)));
+                }
+
+                return Builder.AggregateConstant(type, elements);
+            case TypeKind.Struct:
+                StructDecl declaration = Module.Structs[node.A];
+                var fields = new List<ConstId>();
+                for (int i = 0; i < declaration.Fields.Count; i++)
+                {
+                    fields.Add(ZeroConstant(Module.Fields[declaration.Fields.Start + i].Type));
+                }
+
+                return Builder.AggregateConstant(type, fields);
+            default:
+                return Builder.IntConstant(type, 0);
+        }
+    }
+
     internal TypeMapper Types => _types;
 
     internal SourceSpan SpanOf(Location location)
@@ -178,14 +290,22 @@ public sealed class CSharpFrontend : IBodyProvider
         Module module = Module;
 
         var parameters = new List<ParamDecl>();
+        if (!method.IsStatic)
+        {
+            bool readOnly = IsReadOnlyMember(method);
+            TypeId self = _types.Map(method.ContainingType, location);
+            parameters.Add(new ParamDecl(
+                module.Intern("this"),
+                Builder.Pointer(self, readOnly ? TypeFlags.Const : TypeFlags.None),
+                readOnly ? ParamMode.RefReadonly : ParamMode.Ref));
+        }
+
         foreach (IParameterSymbol parameter in method.Parameters)
         {
-            if (parameter.RefKind != RefKind.None)
-            {
-                throw new UnsupportedConstructException("reference parameters are not supported yet", location);
-            }
-
-            parameters.Add(new ParamDecl(module.Intern(parameter.Name), _types.Map(parameter.Type, location), ParamMode.Value));
+            parameters.Add(new ParamDecl(
+                module.Intern(parameter.Name),
+                _types.ParameterType(parameter, location),
+                TypeMapper.ModeOf(parameter.RefKind)));
         }
 
         var origin = Origin.FromSource(module.Intern(Language));

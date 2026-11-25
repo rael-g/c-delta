@@ -35,6 +35,9 @@ public sealed class ModuleBuilder(Module module)
     public ConstId IntConstant(TypeId type, Int128 value) =>
         Module.Constant(new ConstNode(ConstKind.Int, type, value, BytesId.None, TypeListId.None));
 
+    public ConstId FloatConstant(TypeId type, ulong bits) =>
+        Module.Constant(new ConstNode(ConstKind.Float, type, bits, BytesId.None, TypeListId.None));
+
     public ConstId BoolConstant(TypeId type, bool value) =>
         Module.Constant(new ConstNode(ConstKind.Bool, type, value ? 1 : 0, BytesId.None, TypeListId.None));
 
@@ -123,6 +126,24 @@ public sealed class ModuleBuilder(Module module)
         Module.Structs.Add(decl);
         Module.StructsByKey.Add(key, id);
         return id;
+    }
+
+    public StructId BeginStruct(
+        string key,
+        string name,
+        SourceSpan span,
+        Origin origin,
+        StructLayoutKind layout,
+        int pack,
+        int minSize,
+        IReadOnlyList<string> attributes) =>
+        DeclareStruct(key, name, span, origin, [], layout, pack, minSize, attributes);
+
+    public void DefineFields(StructId id, IReadOnlyList<FieldDecl> fields)
+    {
+        int start = Module.Fields.Count;
+        Module.Fields.AddRange(fields);
+        Module.Structs[id.Index] = Module.Structs[id.Index] with { Fields = new IdRange(start, fields.Count) };
     }
 
     public TypeId StructType(StructId id) => Module.Type(new TypeNode(TypeKind.Struct, TypeFlags.None, id.Index, 0));

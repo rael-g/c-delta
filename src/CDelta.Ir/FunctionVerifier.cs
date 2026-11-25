@@ -703,9 +703,9 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                     {
                         state[destination.Id] = true;
                     }
-                    else if (destination.Base == PlaceBase.Local && report && !state[destination.Id])
+                    else if (destination.Base == PlaceBase.Local)
                     {
-                        Fail("local %" + destination.Id + " is written through a projection before it is assigned");
+                        state[destination.Id] = true;
                     }
                     else if (destination.Base == PlaceBase.DerefLocal && report && !state[destination.Id])
                     {
@@ -739,8 +739,17 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         Rvalue r = body.Rvalues[id.Index];
         if (!r.Place.IsNone)
         {
-            ReadPlaceBase(body, body.Places[r.Place.Index], state, report);
-            ReadPlaceOperands(body, body.Places[r.Place.Index], state, report);
+            Place addressed = body.Places[r.Place.Index];
+            if (r.Kind != RvalueKind.Addr)
+            {
+                ReadPlaceBase(body, addressed, state, report);
+            }
+
+            ReadPlaceOperands(body, addressed, state, report);
+            if (r.Kind == RvalueKind.Addr && addressed.Base == PlaceBase.Local)
+            {
+                state[addressed.Id] = true;
+            }
         }
 
         if (!r.A.IsNone)
