@@ -188,9 +188,10 @@ struct Player { public string Name; public int Score; }
 | conversion to `byte*` | implicit from a constant only, NUL-terminated for C; a run-time `string` has no NUL (`CD1032`), use `Std.C.ToCString(s, allocator)` |
 | `default`, `""` | the empty string; `string` is never null, and `string?` is an optional |
 
-- The corelib declares `Length`, the `int` indexer, `IndexOf`, `Substring` and `Count()` on
-  `string` with `[Obsolete(message, error: true)]`, so Roslyn and the IDE reject a use with a
-  message that names the `s.Bytes` or `EnumerateRunes()` form instead of a missing member.
+- The corelib declares `int Length`, `byte this[int]`, `int IndexOf(string)`,
+  `string Substring(int)`, `string Substring(int, int)` and `int Count()` on `string`, so a use
+  binds instead of being a missing member, and every reference to them is `CD1034`, in `cdc` and
+  in the IDE. Their bodies are never compiled.
 - A `string` owns nothing. It points into static memory or into a buffer someone else owns, like
   a span; it must not outlive that buffer.
 - `string` is UTF-8 by convention, not by proof: literals are valid by construction (a lone
