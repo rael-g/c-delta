@@ -551,7 +551,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 StructDecl declaration = module.Structs[node.A];
                 for (int i = 0; i < declaration.Fields.Count; i++)
                 {
-                    expected.Add(module.Fields[declaration.Fields.Start + i].Type);
+                    expected.Add(IrSubstitution.FieldType(module, node, i));
                 }
 
                 break;
@@ -683,6 +683,61 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         return operand;
     }
 
+    private TypeId ConstrainedCallType(Body body, Rvalue r)
+    {
+        if (stage != ModuleStage.Lowered)
+        {
+            Fail("a constrained call is left after instantiation");
+            return TypeId.None;
+        }
+
+        if (r.CalleeId < 0 || r.CalleeId >= module.ConstrainedRefs.Count)
+        {
+            Fail("a constrained call names a missing reference");
+            return TypeId.None;
+        }
+
+        ConstrainedRef reference = module.ConstrainedRefs[r.CalleeId];
+        TypeNode interfaceNode = module.Types[reference.Interface.Index];
+        if (interfaceNode.Kind != TypeKind.Interface)
+        {
+            Fail("a constrained call names a type that is not an interface");
+            return TypeId.None;
+        }
+
+        InterfaceDecl declaration = module.Interfaces[interfaceNode.A];
+        int[] interfaceArgs = IrTypes.StructTypeArgs(module, interfaceNode);
+        if (interfaceArgs.Length != declaration.TypeParams.Count)
+        {
+            Fail("an interface type passes the wrong number of type arguments");
+            return TypeId.None;
+        }
+
+        string methodName = module.Text(reference.Method);
+        for (int i = 0; i < declaration.Methods.Count; i++)
+        {
+            InterfaceMethod method = module.InterfaceMethods[declaration.Methods.Start + i];
+            if (module.Text(method.Name) != methodName)
+            {
+                continue;
+            }
+
+            SigNode sig = module.Sigs[method.Sig.Index];
+            Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, declaration.TypeParams, interfaceArgs);
+            var parameters = new List<TypeId>();
+            foreach (int item in module.TypeLists[sig.Params.Index])
+            {
+                parameters.Add(IrSubstitution.Apply(module, SigParam.Decode(item).Type, bindings));
+            }
+
+            CheckArguments(body, r, parameters, sig.Variadic);
+            return IrSubstitution.Apply(module, sig.Return, bindings);
+        }
+
+        Fail("the interface has no method " + methodName);
+        return TypeId.None;
+    }
+
     private TypeId CallType(Body body, Rvalue r)
     {
         SigNode sig;
@@ -711,6 +766,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
             CheckArguments(body, r, parameters, callee.Variadic);
             return IrSubstitution.Apply(module, callee.Return, bindings);
+        }
+
+        if (r.Callee == CalleeKind.Constrained)
+        {
+            return ConstrainedCallType(body, r);
         }
 
         TypeId calleeType = OperandType(body, new OperandId(r.CalleeId));

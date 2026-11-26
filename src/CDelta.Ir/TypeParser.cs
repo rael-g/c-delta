@@ -115,7 +115,37 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                     throw cursor.Error("unknown struct " + structKey);
                 }
 
-                return builder.StructType(structId);
+                var structArgs = new List<TypeId>();
+                if (cursor.TryChar('<'))
+                {
+                    do
+                    {
+                        structArgs.Add(ParseType(cursor));
+                    }
+                    while (cursor.TryChar(','));
+                    cursor.Expect('>');
+                }
+
+                return builder.StructType(structId, structArgs);
+            case "interface":
+                string interfaceKey = cursor.ReadReference();
+                if (!module.InterfacesByKey.TryGetValue(interfaceKey, out InterfaceId interfaceId))
+                {
+                    throw cursor.Error("unknown interface " + interfaceKey);
+                }
+
+                var interfaceArgs = new List<TypeId>();
+                if (cursor.TryChar('<'))
+                {
+                    do
+                    {
+                        interfaceArgs.Add(ParseType(cursor));
+                    }
+                    while (cursor.TryChar(','));
+                    cursor.Expect('>');
+                }
+
+                return builder.InterfaceType(interfaceId, interfaceArgs);
             case "param":
                 return builder.ParamType(cursor.ReadWord());
             case "opaque":

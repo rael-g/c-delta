@@ -1,0 +1,52 @@
+module Constrained stage lowered
+
+source 1 "$ROOT/Constrained.cs" "Constrained.cs"
+
+struct Gen.A layout c origin source(csharp) @1:1:1 {
+  x: i32
+}
+
+struct Gen.B layout c origin source(csharp) @1:2:1 {
+  x: i32
+}
+
+interface Gen.IValue<type R> @1:3:1 {
+  static fn Value() -> param R
+}
+
+fn Gen.AValue() -> i32 origin source(csharp) @1:4:1 {
+bb0:
+  return const i32 40  @1:4:3
+}
+
+fn Gen.BValue() -> i32 origin source(csharp) @1:5:1 {
+bb0:
+  return const i32 2  @1:5:3
+}
+
+#[cdelta.EntryPoint]
+fn Gen.Main() -> i32 origin source(csharp) @1:7:1 {
+  local %0 a: i32 temp
+  local %1 b: i32 temp
+  local %2 sum: i32 temp
+bb0:
+  %0 = call direct Gen.Read<struct Gen.A>()  @1:7:3
+  %1 = call direct Gen.Read<struct Gen.B>()  @1:7:3
+  %2 = binop add default copy %0, copy %1  @1:7:3
+  return copy %2  @1:7:3
+}
+
+fn Gen.Read<type T>() -> i32 origin source(csharp) @1:6:1 {
+  local %0 r: i32 temp
+bb0:
+  %0 = call constrained param T interface Gen.IValue<i32> Value()  @1:6:3
+  return copy %0  @1:6:3
+}
+
+impl Gen.ImplA = struct Gen.A : interface Gen.IValue<i32> {
+  Value = Gen.AValue
+}
+
+impl Gen.ImplB = struct Gen.B : interface Gen.IValue<i32> {
+  Value = Gen.BValue
+}

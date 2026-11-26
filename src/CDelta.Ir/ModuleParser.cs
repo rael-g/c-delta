@@ -7,6 +7,7 @@ internal sealed class ModuleParser
     private Module _module = null!;
     private ModuleBuilder _builder = null!;
     private TypeParser _types = null!;
+    private readonly List<(int Index, string Function, int Line)> _pendingDefaults = [];
 
     private readonly Func<string, Target?>? _targets;
 
@@ -82,6 +83,10 @@ internal sealed class ModuleParser
             {
                 DefineStruct(start, end);
             }
+            else if (kind == "interface")
+            {
+                DefineInterface(start, end);
+            }
         }
 
         foreach ((int start, int end, List<string> attributes) in items)
@@ -98,6 +103,24 @@ internal sealed class ModuleParser
             if (FirstWord(_lines[start]) == "fn")
             {
                 bodies.Add((DeclareFunction(start, attributes), start, end));
+            }
+        }
+
+        foreach ((int index, string functionKey, int line) in _pendingDefaults)
+        {
+            if (!_module.FunctionsByKey.TryGetValue(functionKey, out FunctionId function))
+            {
+                throw new IrParseException("unknown function " + functionKey, line);
+            }
+
+            _module.InterfaceMethods[index] = _module.InterfaceMethods[index] with { Default = function };
+        }
+
+        foreach ((int start, int end, List<string> attributes) in items)
+        {
+            if (FirstWord(_lines[start]) == "impl")
+            {
+                DeclareImpl(start, end);
             }
         }
 
@@ -173,11 +196,105 @@ internal sealed class ModuleParser
             {
                 DeclareOpaque(start);
             }
+            else if (kind == "interface")
+            {
+                DeclareInterfaceShell(start);
+            }
             else if (kind == "cimport")
             {
                 DeclareCImport(start, end);
             }
         }
+    }
+
+    private List<string> ParseTypeParams(IrCursor cursor)
+    {
+        var typeParams = new List<string>();
+        if (cursor.TryChar('<'))
+        {
+            do
+            {
+                cursor.ExpectWord("type");
+                typeParams.Add(cursor.ReadWord());
+            }
+            while (cursor.TryChar(','));
+            cursor.Expect('>');
+        }
+
+        return typeParams;
+    }
+
+    private void DeclareInterfaceShell(int start)
+    {
+        var cursor = new IrCursor(_lines[start], start + 1);
+        cursor.ExpectWord("interface");
+        string key = cursor.ReadReference();
+        List<string> typeParams = ParseTypeParams(cursor);
+        _builder.DeclareInterface(key, key, ParseSpan(cursor), typeParams);
+    }
+
+    private void DefineInterface(int start, int end)
+    {
+        var header = new IrCursor(_lines[start], start + 1);
+        header.ExpectWord("interface");
+        InterfaceId id = _module.InterfacesByKey[header.ReadReference()];
+        var methods = new List<InterfaceMethod>();
+        for (int i = start + 1; i < end; i++)
+        {
+            var cursor = new IrCursor(_lines[i], i + 1);
+            bool isStatic = cursor.TryWord("static");
+            cursor.ExpectWord("fn");
+            string name = cursor.ReadWord();
+            SigId sig = _types.ParseSig(cursor);
+            if (cursor.TryWord("default"))
+            {
+                _pendingDefaults.Add((methods.Count + _module.InterfaceMethods.Count, cursor.ReadReference(), i + 1));
+            }
+
+            methods.Add(new InterfaceMethod(_module.Intern(name), isStatic, sig, FunctionId.None));
+        }
+
+        _builder.DefineInterfaceMethods(id, methods);
+    }
+
+    private void DeclareImpl(int start, int end)
+    {
+        var cursor = new IrCursor(_lines[start], start + 1);
+        cursor.ExpectWord("impl");
+        string key = cursor.ReadReference();
+        cursor.Expect('=');
+        TypeId type = _types.ParseType(cursor);
+        cursor.Expect(':');
+        TypeId interfaceType = _types.ParseType(cursor);
+        var methods = new List<ImplMethod>();
+        for (int i = start + 1; i < end; i++)
+        {
+            var line = new IrCursor(_lines[i], i + 1);
+            string name = line.ReadWord();
+            line.Expect('=');
+            string functionKey = line.ReadReference();
+            if (!_module.FunctionsByKey.TryGetValue(functionKey, out FunctionId function))
+            {
+                throw line.Error("unknown function " + functionKey);
+            }
+
+            TypeListId typeArgs = TypeListId.None;
+            if (line.TryChar('<'))
+            {
+                var args = new List<int>();
+                do
+                {
+                    args.Add(_types.ParseType(line).Index);
+                }
+                while (line.TryChar(','));
+                line.Expect('>');
+                typeArgs = _module.TypeList([.. args]);
+            }
+
+            methods.Add(new ImplMethod(_module.Intern(name), function, typeArgs));
+        }
+
+        _builder.DeclareImpl(key, type, interfaceType, methods);
     }
 
     private void DeclareOpaque(int start)
@@ -232,6 +349,18 @@ internal sealed class ModuleParser
         var cursor = new IrCursor(_lines[start], start + 1);
         cursor.ExpectWord("struct");
         string key = cursor.ReadReference();
+        var typeParams = new List<string>();
+        if (cursor.TryChar('<'))
+        {
+            do
+            {
+                cursor.ExpectWord("type");
+                typeParams.Add(cursor.ReadWord());
+            }
+            while (cursor.TryChar(','));
+            cursor.Expect('>');
+        }
+
         cursor.ExpectWord("layout");
         string layoutWord = cursor.ReadWord();
         int pack = 0;
@@ -269,6 +398,7 @@ internal sealed class ModuleParser
         SourceSpan span = ParseSpan(cursor);
         StructId id = _builder.BeginStruct(key, key, span, origin, layout, pack, minSize, attributes);
         _module.Structs[id.Index] = _module.Structs[id.Index] with { Size = size, Alignment = align };
+        _builder.SetStructTypeParams(id, typeParams);
     }
 
     private void DefineStruct(int start, int end)

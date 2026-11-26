@@ -11,7 +11,8 @@ public readonly record struct StructDecl(
     int Pack,
     int MinSize,
     int Size,
-    int Alignment)
+    int Alignment,
+    IdRange TypeParams = default)
 {
     public const int NotComputed = -1;
 }

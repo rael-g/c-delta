@@ -162,6 +162,54 @@ public sealed class ModuleBuilder(Module module)
         Module.Functions[function.Index] = Module.Functions[function.Index] with { TypeParams = new IdRange(start, names.Count) };
     }
 
+    public InterfaceId DeclareInterface(string key, string name, SourceSpan span, IReadOnlyList<string> typeParams)
+    {
+        int start = Module.TypeParams.Count;
+        foreach (string typeParam in typeParams)
+        {
+            Module.TypeParams.Add(Module.Intern(typeParam));
+        }
+
+        var id = new InterfaceId(Module.Interfaces.Count);
+        Module.Interfaces.Add(new InterfaceDecl(Module.Intern(key), Module.Intern(name), span, new IdRange(start, typeParams.Count), IdRange.Empty));
+        Module.InterfacesByKey.Add(key, id);
+        return id;
+    }
+
+    public void DefineInterfaceMethods(InterfaceId id, IReadOnlyList<InterfaceMethod> methods)
+    {
+        int start = Module.InterfaceMethods.Count;
+        Module.InterfaceMethods.AddRange(methods);
+        Module.Interfaces[id.Index] = Module.Interfaces[id.Index] with { Methods = new IdRange(start, methods.Count) };
+    }
+
+    public TypeId InterfaceType(InterfaceId id, IReadOnlyList<TypeId>? typeArgs = null) =>
+        Module.Type(new TypeNode(
+            TypeKind.Interface,
+            TypeFlags.None,
+            id.Index,
+            typeArgs is { Count: > 0 } ? Module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0));
+
+    public void DeclareImpl(string key, TypeId type, TypeId interfaceType, IReadOnlyList<ImplMethod> methods)
+    {
+        int start = Module.ImplMethods.Count;
+        Module.ImplMethods.AddRange(methods);
+        Module.Impls.Add(new ImplDecl(Module.Intern(key), type, interfaceType, new IdRange(start, methods.Count)));
+    }
+
+    public int ConstrainedRef(string param, TypeId interfaceType, string method)
+    {
+        var item = new ConstrainedRef(Module.Intern(param), interfaceType, Module.Intern(method));
+        int existing = Module.ConstrainedRefs.IndexOf(item);
+        if (existing >= 0)
+        {
+            return existing;
+        }
+
+        Module.ConstrainedRefs.Add(item);
+        return Module.ConstrainedRefs.Count - 1;
+    }
+
     public TypeId OpaqueType(OpaqueId id) => Module.Type(new TypeNode(TypeKind.Opaque, TypeFlags.None, id.Index, 0));
 
     public int AddCImport(CImportDecl import)
@@ -227,7 +275,23 @@ public sealed class ModuleBuilder(Module module)
         Module.Structs[id.Index] = Module.Structs[id.Index] with { Fields = new IdRange(start, fields.Count) };
     }
 
-    public TypeId StructType(StructId id) => Module.Type(new TypeNode(TypeKind.Struct, TypeFlags.None, id.Index, 0));
+    public TypeId StructType(StructId id, IReadOnlyList<TypeId>? typeArgs = null) =>
+        Module.Type(new TypeNode(
+            TypeKind.Struct,
+            TypeFlags.None,
+            id.Index,
+            typeArgs is { Count: > 0 } ? Module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0));
+
+    public void SetStructTypeParams(StructId id, IReadOnlyList<string> names)
+    {
+        int start = Module.TypeParams.Count;
+        foreach (string name in names)
+        {
+            Module.TypeParams.Add(Module.Intern(name));
+        }
+
+        Module.Structs[id.Index] = Module.Structs[id.Index] with { TypeParams = new IdRange(start, names.Count) };
+    }
 
     public FunctionId DeclareFunction(
         string key,

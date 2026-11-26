@@ -1,0 +1,29 @@
+module Boxes stage lowered
+
+source 1 "$ROOT/Boxes.cs" "Boxes.cs"
+
+struct Boxes.Box<type T> layout c origin source(csharp) @1:1:1 {
+  value: param T
+}
+
+#[cdelta.EntryPoint]
+fn Boxes.Main() -> i32 origin source(csharp) @1:3:1 {
+  local %0 small: struct Boxes.Box<i32> temp
+  local %1 wide: struct Boxes.Box<i64> temp
+  local %2 narrowed: i32 temp
+  local %3 sum: i32 temp
+bb0:
+  %0 = call direct Boxes.Make<i32>(const i32 30)  @1:3:3
+  %1 = call direct Boxes.Make<i64>(const i64 12)  @1:3:3
+  %2 = cast int.int wrap copy %1.field(0) to i32  @1:3:3
+  %3 = binop add default copy %0.field(0), copy %2  @1:3:3
+  return copy %3  @1:3:3
+}
+
+fn Boxes.Make<type T>(v: param T) -> struct Boxes.Box<param T> origin source(csharp) @1:2:1 {
+  local %0 v: param T param
+  local %1 b: struct Boxes.Box<param T> temp
+bb0:
+  %1 = aggregate struct Boxes.Box<param T>(copy %0)  @1:2:3
+  return copy %1  @1:2:3
+}

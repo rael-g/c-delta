@@ -18,6 +18,7 @@ public sealed class Instantiator
     private readonly Dictionary<int, GlobalId> _globals = [];
     private readonly Queue<Instance> _pending = new();
     private int _depth;
+    private Dictionary<string, ImplDecl>? _impls;
 
     private readonly record struct Instance(FunctionId Source, FunctionId Destination, Dictionary<int, TypeId> Bindings, int Depth);
 
@@ -229,6 +230,11 @@ public sealed class Instantiator
                 copy = copy with { Aux = _remap.String(new StringId(rvalue.Aux)).Index };
             }
 
+            if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Constrained)
+            {
+                copy = ResolveConstrained(rvalue, copy);
+            }
+
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Direct)
             {
                 int[] typeArgs = IrTypes.CallTypeArgs(_source, rvalue);
@@ -246,5 +252,63 @@ public sealed class Instantiator
         }
 
         return body;
+    }
+
+    private Rvalue ResolveConstrained(Rvalue rvalue, Rvalue copy)
+    {
+        ConstrainedRef reference = _source.ConstrainedRefs[rvalue.CalleeId];
+        TypeId concrete = _remap.Bindings![reference.Param.Index];
+        string key = ImplKey(concrete, _source.Types[reference.Interface.Index]);
+        _impls ??= IndexImpls();
+        if (!_impls.TryGetValue(key, out ImplDecl impl))
+        {
+            throw new InvalidOperationException("no impl of " + key + " was found");
+        }
+
+        string method = _source.Text(reference.Method);
+        for (int i = 0; i < impl.Methods.Count; i++)
+        {
+            ImplMethod item = _source.ImplMethods[impl.Methods.Start + i];
+            if (_source.Text(item.Name) != method)
+            {
+                continue;
+            }
+
+            var arguments = new List<TypeId>();
+            Dictionary<int, TypeId>? saved = _remap.Bindings;
+            _remap.Bindings = null;
+            if (!item.TypeArgs.IsNone)
+            {
+                arguments.AddRange(_source.TypeLists[item.TypeArgs.Index].Select(argument => _remap.Type(new TypeId(argument))));
+            }
+
+            _remap.Bindings = saved;
+            arguments.AddRange(IrTypes.CallTypeArgs(_source, rvalue).Select(argument => _remap.Type(new TypeId(argument))));
+            return copy with { Callee = CalleeKind.Direct, CalleeId = Reach(item.Function, arguments).Index, Aux = 0 };
+        }
+
+        throw new InvalidOperationException("the impl " + key + " has no method " + method);
+    }
+
+    private Dictionary<string, ImplDecl> IndexImpls()
+    {
+        var impls = new Dictionary<string, ImplDecl>();
+        Dictionary<int, TypeId>? saved = _remap.Bindings;
+        _remap.Bindings = null;
+        foreach (ImplDecl impl in _source.Impls)
+        {
+            impls[ImplKey(_remap.Type(impl.Type), _source.Types[impl.Interface.Index])] = impl;
+        }
+
+        _remap.Bindings = saved;
+        return impls;
+    }
+
+    private string ImplKey(TypeId type, TypeNode interfaceNode)
+    {
+        IEnumerable<string> arguments = IrTypes.StructTypeArgs(_source, interfaceNode)
+            .Select(argument => IrPrinter.TypeText(_destination, _remap.Type(new TypeId(argument))));
+        return IrPrinter.TypeText(_destination, type) + " : " + _source.Text(_source.Interfaces[interfaceNode.A].Key)
+            + "<" + string.Join(", ", arguments) + ">";
     }
 }

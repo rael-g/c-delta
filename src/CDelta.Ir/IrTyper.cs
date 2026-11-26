@@ -56,7 +56,7 @@ public static class IrTyper
 
                 StructDecl declaration = module.Structs[node.A];
                 return projection.Value >= 0 && projection.Value < declaration.Fields.Count
-                    ? module.Fields[declaration.Fields.Start + projection.Value].Type
+                    ? IrSubstitution.FieldType(module, node, projection.Value)
                     : TypeId.None;
             case ProjectionKind.Index:
                 return node.Kind is TypeKind.Array or TypeKind.Slice ? new TypeId(node.A) : TypeId.None;

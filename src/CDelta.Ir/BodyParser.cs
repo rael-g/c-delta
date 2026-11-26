@@ -406,6 +406,7 @@ internal sealed class BodyParser(
         FunctionId callee = FunctionId.None;
         OperandId indirect = OperandId.None;
         var typeArgs = new List<TypeId>();
+        int constrainedRef = -1;
         if (kind == "direct")
         {
             string key = cursor.ReadReference();
@@ -414,6 +415,23 @@ internal sealed class BodyParser(
                 throw cursor.Error("unknown function " + key);
             }
 
+            if (cursor.TryChar('<'))
+            {
+                do
+                {
+                    typeArgs.Add(types.ParseType(cursor));
+                }
+                while (cursor.TryChar(','));
+                cursor.Expect('>');
+            }
+        }
+        else if (kind == "constrained")
+        {
+            cursor.ExpectWord("param");
+            string param = cursor.ReadWord();
+            TypeId interfaceType = types.ParseType(cursor);
+            string method = cursor.ReadWord();
+            constrainedRef = new ModuleBuilder(module).ConstrainedRef(param, interfaceType, method);
             if (cursor.TryChar('<'))
             {
                 do
@@ -439,6 +457,11 @@ internal sealed class BodyParser(
             }
 
             arguments.Add(ParseOperand(cursor));
+        }
+
+        if (kind == "constrained")
+        {
+            return _f.CallConstrained(constrainedRef, arguments, typeArgs);
         }
 
         return kind == "direct" ? _f.CallDirect(callee, arguments, typeArgs) : _f.CallIndirect(indirect, arguments);

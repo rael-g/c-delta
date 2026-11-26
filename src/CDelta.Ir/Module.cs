@@ -53,6 +53,18 @@ public sealed class Module(string name)
 
     public List<CImportDecl> CImports { get; } = [];
 
+    public List<InterfaceDecl> Interfaces { get; } = [];
+
+    public List<InterfaceMethod> InterfaceMethods { get; } = [];
+
+    public Dictionary<string, InterfaceId> InterfacesByKey { get; } = [];
+
+    public List<ImplDecl> Impls { get; } = [];
+
+    public List<ImplMethod> ImplMethods { get; } = [];
+
+    public List<ConstrainedRef> ConstrainedRefs { get; } = [];
+
     public List<StructDecl> Structs { get; } = [];
 
     public Dictionary<string, StructId> StructsByKey { get; } = [];

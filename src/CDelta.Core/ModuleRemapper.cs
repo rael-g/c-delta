@@ -6,6 +6,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
 {
     private readonly Dictionary<int, StructId> _structs = [];
     private readonly Dictionary<int, EnumId> _enums = [];
+    private readonly Dictionary<string, StructId> _structInstances = [];
 
     public Dictionary<int, TypeId>? Bindings { get; set; }
 
@@ -34,11 +35,20 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             case TypeKind.Fn:
                 return destination.Type(node with { A = Sig(new SigId(node.A)).Index });
             case TypeKind.Struct:
-                return destination.Type(node with { A = Struct(new StructId(node.A)).Index });
+                int[] sourceArgs = IrTypes.StructTypeArgs(source, node);
+                if (sourceArgs.Length == 0)
+                {
+                    return destination.Type(node with { A = Struct(new StructId(node.A)).Index });
+                }
+
+                var mappedArgs = sourceArgs.Select(arg => Type(new TypeId(arg))).ToList();
+                return new ModuleBuilder(destination).StructType(StructInstance(new StructId(node.A), mappedArgs));
             case TypeKind.Enum:
                 return destination.Type(node with { A = Enum(new EnumId(node.A)).Index });
             case TypeKind.Opaque:
                 return destination.Type(node with { A = Opaque(new OpaqueId(node.A)).Index });
+            case TypeKind.Interface:
+                throw new InvalidOperationException("an interface type is not copied into the instantiated module");
             case TypeKind.Param:
                 if (Bindings is not null && Bindings.TryGetValue(node.A, out TypeId bound))
                 {
@@ -89,6 +99,59 @@ internal sealed class ModuleRemapper(Module source, Module destination)
         }
 
         return new ModuleBuilder(destination).DeclareOpaque(key, source.Text(declaration.Name), declaration.Span, Origin(declaration.Origin));
+    }
+
+    private StructId StructInstance(StructId id, IReadOnlyList<TypeId> typeArguments)
+    {
+        string instanceKey = id.Index + "|" + string.Join(",", typeArguments.Select(argument => argument.Index));
+        if (_structInstances.TryGetValue(instanceKey, out StructId existing))
+        {
+            return existing;
+        }
+
+        StructDecl declaration = source.Structs[id.Index];
+        string name = source.Text(declaration.Key) + "<"
+            + string.Join(", ", typeArguments.Select(argument => IrPrinter.TypeText(destination, argument))) + ">";
+        var created = new StructId(destination.Structs.Count);
+        destination.Structs.Add(declaration);
+        destination.StructsByKey.Add(name, created);
+        _structInstances.Add(instanceKey, created);
+
+        var bindings = new Dictionary<int, TypeId>();
+        for (int i = 0; i < declaration.TypeParams.Count; i++)
+        {
+            bindings[source.TypeParams[declaration.TypeParams.Start + i].Index] = typeArguments[i];
+        }
+
+        Dictionary<int, TypeId>? saved = Bindings;
+        Bindings = bindings;
+        var fields = new List<FieldDecl>();
+        for (int i = 0; i < declaration.Fields.Count; i++)
+        {
+            FieldDecl field = source.Fields[declaration.Fields.Start + i];
+            fields.Add(field with { Name = String(field.Name), Type = Type(field.Type), Attributes = IdRange.Empty });
+        }
+
+        Bindings = saved;
+        int fieldStart = destination.Fields.Count;
+        destination.Fields.AddRange(fields);
+        int attributeStart = destination.Attributes.Count;
+        for (int i = 0; i < declaration.Attributes.Count; i++)
+        {
+            AttributeNode attribute = source.Attributes[declaration.Attributes.Start + i];
+            destination.Attributes.Add(new AttributeNode(String(attribute.Name), IdRange.Empty));
+        }
+
+        destination.Structs[created.Index] = declaration with
+        {
+            Key = destination.Intern(name),
+            Name = destination.Intern(name),
+            Origin = Origin(declaration.Origin),
+            Fields = new IdRange(fieldStart, fields.Count),
+            Attributes = new IdRange(attributeStart, declaration.Attributes.Count),
+            TypeParams = IdRange.Empty,
+        };
+        return created;
     }
 
     public StructId Struct(StructId id)

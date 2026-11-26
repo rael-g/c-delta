@@ -61,6 +61,12 @@ public static partial class IrPrinter
             PrintStruct(module, declaration, text);
         }
 
+        for (int i = 0; i < module.Interfaces.Count; i++)
+        {
+            text.Append('\n');
+            PrintInterface(module, module.Interfaces[i], text);
+        }
+
         foreach (OpaqueId opaque in OrderedOpaques(module))
         {
             text.Append('\n');
@@ -89,6 +95,12 @@ public static partial class IrPrinter
         {
             text.Append('\n');
             PrintFunction(module, function, text);
+        }
+
+        foreach (ImplDecl impl in module.Impls)
+        {
+            text.Append('\n');
+            PrintImpl(module, impl, text);
         }
 
         return text.ToString();
@@ -123,11 +135,17 @@ public static partial class IrPrinter
             case TypeKind.Fn:
                 return "fn" + SigText(module, new SigId(node.A));
             case TypeKind.Struct:
-                return "struct " + Reference(module.Text(module.Structs[node.A].Key));
+                int[] structArgs = IrTypes.StructTypeArgs(module, node);
+                return "struct " + Reference(module.Text(module.Structs[node.A].Key))
+                    + (structArgs.Length == 0 ? string.Empty : "<" + string.Join(", ", structArgs.Select(arg => TypeText(module, new TypeId(arg)))) + ">");
             case TypeKind.Enum:
                 return "enum " + Reference(module.Text(module.Enums[node.A].Key));
             case TypeKind.Opaque:
                 return "opaque " + Reference(module.Text(module.Opaques[node.A].Key));
+            case TypeKind.Interface:
+                int[] interfaceArgs = IrTypes.StructTypeArgs(module, node);
+                return "interface " + Reference(module.Text(module.Interfaces[node.A].Key))
+                    + (interfaceArgs.Length == 0 ? string.Empty : "<" + string.Join(", ", interfaceArgs.Select(arg => TypeText(module, new TypeId(arg)))) + ">");
             case TypeKind.Param:
                 return "param " + module.Strings[node.A];
             default:
@@ -371,7 +389,16 @@ public static partial class IrPrinter
             text.Append("#[").Append(Reference(module.Text(attribute.Name))).Append("]\n");
         }
 
-        text.Append("struct ").Append(Reference(module.Text(declaration.Key))).Append(" layout ").Append(declaration.Layout switch
+        text.Append("struct ").Append(Reference(module.Text(declaration.Key)));
+        if (declaration.TypeParams.Count > 0)
+        {
+            text.Append('<').Append(string.Join(
+                ", ",
+                Enumerable.Range(declaration.TypeParams.Start, declaration.TypeParams.Count).Select(i => "type " + module.Text(module.TypeParams[i]))))
+                .Append('>');
+        }
+
+        text.Append(" layout ").Append(declaration.Layout switch
         {
             StructLayoutKind.C => "c",
             StructLayoutKind.Packed => "c.packed(" + declaration.Pack + ")",
@@ -422,6 +449,54 @@ public static partial class IrPrinter
     }
 
     private static string Span(SourceSpan span) => "@" + (span.File.Index + 1) + ":" + span.Line + ":" + span.Column;
+
+    private static void PrintInterface(Module module, InterfaceDecl declaration, StringBuilder text)
+    {
+        text.Append("interface ").Append(Reference(module.Text(declaration.Key)));
+        if (declaration.TypeParams.Count > 0)
+        {
+            text.Append('<').Append(string.Join(
+                ", ",
+                Enumerable.Range(declaration.TypeParams.Start, declaration.TypeParams.Count).Select(i => "type " + module.Text(module.TypeParams[i]))))
+                .Append('>');
+        }
+
+        text.Append(' ').Append(Span(declaration.Span)).Append(" {\n");
+        for (int i = 0; i < declaration.Methods.Count; i++)
+        {
+            InterfaceMethod method = module.InterfaceMethods[declaration.Methods.Start + i];
+            text.Append(Indent).Append(method.IsStatic ? "static " : string.Empty).Append("fn ").Append(module.Text(method.Name))
+                .Append(SigText(module, method.Sig));
+            if (!method.Default.IsNone)
+            {
+                text.Append(" default ").Append(Reference(module.Text(module.Functions[method.Default.Index].Key)));
+            }
+
+            text.Append('\n');
+        }
+
+        text.Append("}\n");
+    }
+
+    private static void PrintImpl(Module module, ImplDecl impl, StringBuilder text)
+    {
+        text.Append("impl ").Append(Reference(module.Text(impl.Key))).Append(" = ").Append(TypeText(module, impl.Type)).Append(" : ")
+            .Append(TypeText(module, impl.Interface)).Append(" {\n");
+        for (int i = 0; i < impl.Methods.Count; i++)
+        {
+            ImplMethod method = module.ImplMethods[impl.Methods.Start + i];
+            text.Append(Indent).Append(module.Text(method.Name)).Append(" = ")
+                .Append(Reference(module.Text(module.Functions[method.Function.Index].Key)));
+            if (!method.TypeArgs.IsNone)
+            {
+                text.Append('<').Append(string.Join(", ", module.TypeLists[method.TypeArgs.Index].Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
+            }
+
+            text.Append('\n');
+        }
+
+        text.Append("}\n");
+    }
 
     private static void PrintFunction(Module module, FunctionId id, StringBuilder text)
     {
@@ -913,6 +988,17 @@ public static partial class IrPrinter
                         text.Append('<').Append(string.Join(", ", typeArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
                     }
 
+                }
+                else if (rvalue.Callee == CalleeKind.Constrained)
+                {
+                    ConstrainedRef reference = module.ConstrainedRefs[rvalue.CalleeId];
+                    text.Append("constrained param ").Append(module.Text(reference.Param)).Append(' ')
+                        .Append(TypeText(module, reference.Interface)).Append(' ').Append(module.Text(reference.Method));
+                    int[] constrainedArgs = IrTypes.CallTypeArgs(module, rvalue);
+                    if (constrainedArgs.Length > 0)
+                    {
+                        text.Append('<').Append(string.Join(", ", constrainedArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
+                    }
                 }
                 else
                 {

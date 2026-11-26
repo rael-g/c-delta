@@ -94,6 +94,15 @@ public sealed class FunctionBuilder(Module module, Body body)
             Aux = typeArgs is { Count: > 0 } ? module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0,
         });
 
+    public RvalueId CallConstrained(int reference, IReadOnlyList<OperandId> args, IReadOnlyList<TypeId>? typeArgs = null) =>
+        AddRvalue(Blank(RvalueKind.Call) with
+        {
+            Callee = CalleeKind.Constrained,
+            CalleeId = reference,
+            Args = AddArgs(args),
+            Aux = typeArgs is { Count: > 0 } ? module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0,
+        });
+
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });
 

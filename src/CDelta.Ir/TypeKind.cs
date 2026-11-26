@@ -43,4 +43,5 @@ public enum TypeKind
     AnyError,
     Opaque,
     Param,
+    Interface,
 }
