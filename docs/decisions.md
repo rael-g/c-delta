@@ -434,6 +434,12 @@ concept: it is one more `IAllocator`.
 copyable, position independent and serializable with one copy; they need generics and `unsafe`
 only, so they wait for a program that needs them.
 
+**D178. Positions in text are counted in `s.Bytes`, never on `string`.** C# counts UTF-16 units
+and CΔ UTF-8 units; the concept is the same, but any accented letter makes the numbers differ,
+so every member that takes or returns a count lives on the span, where it already means bytes
+in C#. Members that expose no unit (`StartsWith`, `Split`, `Trim`, `==`) behave as in C#, and
+`EnumerateRunes()` keeps its BCL name and result.
+
 ## Repository
 
 **D201. Documents and code are in English.**

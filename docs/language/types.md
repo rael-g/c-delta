@@ -179,14 +179,18 @@ struct Player { public string Name; public int Score; }
 | a literal or `const string` | the UTF-8 bytes in static memory, NUL-terminated after them |
 | `s.Bytes` | the bytes as a `ReadOnlySpan<byte>`: `s.Bytes.Length` is the length in bytes, `s.Bytes[i]` a byte |
 | `s.Slice(start, count)` | the `string` of `count` bytes from byte offset `start`, bounds-checked; no check that it splits on a character |
-| `s.Length`, `s[i]`, `s[a..b]` | do not exist: in C# they count UTF-16 units, and a byte count under the same name would be a silent difference (D156) |
+| `s.Length`, `s[i]`, `s[a..b]`, `s.IndexOf`, `s.Substring` | do not exist: in C# they count UTF-16 units, and a byte count under the same name would be a silent difference (D156); every position and count goes through `s.Bytes`, whose span members count bytes exactly as in C# |
 | `a == b`, `!=` | content equality |
 | `switch` and `is` with string constants | content equality against each constant, in order |
 | `foreach (var r in s)` | each `Rune` (Unicode scalar) of the UTF-8; an invalid byte gives U+FFFD and advances by one |
+| `s.EnumerateRunes()` | the same runes as an enumerator, the only way into `Std.Linq`: `s.EnumerateRunes().Count()` gives the number C# gives; `string` itself is not a `Std.Linq` source, so `s.Count()` does not compile instead of counting other units |
 | conversion to `ReadOnlySpan<byte>` | implicit, the same bytes |
 | conversion to `byte*` | implicit from a constant only, NUL-terminated for C; a run-time `string` has no NUL (`CD1032`), use `Std.C.ToCString(s, allocator)` |
 | `default`, `""` | the empty string; `string` is never null, and `string?` is an optional |
 
+- The corelib declares `Length`, the `int` indexer, `IndexOf`, `Substring` and `Count()` on
+  `string` with `[Obsolete(message, error: true)]`, so Roslyn and the IDE reject a use with a
+  message that names the `s.Bytes` or `EnumerateRunes()` form instead of a missing member.
 - A `string` owns nothing. It points into static memory or into a buffer someone else owns, like
   a span; it must not outlive that buffer.
 - `string` is UTF-8 by convention, not by proof: literals are valid by construction (a lone
