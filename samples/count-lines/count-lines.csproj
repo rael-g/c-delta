@@ -1,0 +1,11 @@
+<Project>
+
+  <Import Project="../../sdk/CDelta.Sdk/Sdk/Sdk.props" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <Import Project="../../sdk/CDelta.Sdk/Sdk/Sdk.targets" />
+
+</Project>

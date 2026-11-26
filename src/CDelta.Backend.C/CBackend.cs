@@ -95,6 +95,11 @@ public static class CBackend
             text.Append('\n').Append(CPrelude.PanicPrototype);
         }
 
+        if (state.FloatCasts.Count > 0)
+        {
+            text.Append('\n').Append(FloatCastHelpers(module, state));
+        }
+
         if (module.Target is { NativeInt128: false } && UsesInt128(module))
         {
             text.Append('\n').Append(CPrelude.EmulatedInt128);
@@ -206,6 +211,50 @@ public static class CBackend
 
         return text.ToString();
     }
+
+    private static string FloatCastHelpers(Module module, CEmitState state)
+    {
+        Target target = module.Target!.Value;
+        var text = new StringBuilder();
+        foreach ((string from, string to, bool trap) in state.FloatCasts)
+        {
+            TypeKind toKind = IrTypesByName(to);
+            int bits = IrTypes.BitWidth(toKind, target);
+            bool signed = IrTypes.IsSigned(toKind, target);
+            string sourceC = CTypes.Primitive(IrTypesByName(from));
+            string targetC = CTypes.Primitive(toKind);
+            string high = (System.Numerics.BigInteger.One << (signed ? bits - 1 : bits)).ToString() + ".0";
+            string low = signed ? "-" + high : "0.0";
+            if (trap)
+            {
+                string lowerBound = signed && bits < 64 ? "v > (" + low + " - 1.0)" : signed ? "v >= " + low : "v > -1.0";
+                text.Append("static inline ").Append(targetC).Append(" cd_f2i_trap_").Append(from).Append('_').Append(to).Append('(').Append(sourceC)
+                    .Append(" v, const char* file, int32_t line)\n{\n    if (!(").Append(lowerBound).Append(" && v < ").Append(high)
+                    .Append("))\n    {\n        cd_panic((const uint8_t*)\"float cast out of range\", 23, file, line);\n    }\n    return (").Append(targetC).Append(")v;\n}\n\n");
+            }
+            else
+            {
+                text.Append("static inline ").Append(targetC).Append(" cd_f2i_wrap_").Append(from).Append('_').Append(to).Append('(').Append(sourceC)
+                    .Append(" v)\n{\n    if (v != v)\n    {\n        return 0;\n    }\n    if (v <= ").Append(low).Append(")\n    {\n        return ")
+                    .Append(signed ? MinLiteral(bits) : "0").Append(";\n    }\n    if (v >= ").Append(high).Append(")\n    {\n        return ")
+                    .Append(MaxLiteral(bits, signed, targetC)).Append(";\n    }\n    return (").Append(targetC).Append(")v;\n}\n\n");
+            }
+
+        }
+
+        return text.ToString();
+    }
+
+    private static string MinLiteral(int bits) => bits == 64 ? "(-9223372036854775807LL - 1)" : "(" + (-(System.Numerics.BigInteger.One << (bits - 1))) + ")";
+
+    private static string MaxLiteral(int bits, bool signed, string targetC)
+    {
+        System.Numerics.BigInteger max = (System.Numerics.BigInteger.One << (signed ? bits - 1 : bits)) - 1;
+        return "((" + targetC + ")" + max + (bits == 64 ? (signed ? "LL" : "ULL") : "u") + ")";
+    }
+
+    private static TypeKind IrTypesByName(string name) =>
+        Enum.GetValues<TypeKind>().First(kind => kind <= TypeKind.CULongLong && IrTypes.Name(kind) == name);
 
     private static string ImportLines(Module module)
     {

@@ -14,6 +14,8 @@ internal sealed class CEmitState
 
     public bool UsesTracePush { get; set; }
 
+    public SortedSet<(string From, string To, bool Trap)> FloatCasts { get; } = [];
+
     public SortedSet<int> ErrorFromEnums { get; } = [];
 
     public SortedSet<int> ErrorToEnums { get; } = [];

@@ -26,14 +26,26 @@ public static class IrNames
         Ir.BinOp.Lt => "lt",
         Ir.BinOp.Le => "le",
         Ir.BinOp.Gt => "gt",
-        _ => "ge",
+        Ir.BinOp.Ge => "ge",
+        Ir.BinOp.FAdd => "fadd",
+        Ir.BinOp.FSub => "fsub",
+        Ir.BinOp.FMul => "fmul",
+        Ir.BinOp.FDiv => "fdiv",
+        Ir.BinOp.FRem => "frem",
+        Ir.BinOp.FEq => "feq",
+        Ir.BinOp.FNe => "fne",
+        Ir.BinOp.FLt => "flt",
+        Ir.BinOp.FLe => "fle",
+        Ir.BinOp.FGt => "fgt",
+        _ => "fge",
     };
 
     public static string UnOp(UnOp op) => op switch
     {
         Ir.UnOp.Neg => "neg",
         Ir.UnOp.Not => "not",
-        _ => "bitnot",
+        Ir.UnOp.BitNot => "bitnot",
+        _ => "fneg",
     };
 
     public static string Mode(ArithMode mode) => mode switch
@@ -114,7 +126,7 @@ public static class IrNames
 
     public static BinOp? ParseBinOp(string word)
     {
-        foreach (BinOp op in new[] { Ir.BinOp.Add, Ir.BinOp.Sub, Ir.BinOp.Mul, Ir.BinOp.Div, Ir.BinOp.Rem, Ir.BinOp.Shl, Ir.BinOp.Shr, Ir.BinOp.And, Ir.BinOp.Or, Ir.BinOp.Xor, Ir.BinOp.Eq, Ir.BinOp.Ne, Ir.BinOp.Lt, Ir.BinOp.Le, Ir.BinOp.Gt, Ir.BinOp.Ge })
+        foreach (BinOp op in Enum.GetValues<BinOp>())
         {
             if (BinOp(op) == word)
             {
@@ -127,7 +139,7 @@ public static class IrNames
 
     public static UnOp? ParseUnOp(string word)
     {
-        foreach (UnOp op in new[] { Ir.UnOp.Neg, Ir.UnOp.Not, Ir.UnOp.BitNot })
+        foreach (UnOp op in Enum.GetValues<UnOp>())
         {
             if (UnOp(op) == word)
             {

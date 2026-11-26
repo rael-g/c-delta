@@ -9,4 +9,6 @@ public sealed record CompilerOptions(
     bool EmitC,
     string? DumpIrStage,
     bool Verbose,
-    bool Time);
+    bool Time,
+    ProjectPlan? Plan = null,
+    bool ImportsOnly = false);

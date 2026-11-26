@@ -76,18 +76,26 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             return null;
         }
 
-        string packageName = Path.GetFileNameWithoutExtension(sources[0].FullPath);
-        string intermediate = BuildPaths.IntermediateForFiles(environment, sources.ConvertAll(s => s.FullPath));
+        ProjectPlan? plan = options.Plan;
+        string packageName = plan?.PackageName ?? Path.GetFileNameWithoutExtension(sources[0].FullPath);
+        string intermediate = plan is null
+            ? BuildPaths.IntermediateForFiles(environment, sources.ConvertAll(s => s.FullPath))
+            : Path.Combine(plan.Directory, "obj", "cdelta");
         Directory.CreateDirectory(intermediate);
-        List<string> includeDirectories = [];
+        List<string> includeDirectories = [.. plan?.IncludeDirectories ?? []];
         foreach (string stdFile in LibraryLocator.StdSources(environment))
         {
             sources.Add(new SourceInput(stdFile, "std/" + Path.GetFileName(stdFile), File.ReadAllText(stdFile)));
         }
 
-        if (!ImportC(sources, toolchain, target, packageName, intermediate, includeDirectories, diagnostics))
+        if (!ImportC(sources, toolchain, target, packageName, intermediate, includeDirectories, plan, diagnostics))
         {
             return null;
+        }
+
+        if (options.ImportsOnly)
+        {
+            return Path.Combine(intermediate, "imports");
         }
 
         var frontend = CSharpFrontend.Create(sources, LibraryLocator.Corelib(environment), packageName, BuildSymbols.For(target, options.Mode), SubsetAnalyzers.Create(), diagnostics);
@@ -112,7 +120,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             return null;
         }
 
-        return Native(options, diagnostics, toolchain, final, target, mode, intermediate, packageName, includeDirectories, messages);
+        return Native(options, diagnostics, toolchain, final, target, mode, intermediate, packageName, includeDirectories, messages, plan);
     }
 
     private string? Native(
@@ -125,7 +133,8 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string intermediate,
         string packageName,
         List<string> includeDirectories,
-        List<string> messages)
+        List<string> messages,
+        ProjectPlan? plan)
     {
         bool debugInfo = mode is BuildMode.Debug or BuildMode.ReleaseSafe;
         CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true));
@@ -143,10 +152,25 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         Directory.CreateDirectory(objects);
         OptimizeMode optimize = Enum.Parse<OptimizeMode>(mode.ToString());
         var objectPaths = new List<string>();
+        foreach ((string cSource, string flags) in plan?.CSources ?? [])
+        {
+            string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(cSource) + ".c.o");
+            string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            ToolResult compiledC = toolchain.Compile(new CompileRequest(cSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra));
+            Trace(options, compiledC, messages);
+            if (compiledC.ExitCode != 0)
+            {
+                diagnostics.Add(DiagnosticCode.CD0004, new Location(cSource, 0, 0), new Note(null, compiledC.StandardError.Trim()));
+                return null;
+            }
+
+            objectPaths.Add(objectPath);
+        }
+
         foreach (string source in sources)
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
-            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, includeDirectories, []));
+            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, includeDirectories, plan?.Defines ?? []));
             Trace(options, compiled, messages);
             if (compiled.ExitCode != 0)
             {
@@ -157,8 +181,10 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             objectPaths.Add(objectPath);
         }
 
-        string output = options.OutputPath ?? DefaultOutput(packageName, target);
-        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final)));
+        string output = options.OutputPath ?? (plan is null ? DefaultOutput(packageName, target) : ProjectOutput(plan, target, mode));
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+        List<NativeLibrary> natives = [.. (plan?.Libraries ?? []).Select(l => new NativeLibrary(l.Name, l.Static))];
+        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? []));
         Trace(options, linked, messages);
         if (linked.ExitCode != 0)
         {
@@ -189,6 +215,9 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             messages.Add(result.CommandLine);
         }
     }
+
+    private static string ProjectOutput(ProjectPlan plan, string target, BuildMode mode) =>
+        Path.Combine(plan.Directory, "bin", mode == BuildMode.Debug ? "Debug" : "Release", target, plan.PackageName + (target.Contains(WindowsMarker, StringComparison.Ordinal) ? ".exe" : string.Empty));
 
     private static string DefaultOutput(string packageName, string target) =>
         Path.Combine(Directory.GetCurrentDirectory(), packageName + (target.Contains(WindowsMarker, StringComparison.Ordinal) ? ".exe" : string.Empty));
@@ -240,6 +269,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string packageName,
         string intermediate,
         List<string> includeDirectories,
+        ProjectPlan? plan,
         DiagnosticBag diagnostics)
     {
         List<ImportDeclaration> declarations = ImportScanner.Scan(sources);
@@ -258,7 +288,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         }
 
         string clangTarget = TargetTriples.Clang(target) ?? target;
-        var options = new ReadOptions(clangTarget, toolchain.SystemIncludeDirectories(target), [], []);
+        var options = new ReadOptions(clangTarget, toolchain.SystemIncludeDirectories(target), plan?.IncludeDirectories ?? [], plan?.Defines ?? []);
         CImportResult read = CHeaderReader.Read(packageName, requests, options, diagnostics);
         if (diagnostics.HasError)
         {
@@ -283,7 +313,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
     private static List<SourceInput> ReadSources(CompilerOptions options, DiagnosticBag diagnostics)
     {
         var sources = new List<SourceInput>();
-        string root = Path.GetDirectoryName(Path.GetFullPath(options.Files[0]))!;
+        string root = options.Plan?.Directory ?? Path.GetDirectoryName(Path.GetFullPath(options.Files[0]))!;
         foreach (string file in options.Files)
         {
             string full = Path.GetFullPath(file);

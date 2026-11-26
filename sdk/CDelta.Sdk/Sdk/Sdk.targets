@@ -1,0 +1,28 @@
+<Project>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <CDeltaImportsDirectory>$(MSBuildProjectDirectory)/obj/cdelta/imports/</CDeltaImportsDirectory>
+  </PropertyGroup>
+
+  <Target Name="CDeltaImports" BeforeTargets="BeforeCompile;CoreCompile"
+          Inputs="@(Compile);$(MSBuildProjectFullPath);$(CDeltaCdc)"
+          Outputs="$(CDeltaImportsDirectory).stamp">
+    <Exec Command="dotnet &quot;$(CDeltaCdc)&quot; cimport &quot;$(MSBuildProjectFullPath)&quot;" />
+    <WriteLinesToFile File="$(CDeltaImportsDirectory).stamp" Lines="imports" Overwrite="true" />
+  </Target>
+
+  <Target Name="CDeltaCompileAsLibrary" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <OutputType>Library</OutputType>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="CDeltaAddImports" BeforeTargets="BeforeCompile;CoreCompile" DependsOnTargets="CDeltaImports">
+    <ItemGroup>
+      <Compile Include="$(CDeltaImportsDirectory)*.g.cs" CDeltaGenerated="true" />
+    </ItemGroup>
+  </Target>
+
+</Project>

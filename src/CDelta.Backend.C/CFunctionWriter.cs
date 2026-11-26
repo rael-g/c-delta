@@ -594,6 +594,15 @@ internal sealed partial class CFunctionWriter(
             return;
         }
 
+        if (op is >= BinOp.FAdd and <= BinOp.FRem)
+        {
+            string expression = op == BinOp.FRem
+                ? (operandKind == TypeKind.F32 ? "__builtin_fmodf(" : "__builtin_fmod(") + a + ", " + b + ")"
+                : a + " " + (op == BinOp.FAdd ? "+" : op == BinOp.FSub ? "-" : op == BinOp.FMul ? "*" : "/") + " " + b;
+            Statement(destination + " = (" + cType + ")(" + expression + ");");
+            return;
+        }
+
         if (operandKind == TypeKind.Bool)
         {
             Statement(destination + " = (" + cType + ")(" + a + " " + BitwiseOperator(op) + " " + b + ");");
@@ -629,11 +638,11 @@ internal sealed partial class CFunctionWriter(
 
     private static string CompareOperator(BinOp op) => op switch
     {
-        BinOp.Eq => "==",
-        BinOp.Ne => "!=",
-        BinOp.Lt => "<",
-        BinOp.Le => "<=",
-        BinOp.Gt => ">",
+        BinOp.Eq or BinOp.FEq => "==",
+        BinOp.Ne or BinOp.FNe => "!=",
+        BinOp.Lt or BinOp.FLt => "<",
+        BinOp.Le or BinOp.FLe => "<=",
+        BinOp.Gt or BinOp.FGt => ">",
         _ => ">=",
     };
 
@@ -686,6 +695,9 @@ internal sealed partial class CFunctionWriter(
             case UnOp.BitNot:
                 Statement(destination + " = (" + cType + ")(~" + a + ");");
                 break;
+            case UnOp.FNeg:
+                Statement(destination + " = (" + cType + ")(-" + a + ");");
+                break;
             default:
                 string unsignedType = CTypes.Unsigned(kind);
                 switch (rvalue.Mode)
@@ -721,6 +733,13 @@ internal sealed partial class CFunctionWriter(
             case CastKind.SlicePtr:
                 Statement(destination + " = " + a + ".ptr;");
                 return;
+            case CastKind.IntFloat:
+            case CastKind.FloatFloat:
+                Statement(destination + " = (" + cType + ")" + a + ";");
+                return;
+            case CastKind.FloatInt:
+                WriteFloatToInt(rvalue, destination, a, span);
+                return;
             case CastKind.ErrorError:
                 Statement(destination + " = " + a + ";");
                 return;
@@ -747,6 +766,25 @@ internal sealed partial class CFunctionWriter(
             bool toSigned = IrTypes.IsSigned(to, module.Target);
             string signCheck = fromSigned == toSigned ? string.Empty : fromSigned ? " || (" + a + " < 0)" : " || (" + destination + " < 0)";
             Statement("if (__builtin_expect((((" + source + ")" + destination + " != " + a + ")" + signCheck + "), 0)) " + PanicCall(CastTruncated, span));
+        }
+    }
+
+    private void WriteFloatToInt(Rvalue rvalue, string destination, string a, SourceSpan span)
+    {
+        TypeId sourceType = IrTyper.OfOperand(module, _body, rvalue.A);
+        bool trap = rvalue.Mode == ArithMode.Trap;
+        string from = IrTypes.Name(KindOf(sourceType));
+        string to = IrTypes.Name(KindOf(rvalue.Type));
+        state.FloatCasts.Add((from, to, trap));
+        string name = "cd_f2i_" + (trap ? "trap" : "wrap") + "_" + from + "_" + to;
+        if (trap)
+        {
+            state.UsesPanic = true;
+            Statement(destination + " = " + name + "(" + a + ", " + CConstants.StringLiteral(Encoding.UTF8.GetBytes(DisplayPath(span))) + ", " + span.Line + ");");
+        }
+        else
+        {
+            Statement(destination + " = " + name + "(" + a + ");");
         }
     }
 

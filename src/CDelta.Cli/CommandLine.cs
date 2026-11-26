@@ -14,6 +14,6 @@ internal sealed record CommandLine(
     bool Time)
 {
     public const string Usage =
-        "usage: cdc <build|run> <files.cs> [--target t] [--mode m] [-o path] [--emit-c] [--dump-ir stage] "
+        "usage: cdc <build|run|cimport> <project.csproj or files.cs> [--target t] [--mode m] [-o path] [--emit-c] [--dump-ir stage] "
         + "[--toolchain name] [--option name=value] [--verbose] [--time] [--color mode] [-- args]";
 }

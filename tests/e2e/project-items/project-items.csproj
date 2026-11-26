@@ -1,0 +1,18 @@
+<Project>
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.props" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CSource Include="native/add.c" Flags="-DSCALE=3" />
+    <CIncludeDir Include="native" />
+    <CDefine Include="PROJECT_DEFINE" Value="1" />
+    <NativeLibrary Include="m" Linkage="Dynamic" />
+  </ItemGroup>
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.targets" />
+
+</Project>

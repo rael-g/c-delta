@@ -600,10 +600,12 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         TypeKind kind = IrTypes.ScalarKind(module, left);
+        bool floatOp = op is >= BinOp.FAdd and <= BinOp.FRem or >= BinOp.FEq;
         bool boolOp = kind == TypeKind.Bool && op is BinOp.And or BinOp.Or or BinOp.Xor or BinOp.Eq or BinOp.Ne;
-        if (!IrTypes.IsInteger(kind) && !boolOp)
+        bool valid = IrTypes.IsFloat(kind) ? floatOp : floatOp ? false : IrTypes.IsInteger(kind) || boolOp;
+        if (!valid)
         {
-            Fail("binary operation on a non integer");
+            Fail("binary operation on an invalid type");
         }
 
         if (stage == ModuleStage.Final && r.Mode == ArithMode.Default && IrNames.HasMode(op))
@@ -652,7 +654,12 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
         var op = (UnOp)r.Op;
         TypeKind kind = IrTypes.ScalarKind(module, operand);
-        bool valid = op == UnOp.Not ? kind == TypeKind.Bool : IrTypes.IsInteger(kind);
+        bool valid = op switch
+        {
+            UnOp.Not => kind == TypeKind.Bool,
+            UnOp.FNeg => IrTypes.IsFloat(kind),
+            _ => IrTypes.IsInteger(kind),
+        };
         if (!valid)
         {
             Fail("unary operation on an invalid type");

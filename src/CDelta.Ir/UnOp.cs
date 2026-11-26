@@ -5,4 +5,5 @@ public enum UnOp
     Neg,
     Not,
     BitNot,
+    FNeg,
 }

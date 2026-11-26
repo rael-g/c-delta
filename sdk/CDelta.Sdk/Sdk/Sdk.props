@@ -1,0 +1,50 @@
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <CDeltaRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</CDeltaRoot>
+    <CDeltaArtifacts>$(CDeltaRoot)artifacts/bin/</CDeltaArtifacts>
+    <CDeltaConfiguration Condition="'$(CDeltaConfiguration)' == ''">debug</CDeltaConfiguration>
+    <CDeltaCdc Condition="'$(CDeltaCdc)' == ''">$(CDeltaArtifacts)CDelta.Cli/$(CDeltaConfiguration)/cdc.dll</CDeltaCdc>
+    <CDeltaEdition Condition="'$(CDeltaEdition)' == ''">1</CDeltaEdition>
+
+    <TargetFramework>net10.0</TargetFramework>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <NoCompilerStandardLib>true</NoCompilerStandardLib>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <UseAppHost>false</UseAppHost>
+    <LangVersion Condition="'$(CDeltaEdition)' == '1'">14</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WarningsAsErrors>$(WarningsAsErrors);CS0168;CS0219;CS0162;CS8321;CS8509;CS8500</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0626;CS8524</NoWarn>
+    <OptimizeMode Condition="'$(OptimizeMode)' == '' And '$(Configuration)' == 'Release'">ReleaseSafe</OptimizeMode>
+    <OptimizeMode Condition="'$(OptimizeMode)' == ''">Debug</OptimizeMode>
+    <DefineConstants>$(DefineConstants);LINK_LIBC</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);OS_LINUX</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);OS_WINDOWS</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(DefineConstants);OS_MACOS</DefineConstants>
+    <DefineConstants Condition="'$(OptimizeMode)' == 'Debug'">$(DefineConstants);MODE_DEBUG</DefineConstants>
+    <DefineConstants Condition="'$(OptimizeMode)' == 'ReleaseSafe'">$(DefineConstants);MODE_RELEASE_SAFE</DefineConstants>
+    <DefineConstants Condition="'$(OptimizeMode)' == 'ReleaseFast'">$(DefineConstants);MODE_RELEASE_FAST</DefineConstants>
+    <DefineConstants Condition="'$(OptimizeMode)' == 'ReleaseSmall'">$(DefineConstants);MODE_RELEASE_SMALL</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="CDelta.Corelib">
+      <HintPath>$(CDeltaArtifacts)CDelta.Corelib/$(CDeltaConfiguration)/CDelta.Corelib.dll</HintPath>
+    </Reference>
+    <Reference Include="CDelta.Std">
+      <HintPath>$(CDeltaArtifacts)CDelta.Std/$(CDeltaConfiguration)/CDelta.Std.dll</HintPath>
+    </Reference>
+    <Compile Include="$(MSBuildThisFileDirectory)GlobalUsings.cs" Visible="false" CDeltaGenerated="true" />
+    <Analyzer Include="$(CDeltaArtifacts)CDelta.Frontend.CSharp.Rules/$(CDeltaConfiguration)/CDelta.Frontend.CSharp.Rules.dll" />
+    <Analyzer Include="$(CDeltaArtifacts)CDelta.Diagnostics/$(CDeltaConfiguration)/CDelta.Diagnostics.dll" />
+  </ItemGroup>
+
+</Project>

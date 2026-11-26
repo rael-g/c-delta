@@ -41,6 +41,7 @@ public sealed class ZigProvider(IProcessRunner runner, string executable) : IToo
             arguments.Add("-D" + define);
         }
 
+        arguments.AddRange(request.ExtraFlags ?? []);
         arguments.Add(request.Source);
         arguments.Add("-o");
         arguments.Add(request.Output);
@@ -53,7 +54,7 @@ public sealed class ZigProvider(IProcessRunner runner, string executable) : IToo
         arguments.AddRange(request.Objects);
         arguments.Add("-o");
         arguments.Add(request.Output);
-        CommonFlags.AddLibraries(arguments, request.Libraries);
+        CommonFlags.AddLibraries(arguments, request.Libraries, request.NativeLibraries ?? [], request.LibraryDirectories ?? []);
         return runner.Run(Executable, arguments);
     }
 }

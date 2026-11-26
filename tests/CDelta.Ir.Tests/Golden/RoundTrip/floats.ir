@@ -1,0 +1,19 @@
+module Golden stage lowered
+
+source 1 "$ROOT/Data.cs" "Data.cs"
+
+fn Data.Mix(x: f64, n: i32) -> i32 origin source(csharp) @1:1:1 {
+  local %0 x: f64 param
+  local %1 n: i32 param
+  local %2: f64 temp
+  local %3: f64 temp
+  local %4: bool temp
+  local %5: i32 temp
+bb0:
+  %2 = cast int.float copy %1 to f64  @1:2:3
+  %3 = binop fmul copy %0, copy %2  @1:2:3
+  %3 = unop fneg copy %3  @1:2:3
+  %4 = binop flt copy %3, const f64 bits 3ff0000000000000  @1:2:3
+  %5 = cast float.int trap copy %3 to i32  @1:2:3
+  return copy %5  @1:2:3
+}

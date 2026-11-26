@@ -9,7 +9,7 @@ internal static class CommandLineParser
 
     public static CommandLine? Parse(string[] args)
     {
-        if (args.Length == 0 || args[0] is not ("build" or "run"))
+        if (args.Length == 0 || args[0] is not ("build" or "run" or "cimport"))
         {
             return null;
         }

@@ -38,11 +38,49 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public RvalueId Use(OperandId operand) => AddRvalue(Blank(RvalueKind.Use) with { A = operand });
 
-    public RvalueId Binop(BinOp op, ArithMode mode, OperandId left, OperandId right) =>
-        AddRvalue(Blank(RvalueKind.Binop) with { Op = (int)op, Mode = mode, A = left, B = right });
+    public RvalueId Binop(BinOp op, ArithMode mode, OperandId left, OperandId right)
+    {
+        if (IsFloat(left))
+        {
+            op = FloatForm(op);
+            mode = ArithMode.Default;
+        }
 
-    public RvalueId Unop(UnOp op, ArithMode mode, OperandId operand) =>
-        AddRvalue(Blank(RvalueKind.Unop) with { Op = (int)op, Mode = mode, A = operand });
+        return AddRvalue(Blank(RvalueKind.Binop) with { Op = (int)op, Mode = mode, A = left, B = right });
+    }
+
+    public RvalueId Unop(UnOp op, ArithMode mode, OperandId operand)
+    {
+        if (op == UnOp.Neg && IsFloat(operand))
+        {
+            op = UnOp.FNeg;
+            mode = ArithMode.Default;
+        }
+
+        return AddRvalue(Blank(RvalueKind.Unop) with { Op = (int)op, Mode = mode, A = operand });
+    }
+
+    private bool IsFloat(OperandId operand)
+    {
+        TypeId type = IrTyper.OfOperand(module, Body, operand);
+        return !type.IsNone && IrTypes.IsFloat(module.Types[type.Index].Kind);
+    }
+
+    private static BinOp FloatForm(BinOp op) => op switch
+    {
+        BinOp.Add => BinOp.FAdd,
+        BinOp.Sub => BinOp.FSub,
+        BinOp.Mul => BinOp.FMul,
+        BinOp.Div => BinOp.FDiv,
+        BinOp.Rem => BinOp.FRem,
+        BinOp.Eq => BinOp.FEq,
+        BinOp.Ne => BinOp.FNe,
+        BinOp.Lt => BinOp.FLt,
+        BinOp.Le => BinOp.FLe,
+        BinOp.Gt => BinOp.FGt,
+        BinOp.Ge => BinOp.FGe,
+        _ => op,
+    };
 
     public RvalueId Cast(CastKind kind, ArithMode mode, OperandId operand, TypeId target) =>
         AddRvalue(Blank(RvalueKind.Cast) with { Op = (int)kind, Mode = mode, A = operand, Type = target });

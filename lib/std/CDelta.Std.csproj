@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>CDelta.Std</AssemblyName>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <NoCompilerStandardLib>true</NoCompilerStandardLib>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceOnlyReferenceAssembly>true</ProduceOnlyReferenceAssembly>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\corelib\CDelta.Corelib.csproj" />
+    <Compile Include="..\..\sdk\CDelta.Sdk\Sdk\GlobalUsings.cs" Link="GlobalUsings.cs" />
+  </ItemGroup>
+
+</Project>

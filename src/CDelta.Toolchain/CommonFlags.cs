@@ -27,8 +27,22 @@ internal static class CommonFlags
         }
     }
 
-    public static void AddLibraries(List<string> arguments, IReadOnlyList<string> libraries)
+    public static void AddLibraries(
+        List<string> arguments,
+        IReadOnlyList<string> libraries,
+        IReadOnlyList<NativeLibrary> nativeLibraries,
+        IReadOnlyList<string> directories)
     {
+        foreach (string directory in directories)
+        {
+            arguments.Add("-L" + directory);
+        }
+
+        foreach (NativeLibrary native in nativeLibraries)
+        {
+            arguments.Add(native.Static ? "-l:lib" + native.Name + ".a" : "-l" + native.Name);
+        }
+
         foreach (string library in libraries)
         {
             if (library != "c")

@@ -6,4 +6,5 @@ public readonly record struct CompileRequest(
     string Target,
     OptimizeMode Mode,
     IReadOnlyList<string> IncludeDirectories,
-    IReadOnlyList<string> Defines);
+    IReadOnlyList<string> Defines,
+    IReadOnlyList<string>? ExtraFlags = null);

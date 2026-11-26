@@ -5,4 +5,6 @@ public readonly record struct LinkRequest(
     string Output,
     string Target,
     OptimizeMode Mode,
-    IReadOnlyList<string> Libraries);
+    IReadOnlyList<string> Libraries,
+    IReadOnlyList<NativeLibrary>? NativeLibraries = null,
+    IReadOnlyList<string>? LibraryDirectories = null);

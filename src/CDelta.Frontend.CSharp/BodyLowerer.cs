@@ -756,6 +756,12 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return _f.Const(_builder.BoolConstant(typeId, flag));
         }
 
+        if (value is double or float)
+        {
+            ulong bits = value is double wide ? BitConverter.DoubleToUInt64Bits(wide) : BitConverter.SingleToUInt32Bits((float)value);
+            return _f.Const(_builder.FloatConstant(typeId, bits));
+        }
+
         Int128 number = value switch
         {
             sbyte v => v,
@@ -1140,6 +1146,21 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return Emit(targetType, _f.Cast(CastKind.IntInt, mode, operand, targetType), span);
         }
 
+        if (IrTypes.IsInteger(sourceKind) && IrTypes.IsFloat(targetKind))
+        {
+            return Emit(targetType, _f.Cast(CastKind.IntFloat, ArithMode.Default, operand, targetType), span);
+        }
+
+        if (IrTypes.IsFloat(sourceKind) && IrTypes.IsFloat(targetKind))
+        {
+            return Emit(targetType, _f.Cast(CastKind.FloatFloat, ArithMode.Default, operand, targetType), span);
+        }
+
+        if (IrTypes.IsFloat(sourceKind) && IrTypes.IsInteger(targetKind))
+        {
+            return Emit(targetType, _f.Cast(CastKind.FloatInt, ModeOf(conversion), operand, targetType), span);
+        }
+
         if (sourceKind == TypeKind.Ptr && targetKind == TypeKind.Ptr)
         {
             return Emit(targetType, _f.Cast(CastKind.PtrPtr, ArithMode.Default, operand, targetType), span);
@@ -1344,7 +1365,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         PlaceId place = PlaceOf(increment.Target);
         TypeId type = IrTyper.OfPlace(_module, _body, place);
         OperandId before = Snapshot(_f.Copy(place), span);
-        OperandId one = _f.Const(_builder.IntConstant(type, 1));
+        TypeKind incrementKind = _module.Types[type.Index].Kind;
+        OperandId one = _f.Const(incrementKind == TypeKind.F32 ? _builder.FloatConstant(type, BitConverter.SingleToUInt32Bits(1f)) : incrementKind == TypeKind.F64 ? _builder.FloatConstant(type, BitConverter.DoubleToUInt64Bits(1d)) : _builder.IntConstant(type, 1));
         BinOp op = increment.Kind == OperationKind.Increment ? BinOp.Add : BinOp.Sub;
         OperandId updated = Emit(type, _f.Binop(op, ModeOf(increment), before, one), span);
         _f.Assign(place, _f.Use(updated), span);

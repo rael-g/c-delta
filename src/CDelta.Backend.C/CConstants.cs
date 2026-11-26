@@ -15,6 +15,8 @@ internal static class CConstants
         {
             case ConstKind.Int:
                 return Integer(module, constant, type);
+            case ConstKind.Float:
+                return FloatLiteral(module, constant, type);
             case ConstKind.Bool:
                 return constant.Value != 0 ? "true" : "false";
             case ConstKind.Error:
@@ -130,6 +132,32 @@ internal static class CConstants
         }
 
         return text.Append('"').ToString();
+    }
+
+    private static string FloatLiteral(Module module, ConstNode constant, string type)
+    {
+        bool single = module.Types[constant.Type.Index].Kind == TypeKind.F32;
+        double value = single ? BitConverter.UInt32BitsToSingle((uint)constant.Value) : BitConverter.UInt64BitsToDouble((ulong)constant.Value);
+        string suffix = single ? "f" : string.Empty;
+        if (double.IsNaN(value))
+        {
+            return "((" + type + ")__builtin_nan" + suffix + "(\"\"))";
+        }
+
+        if (double.IsInfinity(value))
+        {
+            return "((" + type + ")" + (value < 0 ? "-" : string.Empty) + "__builtin_inf" + suffix + "())";
+        }
+
+        string text = single
+            ? ((float)value).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+            : value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        if (!text.Contains('.') && !text.Contains('E') && !text.Contains('e'))
+        {
+            text += ".0";
+        }
+
+        return "((" + type + ")(" + text + suffix + "))";
     }
 
     public static string EnumLiteral(Module module, EnumDecl declaration, Int128 value, string type) =>

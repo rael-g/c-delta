@@ -26,6 +26,11 @@ check() {
 $CDC build "$sample/count-lines.cs" -o "$work/host"
 check "$work/host"
 
+(cd "$sample" && dotnet build count-lines.csproj -o "$work/checked" > "$work/build.log" 2>&1) || { cat "$work/build.log"; exit 1; }
+$CDC build "$sample/count-lines.csproj" -o "$work/project"
+check "$work/project"
+rm -rf "$sample/bin" "$sample/obj"
+
 if command -v qemu-aarch64 > /dev/null; then
     $CDC build "$sample/count-lines.cs" --target aarch64-linux-gnu -o "$work/arm"
     check "$work/arm" qemu-aarch64 -L "$sysroot"
