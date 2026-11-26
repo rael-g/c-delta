@@ -359,6 +359,11 @@ follow every C# version, with no preview and no long-term edition, because stayi
 the point; the compiler runs on a long-term .NET (D202), which is independent of the C# version it
 binds.
 
+**D162. CΔ packages depend on each other as source; there is no CΔ ABI.** Monomorphized
+generics, comptime and cross-package inlining need the bodies, and CΔ's own types have no C form
+worth freezing. Binary distribution goes through the C ABI and the CΔ projection backend; the
+object cache keeps rebuilding dependencies cheap.
+
 ## Repository
 
 **D201. Documents and code are in English.**
