@@ -426,6 +426,14 @@ largest share of a rebuild, and tcc does it an order of magnitude faster than an
 compiler, on the C we already emit. It is chosen first by `auto` for `Debug` builds of the host
 only, because it optimizes nothing; `ReleaseSafe` keeps the optimizing compilers.
 
+**D176. The std has a virtual arena.** Reserving address space and committing it as it is used
+gives a buffer that grows without moving and a scope freed in one store, with no new language
+concept: it is one more `IAllocator`.
+
+**D177. Flat data with offsets instead of pointers is a std library, later.** Offsets make data
+copyable, position independent and serializable with one copy; they need generics and `unsafe`
+only, so they wait for a program that needs them.
+
 ## Repository
 
 **D201. Documents and code are in English.**

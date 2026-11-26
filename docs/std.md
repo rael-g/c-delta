@@ -52,7 +52,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | Module | Contents | Built on |
 |---|---|---|
 | `Std.Mem` | `Copy`, `Set`, `Eql`, `IndexOf`, `StartsWith`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
-| `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `DebugAllocator` | the OS page API, libc |
+| `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `VirtualArenaAllocator` ([below](#virtual-arena)), `DebugAllocator` | the OS page API, libc |
 | `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `Dictionary<TKey, TValue>` (a value indexer, `GetValueRef` for updates in place) and `HashSet<T>` (hashing chosen at comptime from the key type: primitives, `string`, enums, structs field by field), `Dictionary<TKey, TValue, THasher>` and `HashSet<T, THasher>` with an `IHasher<T>`, `Queue<T>`, `Stack<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer); every growing operation takes the allocator given at construction and returns a `Result` | itself |
 | `Std.Text` | `StringBuilder` (a struct over an allocator, with an interpolated string handler for `Append($"...")`, `ToString()` giving a `string` over its buffer); extension members on `string`: `StartsWith`, `EndsWith`, `Contains`, `IndexOf` (a byte offset for `Slice`), `Split`, `SplitOnce`, `Trim`, `EqualsIgnoreCase`, `Runes`; `FromUtf8` validation; `Concat(allocator, ...)`, `ToUpper(allocator)`, `ToLower(allocator)`; static extensions `int.Parse(string)` and the other numeric types returning `Result`; `Ascii`; formatting of integers and floats | itself, since formatting runs at comptime |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
@@ -103,6 +103,27 @@ a fixed stack buffer and flushes to the writer: no allocation. `AppendFormatted<
 `T` at comptime (primitives, spans of `byte` as text, enums by name, `[Union]` values by member,
 structs field by field through `TypeInfo`).
 
+### Virtual arena
+
+`VirtualArenaAllocator` reserves a range of address space once and commits pages as its top
+grows (D176). Memory is never moved, so pointers into it stay valid, and nothing is mapped until
+it is used, so a reservation of gigabytes costs nothing.
+
+| Member | Behavior |
+|---|---|
+| `static Result<VirtualArenaAllocator> Reserve(nuint bytes)` | reserves `bytes` rounded up to the page size (`mmap` with `PROT_NONE`, `VirtualAlloc` with `MEM_RESERVE`); failure is `AllocError.OutOfMemory` |
+| `IAllocator` allocation | bumps the top by the aligned size, committing the pages it crosses (`mprotect`, `VirtualAlloc` with `MEM_COMMIT`); past the reservation or a failed commit is `AllocError.OutOfMemory` |
+| `IAllocator` resize | grows or shrinks the most recent allocation in place; another allocation is moved by copy, as in `ArenaAllocator` |
+| `IAllocator` free | moves the top back when it frees the most recent allocation, otherwise nothing |
+| `VirtualArenaMark Mark()`, `Release(VirtualArenaMark mark)` | saves the top and moves it back to a saved one, freeing everything allocated since, in one store |
+| `Reset()` | `Release` to the start; pages stay committed |
+| `Trim()` | decommits the pages above the top (`madvise` with `MADV_DONTNEED`, `VirtualFree` with `MEM_DECOMMIT`) |
+| `Dispose()` | releases the reservation |
+
+It exists where `PageAllocator` does, except `wasm32-wasi-musl`, which has no address space to
+reserve. `Mark` and `Release` with `Defer` give memory freed at the end of a scope; one arena per
+growing buffer gives a buffer that grows without copying.
+
 ## Later
 
 Automatic memory management is not part of the language or the std (D142). The std's answer to
@@ -110,6 +131,11 @@ Automatic memory management is not part of the language or the std (D142). The s
 with handles for graphs and cycles; a shared owner that is truly needed is reference counted by
 hand. A conservative collector may exist as a package outside the std, as an `IAllocator` over a
 C library.
+
+Flat data (D177): `Std.Mem.Rel<T>`, a 32-bit byte offset into a buffer resolved with a bounds
+check, so a structure of nodes and their links is one copyable, position independent block that
+is written or read with one copy; and a reader that checks such a block from untrusted bytes
+through `TypeInfo` before handing it out.
 
 Checked views as `ref struct` types (a scoped span over stack or arena memory), and a separate
 analyzer package with the memory lints of [language/memory.md](language/memory.md#lifetimes),
