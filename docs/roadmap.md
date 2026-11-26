@@ -190,6 +190,8 @@ LLDB.
 
 The steps of [kabic-migration.md](kabic-migration.md).
 
+- The plugin protocol of projection backends (D167) and the version of the declaration layer of
+  the IR (D168).
 - Hot reload (D160): a shared library reloaded by its host on change, with versioned file names;
   state in host or arena memory survives; a changed layout of a state struct, found by comparing
   `TypeInfo`, migrates the fields kept by name or refuses the reload.

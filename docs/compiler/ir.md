@@ -488,6 +488,19 @@ castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum"
 - Declarations are printed in this order: sources, cimports, then each table (structs, enums,
   unions, interfaces, opaques, globals, functions, impls, error names) sorted ordinally by key.
 
+## Stability
+
+The IR has two layers with different promises (D168):
+
+| Layer | What | Promise |
+|---|---|---|
+| declarations | types, globals, function signatures, impls, attributes, annotations, error names | what projection backends and plugins consume; from 1.0 it changes only by addition, and every external format of it carries a format version that `cdc` keeps reading |
+| bodies | locals, blocks, statements, terminators, the stages | internal; no promise until a frontend outside the compiler exists, which is then a decision |
+
+The external formats are the plugin protocol of [../kabic-migration.md](../kabic-migration.md#the-command)
+from M8 and the binary format of M10. The text format of this document gains a `format <n>`
+line in its header when it becomes one of them.
+
 ## In-memory representation
 
 The IR is a portable project (D118), so the model is tables of structs and integer ids, never a

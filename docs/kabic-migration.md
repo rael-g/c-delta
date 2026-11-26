@@ -50,6 +50,19 @@ cdc project --manifest api_domains.json --lang zig --out src/zig
 cdc project --manifest api_domains.json --check
 ```
 
+A projection backend may also live outside the compiler, in any language, as a plugin (D167):
+
+```bash
+cdc project --manifest api.json --plugin ./cdelta-python --out src/python
+```
+
+`cdc` runs the plugin, writes to its standard input one request holding the declaration layer
+of the IR (declarations, attributes and annotations), the analyses of `CDelta.Projection` and the
+plugin's options, and reads from its standard output the files to write and any diagnostics. The
+request and the response are JSON with a format version; their schema is published with the
+compiler. A community writes the backend for its language in that language, without touching
+CΔ's repository.
+
 The manifest format is designed for `cdc`; kabic's format is not read. A one-time converter
 from kabic's manifests may exist if it is cheaper than rewriting them.
 

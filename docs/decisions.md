@@ -384,6 +384,14 @@ library with no CΔ tooling installed.
 each of its pieces is evaluated against CΔ's design and redesigned or dropped. Its code and
 tests are a source of cases, and neither its output nor its manifest format binds CΔ.
 
+**D167. Projection backends can be plugins in any language.** As `protoc` does, `cdc` hands the
+declarations and analyses to an external program over standard input and writes what it returns,
+so each language's community writes its own backend in its own language.
+
+**D168. The declaration layer of the IR is the stable interface; bodies are internal.** Plugins
+and projections need declarations; nothing outside the compiler builds bodies yet, so freezing
+them would only slow the compiler down.
+
 ## Repository
 
 **D201. Documents and code are in English.**
