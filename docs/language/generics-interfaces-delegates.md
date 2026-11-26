@@ -14,10 +14,22 @@ call through a constraint is resolved statically.
   parameters. `class`, `class?`, `notnull` and base class constraints cannot be satisfied and are
   rejected by `CD1000`.
 - Static abstract and static virtual interface members are kept. They are the way to call a
-  function of `T` without a value: `T.Zero`, `T.Parse(text)`.
+  function of `T` without a value: `T.Zero`, `T.Parse(text)`. A static abstract property has a
+  getter only, and a struct implements it with a `static` getter-only property, which is the one
+  property user code may declare (D153):
+
+  ```csharp
+  struct Vector2 : IAdditionOperators<Vector2, Vector2, Vector2>, IAdditiveIdentity<Vector2, Vector2>
+  {
+      public float X, Y;
+      public static Vector2 AdditiveIdentity => default;
+      public static Vector2 operator +(Vector2 a, Vector2 b) => new() { X = a.X + b.X, Y = a.Y + b.Y };
+  }
+  ```
 - Generic math works on primitives and user types: the corelib declares `INumber<T>` and the
-  operator interfaces (`IAdditionOperators<T, T, T>` and the others of C#), implemented by every
-  primitive, and a struct that declares the operators may implement them, so one `Lerp<T>` serves
+  operator interfaces (`IAdditionOperators<T, T, T>` and the others of C#, with their static
+  properties such as `Zero` and `AdditiveIdentity`), implemented by every primitive, and a struct
+  that declares the operators and those properties may implement them, so one `Lerp<T>` serves
   `float` and a `Vector2`.
 - Inside an instantiation, `typeof(T) == typeof(int)` and `value is int i` on a `T` are folded at
   compile time, so generic code can specialize per type with no cost.
@@ -28,8 +40,8 @@ call through a constraint is resolved statically.
 ## Interfaces
 
 An interface is a contract: method signatures, static abstract members, and optionally default
-method bodies. Interfaces may extend other interfaces. They declare no properties, indexer
-setters or events (`CD1004` to `CD1006`); they may declare indexer getters and static abstract
+method bodies. Interfaces may extend other interfaces. They declare no properties except
+getter-only static abstract ones, no indexer setters and no events (`CD1004` to `CD1006`); they may declare indexer getters and static abstract
 operators of the kept set.
 
 A struct implements an interface by listing it, as in C#. There are three ways to use one.

@@ -19,8 +19,9 @@ preference: an existing C# name with that meaning, a CΔ attribute, a CΔ intrin
 conversions, events, finalizers and `Deconstruct` are removed. The corelib declares such members
 because Roslyn needs them, and the compiler implements them as intrinsics. Exceptions kept:
 `using` (the keyword announces the `Dispose` call), interpolated string handlers (the `$`
-announces the formatting calls), operators and explicit conversions on user types (D143), and
-indexer getters (D150).
+announces the formatting calls), operators and explicit conversions on user types (D143),
+indexer getters (D150), and getter-only static abstract properties with their implementations
+(D153).
 
 **D005. `static class` is the module.** C# requires functions to live in a type; a static class
 has no instances, so keeping it costs no object model.
@@ -307,6 +308,11 @@ over fixed-size stacks taken from an allocator (a fixed stack needs no garbage c
 growing one does); and only if still needed, `async` and `await` as the iterator transform, with
 struct task types, frames as values that never move once started, and allocation only at spawn.
 No runtime, no hidden allocation.
+
+**D153. A struct may implement getter-only static abstract properties.** Generic math names
+static values as properties (`T.Zero`, `AdditiveIdentity`); without them a user type could not
+implement the numeric interfaces. A static property is not read as a field of a value, so the
+reason properties are removed does not apply; instance properties stay removed.
 
 ## Repository
 

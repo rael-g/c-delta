@@ -98,6 +98,7 @@ including the std, cannot declare them.
 | Static constructors | Removed: static state is initialized at comptime. `CD1009` |
 | Finalizers | Removed. `CD1008` |
 | Properties (including auto, `init`, `required`, partial, `field`) | Removed. `CD1004` |
+| `static abstract` properties with a getter only, in an interface, and the `static` getter-only properties that implement them | Kept: a named static value of a type parameter, `T.Zero` (D153) |
 | Indexers | Restricted: a getter only, returning a value or a `ref` (`ref T this[int i] => ...`); a `set` accessor is `CD1005` (D150) |
 | Events | Removed. `CD1006` |
 | Operators: unary `+ - ! ~`; binary `+ - * / % & \| ^ << >> >>>`; `== != < > <= >=`; their `checked` forms | Kept: a call to the operator method (D143) |
