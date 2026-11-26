@@ -1,7 +1,5 @@
 <Project>
 
-  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
-
   <PropertyGroup>
     <CDeltaRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</CDeltaRoot>
     <CDeltaArtifacts>$(CDeltaRoot)artifacts/bin/</CDeltaArtifacts>

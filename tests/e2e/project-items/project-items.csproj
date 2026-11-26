@@ -1,4 +1,4 @@
-<Project>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.props" />
 

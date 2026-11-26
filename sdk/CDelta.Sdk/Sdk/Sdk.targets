@@ -1,12 +1,10 @@
 <Project>
 
-  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
-
   <PropertyGroup>
     <CDeltaImportsDirectory>$(MSBuildProjectDirectory)/obj/cdelta/imports/</CDeltaImportsDirectory>
   </PropertyGroup>
 
-  <Target Name="CDeltaImports" BeforeTargets="BeforeCompile;CoreCompile"
+  <Target Name="CDeltaImports" BeforeTargets="BeforeCompile;CoreCompile;CompileDesignTime"
           Inputs="@(Compile);$(MSBuildProjectFullPath);$(CDeltaCdc)"
           Outputs="$(CDeltaImportsDirectory).stamp">
     <Exec Command="dotnet &quot;$(CDeltaCdc)&quot; cimport &quot;$(MSBuildProjectFullPath)&quot;" />
@@ -19,7 +17,7 @@
     </PropertyGroup>
   </Target>
 
-  <Target Name="CDeltaAddImports" BeforeTargets="BeforeCompile;CoreCompile" DependsOnTargets="CDeltaImports">
+  <Target Name="CDeltaAddImports" BeforeTargets="BeforeCompile;CoreCompile;CompileDesignTime" DependsOnTargets="CDeltaImports">
     <ItemGroup>
       <Compile Include="$(CDeltaImportsDirectory)*.g.cs" CDeltaGenerated="true" />
     </ItemGroup>
