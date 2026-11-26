@@ -86,6 +86,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD2006 | this returns memory of the current stack frame | [../language/memory.md](../language/memory.md#lifetimes) |
 | CD2007 | this string literal is not valid UTF-16 and cannot be encoded as UTF-8 | [../language/types.md](../language/types.md#text) |
 | CD2008 | a reference or pointer cannot be taken to a field that is not aligned | [../language/types.md](../language/types.md#layout) |
+| CD2009 | a lambda that captures a loop variable cannot be stored outside the loop | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
 | CD3001 | `Try` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#try) |
 | CD3002 | the error set returned here lacks errors `Try` can propagate | [../language/errors.md](../language/errors.md#try) |
 | CD3003 | `ErrDefer` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#errdefer) |

@@ -105,16 +105,16 @@ Each kind of illegal behavior, and how safe modes detect it:
 
 | Illegal behavior | Check in safe modes |
 |---|---|
-| Integer overflow in the default context | panic "integer overflow" |
-| Integer conversion out of range in the default context | panic "integer cast truncated bits" |
-| Float to integer out of range or `NaN` in the default context | panic "float cast out of range" |
+| Integer overflow in the default context | panic "integer overflow"; with checks off it wraps, as C# without overflow checking, and is not illegal |
+| Integer conversion out of range in the default context | panic "integer cast truncated bits"; with checks off it truncates |
+| Float to integer out of range or `NaN` in the default context | panic "float cast out of range"; with checks off it saturates, `NaN` to `0` |
 | Division or remainder by zero, `MinValue / -1` | panic "division by zero" or "integer overflow" (every mode, `checked` or not) |
 | Span or inline array index out of bounds, invalid slice | panic "index out of bounds" |
 | Dereference of a null pointer | panic "null pointer dereference" |
 | Call through a null delegate, function pointer or interface value | panic "null call" |
 | `Nullable<T>.Value` on `null` | panic "attempt to use null value" |
 | `Result.Value` on an error, `Result.Error` on a success | panic "attempt to unwrap error" or "attempt to read error of success" |
-| Integer to exhaustive enum with no such member, default context | panic "invalid enum value" |
+| A switch expression with no matching arm | panic "no switch arm matched" (every mode, as C# throws) |
 | Reaching `Unreachable()` | panic "reached unreachable code" |
 | Misaligned pointer cast | panic "incorrect alignment" |
 | Overlapping `Std.Mem.Copy` | panic "overlapping copy" |
@@ -122,7 +122,8 @@ Each kind of illegal behavior, and how safe modes detect it:
 | Use after free, double free | not detected by the language; detected by `DebugAllocator` |
 | Data race | not detected |
 
-In ReleaseFast and ReleaseSmall the compiler and the C compiler assume these never happen.
+In ReleaseFast and ReleaseSmall the compiler and the C compiler assume the others never happen.
+Each of them is a place where C# would throw, so a C# program correct in C# stays correct.
 
 A function or block can override the mode's checks:
 

@@ -254,8 +254,8 @@ No decision tree is built: the C compiler optimizes chains of comparisons.
 
 A `string` constant becomes a `bytes` constant: the UTF-8 encoding of the C# string, with a NUL
 after it, typed `slice<u8> const text`, or `ptr<u8> const nullable many` when converted to
-`byte*`. Equal literals share one constant. `Length`, the indexers and the range indexer of
-`String` lower as those of `ReadOnlySpan<byte>`; the other forms are in
+`byte*`. Equal literals share one constant. `String` has no `Length` and no indexers (D156); its
+forms are in
 [ir.md](ir.md#places-operands-and-values).
 
 ### Interpolated strings

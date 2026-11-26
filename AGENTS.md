@@ -14,6 +14,7 @@ the syntax and semantics of C#, and interoperability with C. Then record the dec
 ## Invariants
 
 - A CΔ program is valid C#. Never add syntax; remove, or use an intrinsic or attribute.
+- No silent divergence from C#: a kept construct behaves as in C# or does not compile (D156).
 - Before adding an intrinsic, look for a C# name that already has the meaning.
 - Frontends, core and backends are separate projects. A backend references only `CDelta.Ir` and
   `CDelta.Diagnostics`. A frontend never references the core or a backend.

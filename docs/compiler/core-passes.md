@@ -137,7 +137,8 @@ the backend, so a mistake here fails the C build instead of corrupting memory.
 
 The build mode and `[Safety]` overrides decide, per function, whether checks are on. Then:
 
-- `default` arithmetic and conversion modes become `trap` when checks are on, `assume` when off.
+- `default` arithmetic and conversion modes become `trap` when checks are on, `wrap` when off.
+  The core never writes `assume` for arithmetic.
   `checked` stays `trap`; `wrap` stays `wrap`.
 - `check` statements are inserted:
 
@@ -147,7 +148,7 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 | `null` | dereference of a nullable pointer; calls through function pointers, closures and dyn values |
 | `optional` | every read of `payload(0)` of an optional, `haspayload` true; none is elided |
 | `result.value`, `result.error` | every read of `payload(0)` of a result (success) and every `err` (error), including those `Try`, `Catch` and `TryGet` emit after their own branch; the C compiler folds the repeated test |
-| `enum` | integer to exhaustive enum conversion in `trap` mode |
+| `enum` | `cast enum.error` of a non-exhaustive enum value that names no member |
 | `align` | pointer casts to a type of larger alignment |
 | `divzero` | integer division and remainder, in every mode, checks on or off |
 | `overlap` | `Std.Mem.Copy` (an intrinsic of the std) |

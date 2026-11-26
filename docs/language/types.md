@@ -89,10 +89,10 @@ It may only be used behind a pointer. `CD2003`
 - Because spans are not ref structs, Roslyn does not convert `stackalloc` to a span (`CS8346`);
   `stackalloc` has only its pointer form, and a span over it is built with
   `new Span<T>(pointer, length)`.
-- A `stackalloc` of constant size and a collection expression converted to a span each have one
-  storage in the function, reused by every evaluation: inside a loop, every iteration gets the
-  same memory, refilled. A `stackalloc` of run-time size gets new memory on each evaluation, freed
-  when the function returns.
+- A collection expression converted to a span has one storage in the function, reused by every
+  evaluation, as the inline array Roslyn gives it in C#. A `stackalloc` gets new memory on each
+  evaluation, freed when the function returns, as in C#: inside a loop, every iteration gets new
+  memory.
 - `fixed (T* p = span)` gives the span's pointer as built, which for an empty span is not
   necessarily `null`.
 - `Length` is `int`, as in C#. Indexing, slicing (`s[a..b]`, `s[^1]`), `foreach` and list patterns
@@ -122,22 +122,24 @@ writable in place:
 
 ```csharp
 public ref T this[int index] => ref Items[index];
-public ref TValue this[TKey key] => ref Find(key);
+public TValue this[TKey key] => Find(key);
 ```
 
-`list[i] = x`, `list[i].X++` and `dict[key] = v` write through the returned reference. A setter
-does not exist because in C# `dict[key] = v` inserts, and inserting allocates: insertion is a
-method that takes the collection's allocator and returns a `Result` (`Try(dict.Add(key, v))`). A
-missing key in a getter is a panic, as `KeyNotFoundException` is in C#; `TryGetValue` is the
-fallible form.
+`list[i] = x` and `list[i].X++` write through the returned reference, as they write the element
+in C#. A setter does not exist because in C# `dict[key] = v` inserts, and inserting allocates.
+The indexer of `Dictionary` therefore returns a value, not a reference, so `dict[key] = v` does
+not compile instead of behaving differently (D156): insertion is `Try(dict.Add(key, v))`, an
+update in place is `dict.GetValueRef(key)`. A missing key in the getter is a panic, as
+`KeyNotFoundException` is in C#; `TryGetValue` is the fallible form.
 
 ## Enums
 
 C# enums with their underlying integer type.
 
-- An enum declared in CΔ without `[Flags]` or `[NonExhaustive]` is **exhaustive**: a conversion
-  from an integer to it is checked in safe modes, and a `switch` over it must name every member or
-  have `default` (`CD2001`).
+- An enum declared in CΔ without `[Flags]` or `[NonExhaustive]` is **exhaustive**: a `switch`
+  over it must name every member or have `default` (`CD2001`). A conversion from an integer is not
+  checked, as in C#; a switch expression whose arms match nothing panics "no switch arm matched",
+  where C# throws `SwitchExpressionException`, and a switch statement runs no case.
 - `[Flags]`, `[NonExhaustive]` and every enum imported from C are **non-exhaustive**: any value of
   the underlying type is valid, and a `switch` over them needs `default`.
 
@@ -174,10 +176,10 @@ struct Player { public string Name; public int Score; }
 
 | Operation | Meaning |
 |---|---|
-| a literal or `const string` | the UTF-8 bytes in static memory, NUL-terminated after `Length` |
-| `s.Length` | the length in **bytes**: `"José".Length` is `5` |
-| `s[i]` | the byte at `i`, bounds-checked in safe modes |
-| `s[a..b]` | the `string` of the bytes from `a` to `b`, bounds-checked; no check that it splits on a character |
+| a literal or `const string` | the UTF-8 bytes in static memory, NUL-terminated after them |
+| `s.Bytes` | the bytes as a `ReadOnlySpan<byte>`: `s.Bytes.Length` is the length in bytes, `s.Bytes[i]` a byte |
+| `s.Slice(start, count)` | the `string` of `count` bytes from byte offset `start`, bounds-checked; no check that it splits on a character |
+| `s.Length`, `s[i]`, `s[a..b]` | do not exist: in C# they count UTF-16 units, and a byte count under the same name would be a silent difference (D156) |
 | `a == b`, `!=` | content equality |
 | `switch` and `is` with string constants | content equality against each constant, in order |
 | `foreach (var r in s)` | each `Rune` (Unicode scalar) of the UTF-8; an invalid byte gives U+FFFD and advances by one |
@@ -207,7 +209,7 @@ Every arithmetic operation and numeric cast happens in one of three contexts:
 
 | Context | How it is written | Overflow or truncation |
 |---|---|---|
-| default | no `checked` or `unchecked` around it | illegal behavior: panic in Debug and ReleaseSafe, assumed impossible in ReleaseFast and ReleaseSmall |
+| default | no `checked` or `unchecked` around it | a panic in Debug and ReleaseSafe, as C# with overflow checking on; wraps or truncates in ReleaseFast and ReleaseSmall, as C# without it |
 | `checked` | inside `checked(...)` or a `checked { }` block | always a panic, in every mode |
 | `unchecked` | inside `unchecked(...)` or an `unchecked { }` block | wraps (two's complement) or truncates |
 
@@ -220,8 +222,7 @@ with its overflow-checking option. Concretely:
 - Shifts mask the count, as in C#: `x << 33` on an `int` shifts by `1`. Never illegal.
 - A float to integer conversion out of range or `NaN`: illegal in the default context, a panic in
   `checked`, saturating (with `NaN` to `0`) in `unchecked`.
-- An integer to exhaustive enum conversion with no member of that value: illegal in the default
-  context, a panic in `checked`, allowed in `unchecked`.
+- An integer to enum conversion is never checked, as in C#: `(Color)42` is a `Color`.
 
 ## Floating point semantics
 

@@ -125,10 +125,13 @@ Slices, stack memory and optionals:
 | `fixed (T* p = s)` over a span | `cast slice.ptr` |
 | a `string` converted to `ReadOnlySpan<byte>`, or back | `cast bitcast` between `slice<u8> const text` and `slice<u8> const` |
 | `a == b`, `a != b` on strings, and a string constant pattern | `intrinsic text.eql(a, b)` of type `bool`, negated by `unop not` for `!=` |
+| `s.Bytes` | `cast bitcast` to `slice<u8> const` |
+| `s.Slice(start, count)` | `slice(s, start, start + count)` with `binop add default` |
+| a switch expression whose arms match nothing | `panic` with "no switch arm matched", where Roslyn's graph throws |
 | `foreach (var r in s)` over a string | an `i32` offset local from `0`; while `offset < len s`, `intrinsic utf8.next(s, addr.mut %offset)` gives the scalar as `i32` and advances the offset; the `Rune` is `aggregate struct System.Text.Rune(scalar)` |
 | `fixed (T* p = a)` over a static array | `addr.mut a[0]` then `cast ptr.ptr` |
-| `stackalloc T[N]` with a constant `N`, with or without an initializer | a `temp` local of type `array<T, N>` assigned the zero constant of its type, the initializer's `aggregate`, or nothing under `[SkipLocalsInit]`; then `addr.mut %arr[0]` and `cast ptr.ptr` to `T*` |
-| `stackalloc T[n]` with a run-time `n` | `alloca T, n, init`: `n` converted to `usize` with `cast int.int default`, `init` `zero`, or `undef` under `[SkipLocalsInit]` |
+| `stackalloc T[N]` with a constant `N` outside every loop, with or without an initializer | a `temp` local of type `array<T, N>` assigned the zero constant of its type, the initializer's `aggregate`, or nothing under `[SkipLocalsInit]`; then `addr.mut %arr[0]` and `cast ptr.ptr` to `T*` |
+| `stackalloc T[n]` with a run-time `n`, or any `stackalloc` inside a loop | `alloca T, n, init`: `n` converted to `usize` with `cast int.int default`, `init` `zero`, or `undef` under `[SkipLocalsInit]` |
 | `x.HasValue`, `x != null`, `x is not null` | `haspayload x`, negated by `unop not` for `== null` and `is null` |
 | `x.Value`, and a cast from `T?` to `T` | the place `x.payload(0)` |
 | `x.GetValueOrDefault()`, `x.GetValueOrDefault(d)` | `branch` on `haspayload x`: one block copies `x.payload(0)`, the other the zero constant of `T` or `d` |
@@ -144,9 +147,10 @@ Slices, stack memory and optionals:
 - `alloca` gives `ptr<T> nullable many` to `count` elements of fresh stack memory that lives
   until the function returns. `init` is `zero`, `undef` or `fill`; only the core writes `fill`
   ([core-passes.md](core-passes.md#8-debug-instrumentation)).
-- The array local of a constant `stackalloc` or a collection expression lives for the whole body,
-  with no `live` and `dead`: one storage per source expression, reused by every evaluation of it,
-  so a pointer from an earlier iteration of a loop sees the elements of the latest one.
+- The array local of a collection expression lives for the whole body, with no `live` and
+  `dead`: one storage per source expression, reused by every evaluation of it, as in C#. A
+  constant `stackalloc` outside every loop is such a local too; inside a loop it is `alloca`, so
+  each evaluation gets new memory as in C#.
 
 ### Declarations of types
 
@@ -213,10 +217,10 @@ Rvalue   := Operand
 - `op` on integers: `add sub mul div rem shl shr and or xor eq ne lt le gt ge neg not bitnot`;
   signedness comes from the operand type. On floats: `fadd fsub fmul fdiv frem fneg feq fne flt
   fle fgt fge`. `not` is on `bool` only.
-- `mode` for integer `add sub mul neg` and the casts `int.int`, `float.int` and `int.enum`:
+- `mode` for integer `add sub mul neg` and the casts `int.int` and `float.int`:
   `default` (Lowered and Instantiated only), `trap` (always checked; what a C# `checked` context
   gives), `wrap` (what `unchecked` gives; saturating for `float.int`), `assume` (illegal behavior
-  assumed impossible). The core rewrites `default` to `trap` or `assume` by build mode and safety
+  assumed impossible, never written by the core for arithmetic). The core rewrites `default` to `trap` or `wrap` by build mode and safety
   overrides. Other operations have no mode.
 - `cast kind`: `int.int`, `int.float`, `float.int`, `float.float`, `int.enum`, `enum.int`,
   `ptr.int`, `int.ptr`, `ptr.ptr`, `bitcast`, `slice.ptr`, `enum.error`, `error.enum`,

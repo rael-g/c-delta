@@ -21,7 +21,9 @@ authority for their own domain:
    adopts it deliberately.
 2. **Syntax and semantics: C#.** A CΔ program is a valid C# program. When a construct is kept, it
    means what C# says it means. When C# already has a construct for a meaning, CΔ uses it instead
-   of inventing one.
+   of inventing one. No divergence is silent: a kept construct behaves as in C#, or the difference
+   stops the program from compiling; at run time it may differ only where C# would throw, and
+   CΔ panics instead (D156).
 3. **Interoperability: C.** C headers are a first-class input, the C ABI is the first-class output,
    and nothing in the language prevents calling or being called by C at zero cost.
 
@@ -46,7 +48,7 @@ These follow from the north and decide most design questions directly.
 - **Reading code beats writing it.** A call looks like a call. An operator calls user code only on
   a user type, where it reads as that type's operation, and only through its operands. A field
   access never runs code. Anything that allocates takes an allocator.
-- **Edge cases are the design.** Overflow, out of range, null, invalid enum values and division by
+- **Edge cases are the design.** Overflow, out of range, null, an unmatched switch and division by
   zero have a defined answer in every build mode.
 - **A compile error beats a runtime crash, and a runtime crash beats a silent bug.**
 - **Memory is a resource and allocation may fail.** Every allocation returns a `Result`.

@@ -161,6 +161,11 @@ var count = Count(items, x => x > threshold);
   static, writing it through a pointer, a `ref` or an `out` parameter. Storing it in a field of a
   local, as a lazy query does, and passing it as an argument are allowed; the callee storing it is
   the programmer's responsibility.
+- In C#, each iteration of a loop has its own copy of a variable declared in the loop body,
+  including the `foreach` variable, so lambdas made in different iterations see different
+  variables. CΔ keeps one frame per call, so it rejects what would differ (`CD2009`): a lambda
+  that captures a variable declared inside a loop must not be stored in anything declared outside
+  that loop. Calling it, or passing it as an argument, inside the iteration is allowed.
 - Lambdas passed to `Defer`, `ErrDefer` and `Comptime` are not delegates: they are inlined or
   evaluated, and none of the above applies.
 - Local functions follow the same rules as lambdas. A `static` local function is a nested
