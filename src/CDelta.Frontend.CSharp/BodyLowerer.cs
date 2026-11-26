@@ -48,6 +48,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         {
             IMethodBodyOperation methodBody => ControlFlowGraph.Create(methodBody),
             IConstructorBodyOperation constructorBody => ControlFlowGraph.Create(constructorBody),
+            IBlockOperation block => ControlFlowGraph.Create(block),
             _ => throw new UnsupportedConstructException("the method body has no operation tree", location),
         };
         _f = new FunctionBuilder(_module, _body);
@@ -650,6 +651,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return _f.Copy(PlaceOf(operation));
             case IPropertyReferenceOperation { Property.IsIndexer: true } when TypeMapper.IsSpanLike(((IPropertyReferenceOperation)operation).Instance?.Type):
                 return _f.Copy(PlaceOf(operation));
+            case IPropertyReferenceOperation { Property.GetMethod: { } } userProperty when IsUserAccessor(userProperty.Property):
+                return LowerPropertyGet(userProperty);
             case IOperation { Kind: OperationKind.ImplicitIndexerReference } rangeSlice when IsRangeAccess(rangeSlice):
                 return LowerRangeSlice(rangeSlice);
             case IOperation { Kind: OperationKind.ImplicitIndexerReference }:
@@ -1264,6 +1267,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 LocalId held = NewTemp(OperandType(pointer));
                 _f.Assign(_f.LocalPlace(held), _f.Use(pointer), SpanOf(returnsReference));
                 return _f.DerefPlace(held);
+            case IPropertyReferenceOperation { Property: { RefKind: not RefKind.None, GetMethod: { } } } userReference when IsUserAccessor(userReference.Property):
+                OperandId referenced = LowerDirectCall(userReference.Property.GetMethod!, userReference.Instance, userReference.Arguments, SpanOf(userReference))!.Value;
+                LocalId heldReference = NewTemp(OperandType(referenced));
+                _f.Assign(_f.LocalPlace(heldReference), _f.Use(referenced), SpanOf(userReference));
+                return _f.DerefPlace(heldReference);
             case IDiscardOperation discard:
                 return _f.LocalPlace(NewTemp(discard.Type!, discard.Syntax.GetLocation()));
             case IOperation { Kind: OperationKind.ImplicitIndexerReference } implicitIndexer:
@@ -1408,13 +1416,18 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             }
         }
 
+        return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private OperandId? LowerDirectCall(IMethodSymbol target, IOperation? instance, IEnumerable<IArgumentOperation> callArguments, SourceSpan span)
+    {
         var arguments = new List<OperandId>();
         if (!target.IsStatic)
         {
-            arguments.Add(ReceiverAddress(invocation.Instance!, frontend.IsReadOnlyMember(target), span));
+            arguments.Add(ReceiverAddress(instance!, frontend.IsReadOnlyMember(target), span));
         }
 
-        foreach (IArgumentOperation argument in invocation.Arguments)
+        foreach (IArgumentOperation argument in callArguments)
         {
             if (target.IsVararg && argument.Value is { Kind: OperationKind.None, Syntax: InvocationExpressionSyntax arglist } && arglist.Expression.IsKind(SyntaxKind.ArgListExpression))
             {
@@ -1439,6 +1452,23 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return Emit(returnType, call, span);
+    }
+
+    private bool IsUserAccessor(IPropertySymbol property) =>
+        SymbolEqualityComparer.Default.Equals(property.ContainingAssembly, frontend.Compilation.Assembly);
+
+    private OperandId LowerPropertyGet(IPropertyReferenceOperation property)
+    {
+        SourceSpan span = SpanOf(property);
+        OperandId result = LowerDirectCall(property.Property.GetMethod!, property.Instance, property.Arguments, span)!.Value;
+        return property.Property.RefKind == RefKind.None ? result : _f.Copy(_f.DerefPlace(Spill(result, span)));
+    }
+
+    private LocalId Spill(OperandId operand, SourceSpan span)
+    {
+        LocalId held = NewTemp(OperandType(operand));
+        _f.Assign(_f.LocalPlace(held), _f.Use(operand), span);
+        return held;
     }
 
     private OperandId ReceiverAddress(IOperation instance, bool readOnly, SourceSpan span)

@@ -1,4 +1,4 @@
 struct S
 {
-    public int this[int i] { get { return i; } }
+    public int this[int i] { get { return i; } set { } }
 }
