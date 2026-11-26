@@ -95,7 +95,7 @@ bb7:
   %3 = const i32 1  @1:22:14
   goto bb14  @1:17:16
 bb8:
-  unreachable default  @1:17:36
+  panic const slice<u8> const bytes "no switch arm matched"  @1:17:36
 bb9:
   %6 = copy %3  @1:17:36
   return copy %6  @1:17:36

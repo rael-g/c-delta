@@ -21,7 +21,7 @@ bb0:
   %8 = unop not copy %7  @1:3:5
   check divzero copy %8 "integer overflow"  @1:3:5
   %2 = binop div copy %0, copy %1  @1:3:5
-  %3 = binop add assume copy %2, const i32 1  @1:3:5
+  %3 = binop add wrap copy %2, const i32 1  @1:3:5
   return copy %3  @1:3:5
 }
 

@@ -14,7 +14,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
 
     public void Run()
     {
-        ArithMode resolved = checksOn ? ArithMode.Trap : ArithMode.Assume;
+        ArithMode resolved = checksOn ? ArithMode.Trap : ArithMode.Wrap;
         for (int i = 0; i < body.Rvalues.Count; i++)
         {
             Rvalue rvalue = body.Rvalues[i];
@@ -48,6 +48,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 if (statement.Kind == StatementKind.Assign)
                 {
                     InsertDivisionChecks(statement, rewritten);
+                    InsertEnumCheck(statement, rewritten);
                 }
 
                 if (checksOn)
@@ -56,10 +57,6 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 }
 
                 rewritten.Add(id);
-                if (statement.Kind == StatementKind.Assign)
-                {
-                    InsertEnumCheck(statement, rewritten);
-                }
             }
 
             if (checksOn && block.Terminator is Terminator ending && !ending.Operand.IsNone)
@@ -84,13 +81,13 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
     private void InsertEnumCheck(Statement statement, List<StatementId> sink)
     {
         Rvalue rvalue = body.Rvalues[statement.Rvalue.Index];
-        if (rvalue.Kind != RvalueKind.Cast || (CastKind)rvalue.Op != CastKind.IntEnum || rvalue.Mode != ArithMode.Trap)
+        if (!checksOn || rvalue.Kind != RvalueKind.Cast || (CastKind)rvalue.Op != CastKind.EnumError)
         {
             return;
         }
 
-        EnumDecl declaration = module.Enums[module.Types[rvalue.Type.Index].A];
-        if (!declaration.Exhaustive)
+        EnumDecl declaration = module.Enums[module.Types[IrTyper.OfOperand(module, body, rvalue.A).Index].A];
+        if (declaration.Exhaustive)
         {
             return;
         }
@@ -99,7 +96,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
         _f.RedirectStatements(sink);
         try
         {
-            OperandId value = Emit(declaration.Underlying, _f.Cast(CastKind.EnumInt, ArithMode.Wrap, _f.Copy(statement.Place), declaration.Underlying), statement.Span);
+            OperandId value = Emit(declaration.Underlying, _f.Cast(CastKind.EnumInt, ArithMode.Wrap, rvalue.A, declaration.Underlying), statement.Span);
             OperandId valid = _f.Const(_builder.BoolConstant(boolean, false));
             for (int i = 0; i < declaration.Members.Count; i++)
             {

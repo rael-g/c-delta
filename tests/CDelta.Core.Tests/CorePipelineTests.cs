@@ -27,7 +27,7 @@ public sealed class CorePipelineTests
     public void DebugTrapsAndChecks() => AssertGolden("debug", Run(BuildMode.Debug));
 
     [Fact]
-    public void ReleaseFastAssumesButStillChecksDivision() => AssertGolden("release-fast", Run(BuildMode.ReleaseFast));
+    public void ReleaseFastWrapsButStillChecksDivision() => AssertGolden("release-fast", Run(BuildMode.ReleaseFast));
 
     [Fact]
     public void SafetyOverrideTurnsChecksOffInDebug() => AssertGolden("safety-off", Run(BuildMode.Debug, SafetyOverride.Off));

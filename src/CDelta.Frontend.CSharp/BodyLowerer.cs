@@ -13,6 +13,7 @@ namespace CDelta.Frontend.CSharp;
 
 internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol method)
 {
+    private const string NoSwitchArm = "no switch arm matched";
     private const int RangeCurrent = 0;
     private const int RangeEnd = 1;
     private const int EnumeratorItems = 0;
@@ -250,8 +251,15 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return;
         }
 
-        if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw && (block.BranchValue is null || block.BranchValue.IsImplicit
-            || block.BranchValue is IObjectCreationOperation { Type.Name: "SwitchExpressionException" or "InvalidOperationException" }))
+        if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw
+            && (block.BranchValue is null || block.BranchValue.IsImplicit || block.BranchValue is IObjectCreationOperation { Type.Name: "SwitchExpressionException" }))
+        {
+            _f.Panic(_f.Const(_builder.BytesConstant(_builder.SliceOf(_builder.Primitive(TypeKind.U8), true), Encoding.UTF8.GetBytes(NoSwitchArm))), span);
+            return;
+        }
+
+        if (fallThrough.Semantics == ControlFlowBranchSemantics.Throw
+            && block.BranchValue is IObjectCreationOperation { Type.Name: "InvalidOperationException" })
         {
             _f.Unreachable(UnreachableMode.Default, span);
             return;
@@ -1174,7 +1182,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             operand = Emit(targetUnderlying, _f.Cast(CastKind.IntInt, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetUnderlying), span);
         }
 
-        return Emit(targetType, _f.Cast(CastKind.IntEnum, conversion.IsImplicit ? ArithMode.Wrap : ModeOf(conversion), operand, targetType), span);
+        return Emit(targetType, _f.Cast(CastKind.IntEnum, ArithMode.Wrap, operand, targetType), span);
     }
 
     private OperandId LowerTextBytes(string text, SourceSpan span)
@@ -1692,9 +1700,10 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         SourceSpan span = SpanOf(operation);
         TypeId pointerType = frontend.Types.Map(operation.Type!, location);
         TypeId element = IrTyper.Pointee(_module, pointerType);
-        IArrayInitializerOperation? initializer = operation.ChildOperations.OfType<IArrayInitializerOperation>().FirstOrDefault();
-        IOperation? size = operation.ChildOperations.FirstOrDefault(child => child is not IArrayInitializerOperation);
-        int count = initializer?.ElementValues.Length ?? 0;
+        List<IOperation> children = [.. operation.ChildOperations];
+        IOperation? size = children[0];
+        List<IOperation> elements = [.. children.Skip(1).SelectMany(child => child is IArrayInitializerOperation nested ? nested.ElementValues : [child])];
+        int count = elements.Count;
         if (size is not null && size.ConstantValue is { HasValue: true, Value: int declared })
         {
             count = declared;
@@ -1706,12 +1715,17 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return Emit(pointerType, _f.Alloca(element, length, AllocaInit.Zero), span);
         }
 
+        if (IsInLoop(operation.Syntax))
+        {
+            return LowerLoopStackAlloc(elements, element, pointerType, count, span);
+        }
+
         TypeId arrayType = _builder.ArrayOf(element, count);
         LocalId storage = NewTemp(arrayType);
-        if (initializer is not null)
+        if (elements.Count > 0)
         {
             var values = new List<OperandId>();
-            foreach (IOperation item in initializer.ElementValues)
+            foreach (IOperation item in elements)
             {
                 values.Add(Snapshot(LowerValue(item), span));
             }
@@ -1724,6 +1738,47 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return AddressOfFirst(storage, element, pointerType, span);
+    }
+
+    private static bool IsInLoop(SyntaxNode node)
+    {
+        foreach (SyntaxNode ancestor in node.Ancestors())
+        {
+            switch (ancestor)
+            {
+                case ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax or CommonForEachStatementSyntax:
+                    return true;
+                case BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
+    private OperandId LowerLoopStackAlloc(List<IOperation> elements, TypeId element, TypeId pointerType, int count, SourceSpan span)
+    {
+        TypeId usize = _builder.Primitive(TypeKind.USize);
+        OperandId memory = Emit(pointerType, _f.Alloca(element, _f.Const(_builder.IntConstant(usize, count)), AllocaInit.Zero), span);
+        if (elements.Count == 0)
+        {
+            return memory;
+        }
+
+        LocalId pointer = NewTemp(pointerType);
+        _f.Assign(_f.LocalPlace(pointer), _f.Use(memory), span);
+        int index = 0;
+        foreach (IOperation item in elements)
+        {
+            OperandId value = Snapshot(LowerValue(item), span);
+            OperandId offset = ToIndexType(_f.Const(_builder.IntConstant(_builder.Primitive(TypeKind.I32), index++)), span);
+            OperandId slot = Emit(pointerType, _f.Binop(BinOp.Add, ArithMode.Default, _f.Copy(_f.LocalPlace(pointer)), offset), span);
+            LocalId slotLocal = NewTemp(pointerType);
+            _f.Assign(_f.LocalPlace(slotLocal), _f.Use(slot), span);
+            _f.Assign(_f.DerefPlace(slotLocal), _f.Use(value), span);
+        }
+
+        return _f.Copy(_f.LocalPlace(pointer));
     }
 
     private OperandId AddressOfFirst(LocalId storage, TypeId element, TypeId pointerType, SourceSpan span) =>

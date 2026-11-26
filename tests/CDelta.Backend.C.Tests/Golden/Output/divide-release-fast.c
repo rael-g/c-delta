@@ -80,7 +80,7 @@ static int32_t cd_Sample_Program_Divide(int32_t a, int32_t b)
     t8 = !t7;
     if (__builtin_expect(!(t8), 0)) cd_panic((const uint8_t*)"integer overflow", 16, "Program.cs", 3);
     t2 = (int32_t)(a / b);
-    t3 = (int32_t)(t2 + ((int32_t)1));
+    t3 = (int32_t)(uint32_t)((uint32_t)t2 + (uint32_t)((int32_t)1));
     return t3;
 }
 

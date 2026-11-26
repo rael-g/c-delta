@@ -110,7 +110,7 @@ public static class IrNames
 
     public static bool HasMode(BinOp op) => op is Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.Mul;
 
-    public static bool HasMode(CastKind kind) => kind is CastKind.IntInt or CastKind.FloatInt or CastKind.IntEnum;
+    public static bool HasMode(CastKind kind) => kind is CastKind.IntInt or CastKind.FloatInt;
 
     public static BinOp? ParseBinOp(string word)
     {
