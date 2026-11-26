@@ -131,7 +131,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `CDeltaTarget` | a target triple, or `native` | `native` |
 | `OptimizeMode` | `Debug`, `ReleaseSafe`, `ReleaseFast`, `ReleaseSmall` | `Debug` for `Configuration=Debug`, `ReleaseSafe` for `Release` |
 | `LinkLibC` | `true`, `false` | `true` unless the target OS is `freestanding` |
-| `CToolchain` | `zig`, `clang`, `gcc`, `msvc`, `auto` | `auto` |
+| `CToolchain` | `zig`, `clang`, `gcc`, `msvc`, `tcc`, `auto` | `auto` |
 | `EmitC` | `true` to keep the generated C next to the output | `false` |
 | `PackageName` | the C-visible name of the package (header name, library name) | the project name |
 | `ErrorReturnTrace` | `true`, `false` | `true` in safe modes |

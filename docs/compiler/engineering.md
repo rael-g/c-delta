@@ -14,6 +14,7 @@ Everything runs in the distrobox `dev`. It provides:
 | `zig` | 0.15.1 or newer | the default C toolchain |
 | `clang` and its sanitizer runtime | 18 or newer | the alternative toolchain, the toolchain differential test, sanitizers |
 | `gcc` | 13 or newer | the toolchain differential test |
+| `tcc` | 0.9.28 or newer, built from the commit pinned in `eng/setup-dev.sh` into `/usr/local` | the `Debug` toolchain, the toolchain differential test |
 | `qemu-aarch64` and an aarch64 glibc sysroot | any | running `aarch64-linux-gnu` tests; the sysroot is `CDELTA_AARCH64_SYSROOT`, default `/usr/aarch64-linux-gnu` |
 | `wine` | 9 or newer | running `x86_64-windows-gnu` tests |
 | `git`, `bash` | any | |
@@ -21,7 +22,8 @@ Everything runs in the distrobox `dev`. It provides:
 `dev` is Ubuntu 24.04. `eng/setup-dev.sh` installs what the base image lacks with `apt`
 (`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `libclang-rt-dev`, `gcc`) and checks every
 version of the table; it is idempotent and changes nothing outside the container, so it writes no
-profile file. `zig` and the .NET SDK are part of the image; the script only checks their versions.
+profile file. Ubuntu's `tcc` predates `_Thread_local`, so the script builds `tcc` from source.
+`zig` and the .NET SDK are part of the image; the script only checks their versions.
 
 When a document requires something the container lacks (a compiler, a runtime, an emulator, a
 sysroot), install it: add it to `eng/setup-dev.sh` and to the table above in the same commit,

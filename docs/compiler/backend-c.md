@@ -204,7 +204,7 @@ operation's type and every result back to it:
 | Mode | Emitted |
 |---|---|
 | `wrap` | the operation on the unsigned type of the same width, then converted to the result type |
-| `trap` | `__builtin_add_overflow` and its siblings on GCC and Clang; explicit range tests on MSVC; failure calls the panic handler |
+| `trap` | `__builtin_add_overflow` and its siblings on GCC and Clang; explicit range tests on MSVC and tcc; failure calls the panic handler |
 | `assume` | the plain C operation; signed overflow is undefined in C, which is exactly the meaning |
 
 - Shift counts are masked to the operand width, as the language requires.
@@ -238,8 +238,10 @@ if (__builtin_expect(!(i < s.len), 0)) cd_panic_bounds(i, s.len, "Program.cs", 1
 
 ### Atomics and threads
 
-`Interlocked` and `Volatile` map to `__atomic_*` builtins on GCC and Clang and to the `Interlocked`
-intrinsics on MSVC, both of which work on ordinary objects, unlike `_Atomic` types.
+`Interlocked` and `Volatile` map to `__atomic_*` builtins on GCC, Clang and tcc and to the
+`Interlocked` intrinsics on MSVC, both of which work on ordinary objects, unlike `_Atomic` types.
+tcc defines the `__ATOMIC_*` orders only in its `<stdatomic.h>`, so a program that uses atomics
+includes it there, under `#if defined(__TINYC__)`.
 `_Thread_local` implements `[ThreadStatic]`.
 
 ## Debug information

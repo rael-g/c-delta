@@ -34,7 +34,7 @@ directory of the first file, and its `PackageName` is that file's stem.
 | `--target` | a triple of [../language/modules-build.md](../language/modules-build.md#targets), or `native` | the project's `CDeltaTarget`, else `native` |
 | `--mode` | `Debug`, `ReleaseSafe`, `ReleaseFast`, `ReleaseSmall` | the project's `OptimizeMode`, else `Debug` |
 | `-o` | output path | below |
-| `--toolchain` | `zig`, `clang`, `gcc`, `msvc`, `auto` | the project's `CToolchain`, else `auto` |
+| `--toolchain` | `zig`, `clang`, `gcc`, `msvc`, `tcc`, `auto` | the project's `CToolchain`, else `auto` |
 | `--option name=value` | a `BuildOption` | none |
 | `--color` | `auto`, `always`, `never` | `auto` |
 
@@ -89,12 +89,14 @@ include directories for a target.
 | `clang` | `CDELTA_CLANG`, then `clang` on `PATH` | the host, and other targets when a sysroot is given |
 | `gcc` | `CDELTA_GCC`, then `gcc` on `PATH` | the host |
 | `msvc` | `vswhere` on Windows | `*-windows-msvc` |
+| `tcc` | `CDELTA_TCC`, then `tcc` on `PATH` | the host, `x86_64-linux-gnu` and `x86_64-linux-musl`; the `Debug` mode only |
 
 `CToolchain=auto` chooses by target (D108):
 
 | Target | Order |
 |---|---|
-| the host, Linux | `clang`, `gcc`, `zig` |
+| the host, Linux on `x86_64`, `Debug` mode | `tcc`, `clang`, `gcc`, `zig` |
+| the host, Linux, otherwise | `clang`, `gcc`, `zig` |
 | the host, macOS | `clang`, `zig` |
 | the host, `*-windows-msvc` | `msvc`, `clang`, `zig` |
 | the host, `*-windows-gnu` | `clang`, `zig` |
@@ -103,6 +105,13 @@ include directories for a target.
 The first one found that supports the target is used. A user who builds for the host needs no
 toolchain beyond the platform's own; `zig cc` is the provider of cross compilation, because it
 carries the C libraries of every target in one download. Only the `zig` provider knows about Zig.
+
+`tcc` exists for the edit, build and run loop (D175): it compiles C an order of magnitude faster
+than the others and optimizes nothing, so it serves `Debug` builds only and `--toolchain tcc` with
+another mode is `CD0002`. It receives `-std=c11 -g`, with `-c` for objects; the other options of
+[backend-c.md](backend-c.md#c-compiler-flags) do not exist in it and change nothing it does. Its
+system include directories are read from `tcc -vv`. The object cache is keyed by the toolchain as
+well as by the C, so switching modes never links objects of two compilers.
 
 ### Toolchain packs
 

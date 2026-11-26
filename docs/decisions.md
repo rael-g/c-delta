@@ -421,6 +421,11 @@ library feel native.
 already uses (`RuntimeIdentifier`, `PlatformTarget`) carry other meanings and values. The
 `CDelta` prefix, as in `CDeltaEdition`, marks a property no other SDK defines.
 
+**D175. `Debug` builds on `x86_64` Linux compile C with tcc.** Compiling the generated C is the
+largest share of a rebuild, and tcc does it an order of magnitude faster than an optimizing
+compiler, on the C we already emit. It is chosen first by `auto` for `Debug` builds of the host
+only, because it optimizes nothing; `ReleaseSafe` keeps the optimizing compilers.
+
 ## Repository
 
 **D201. Documents and code are in English.**

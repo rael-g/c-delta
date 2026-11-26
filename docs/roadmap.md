@@ -176,7 +176,7 @@ Accepted when: `comptime` conformance passes; differential tests pass.
 - Build speed (D158): a compiler server, `cdc watch`, that keeps Roslyn, the imports and the core's
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET
-  SDK.
+  SDK; the `tcc` provider for `Debug` builds (D175).
 - Debugging (D159): the formatters of [compiler/backend-c.md](compiler/backend-c.md#debug-information)
   and a launch configuration written by `cdc init`.
 

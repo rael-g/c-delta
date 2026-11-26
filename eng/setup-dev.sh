@@ -16,6 +16,15 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     sudo apt-get install -y "${missing[@]}"
 fi
 
+tcc_commit="49ed952"
+if ! tcc -v 2>/dev/null | grep -q "@$tcc_commit"; then
+    tcc_source="$(mktemp -d)"
+    git clone --quiet https://repo.or.cz/tinycc.git "$tcc_source"
+    git -C "$tcc_source" checkout --quiet "$tcc_commit"
+    (cd "$tcc_source" && ./configure --prefix=/usr/local > /dev/null && make -j"$(nproc)" > /dev/null && sudo make install > /dev/null)
+    rm -rf "$tcc_source"
+fi
+
 fail=0
 
 require_version() {
@@ -30,12 +39,14 @@ dotnet_version="$(dotnet --version 2>/dev/null | cut -d. -f1,2 || true)"
 zig_version="$(zig version 2>/dev/null || true)"
 clang_version="$(clang --version 2>/dev/null | grep -o 'version [0-9.]*' | head -n1 | cut -d' ' -f2 || true)"
 gcc_version="$(gcc -dumpversion 2>/dev/null || true)"
+tcc_version="$(tcc -v 2>/dev/null | grep -o 'version [0-9.]*' | head -n1 | cut -d' ' -f2 || true)"
 wine_version="$(wine --version 2>/dev/null | grep -o '[0-9][0-9.]*' | head -n1 || true)"
 
 require_version ".NET SDK" "10.0" "$dotnet_version"
 require_version "zig" "0.15.1" "$zig_version"
 require_version "clang" "18" "$clang_version"
 require_version "gcc" "13" "$gcc_version"
+require_version "tcc" "0.9.28" "$tcc_version"
 require_version "wine" "9" "$wine_version"
 
 if ! command -v qemu-aarch64 > /dev/null 2>&1; then
