@@ -198,8 +198,7 @@ knows no C compiler.
 save and restore the trace length, so a trace shows only the error in flight.
 
 **D127. Implementation follows the documents and never decides design.** A gap or a conflict in
-the documents is written to `docs/kanban/questions.md` and the affected work waits for the
-answer.
+the documents is answered by a change to the documents, and the affected work waits for it.
 
 **D128. `stackalloc` has only its pointer form.** Roslyn converts `stackalloc` to a span only when
 the span is a ref struct, and spans as fields of ordinary structs (D009 and the slice model) matter
@@ -440,4 +439,4 @@ only, so they wait for a program that needs them.
 
 **D202. The compiler targets .NET 10 and Roslyn pinned for C# 14.**
 
-**D203. Status and plans in progress live in `docs/kanban/`, which is not versioned.**
+**D203. The documents describe the design, never the state of the work.**

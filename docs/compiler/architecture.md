@@ -127,7 +127,7 @@ c-delta/
   lib/std/                     standard library
   tests/                       unit, conformance and end-to-end tests
   samples/                     example programs, built by CI
-  docs/                        these documents; docs/kanban is not versioned
+  docs/                        these documents
 ```
 
 ## Pinned dependencies

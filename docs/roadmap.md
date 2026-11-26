@@ -1,8 +1,7 @@
 # Roadmap
 
 Milestones in order: M0, M1, M2, M3, MVP, M4 and onward. Each ends with acceptance criteria that are tests, not opinions. A milestone
-is done when its criteria pass in CI on every tier 1 target. Progress is tracked in
-`docs/kanban/`, not here.
+is done when its criteria pass in CI on every tier 1 target.
 
 ## M0: Foundation
 
