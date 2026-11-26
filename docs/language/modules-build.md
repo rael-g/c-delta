@@ -53,11 +53,18 @@ rules: the subset, the intrinsics, the attributes and the diagnostics (D161).
 - Every package of a build is bound by Roslyn as its own compilation with its own edition's
   `LangVersion` and rules, and all of them meet in Delta IR. A package of one edition depends on
   packages of any other.
-- A compiler supports every edition before its newest, for ever. A new edition follows each C#
-  version whose constructs have been reviewed (D003), and is the only place where a rule of CΔ
-  may change incompatibly; `cdc fix --edition <n>` rewrites a package to it with the code fixes of
+- A compiler supports every edition before its newest, for ever. A new edition follows every C#
+  version, as soon as its constructs have been reviewed (D003); there is no preview edition and no
+  long-term edition, the newest is the one to use. A new edition is the only place where a rule
+  of CΔ may change incompatibly; `cdc fix --edition <n>` rewrites a package to it with the code fixes of
   the rules that changed.
 - Raising a package's edition is its author's choice; `cdc init` writes the newest.
+- Compatibility goes forward through the compiler: a package of edition 1 that depends on a
+  package of edition 2 builds with any compiler that knows edition 2, and stays edition 1 itself.
+  It consumes the dependency's declarations like any others; using a construct of the newer C#
+  in its own code needs its own edition raised, which Roslyn reports. A compiler that does not
+  know an edition reports `CD0009`. There is no binary format between CΔ packages, so there is no
+  CΔ ABI to break; the only binary contract is the C ABI of exports.
 - These guarantees start at 1.0. The 0.x releases promise no compatibility with each other or
   with 1.0: whatever was deprecated or replaced before 1.0 is deleted when 1.0 is declared, and
   edition `1` is the language as it is then, with no trace of its history.

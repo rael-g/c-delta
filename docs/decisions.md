@@ -354,7 +354,10 @@ splitting its ecosystem: each package keeps the C# version and CΔ rules it was 
 compiler supports every past edition, and packages of different editions form one program
 because each is its own Roslyn compilation. CΔ's own rules change incompatibly only at a new
 edition, with code fixes to migrate; the std only grows. 1.0 comes after months of real use, not
-after a milestone, and is a reset: nothing from the 0.x releases is carried into it.
+after a milestone, and is a reset: nothing from the 0.x releases is carried into it. Editions
+follow every C# version, with no preview and no long-term edition, because staying current is
+the point; the compiler runs on a long-term .NET (D202), which is independent of the C# version it
+binds.
 
 ## Repository
 
