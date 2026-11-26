@@ -38,15 +38,41 @@ projection backend ([../kabic-migration.md](../kabic-migration.md#what-cδ-gains
 unchanged dependencies costs little because their generated C, and therefore their cached
 objects, do not change ([../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md)).
 
-Dependencies are ordinary MSBuild references:
+Dependencies are ordinary MSBuild references, or fetched by URL:
 
 | Dependency | How |
 |---|---|
 | a package in the same repository | `<ProjectReference Include="../Lib/Lib.csproj" />` |
 | a published package | `<PackageReference Include="Name" Version="1.2.3" />`, restored from NuGet |
+| anything at a URL: a CΔ package not published, a C library, a git commit | `<CDeltaFetch Include="name" Url="..." Hash="sha256-..." />` |
 
 A published CΔ package carries its sources, its C headers and C sources, and a Roslyn reference
 assembly for the IDE. The format is in [../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md).
+
+### Resolution
+
+- The SDK turns on NuGet lock files (`RestorePackagesWithLockFile`), so every restore is
+  reproducible; CI restores in locked mode. The lock records each package's hash.
+- A build has one version of each package: whole-program compilation would make two collide.
+  NuGet unifies versions; a conflict it cannot unify is `CD0001`.
+- A C library is best shipped inside a CΔ package (its sources as `CSource` items and its
+  `[Import]` class, with a projection on top) or fetched by URL; linking a system library through
+  `NativeLibrary` stays possible.
+
+### Fetched dependencies
+
+A `CDeltaFetch` item names an archive (`.tar.gz`, `.tar.xz`, `.zip`) or a `git+https://...#<commit>`
+URL and the SHA-256 of its content (D164). It is downloaded once into a cache addressed by that
+hash; the hash is its lock, and content that does not match is `CD0010`.
+
+- If the content has a project file at its root, it is a CΔ package and a dependency like a
+  project reference.
+- Otherwise it is a C library, built by the metadata of the item: `Sources` (globs of C files to
+  compile), `IncludeDirs`, `Defines`, and `Import` (the headers of a generated `[Import]` class
+  named after the item). A longer recipe lives in a `.props` file named by `Recipe`, holding the
+  same items.
+- `cdc fetch <url> --save` adds the item with the hash it computed. The same name and hash reached
+  twice is one dependency; the same name with two hashes is `CD0001`.
 
 ### Editions
 
@@ -123,7 +149,8 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `AsmSource` | `Flags` | assembly sources (`.s`, `.S`) assembled by the toolchain and linked |
 | `CIncludeDir` | | include directories for imports and C sources |
 | `CDefine` | `Value` | macros for imports and C sources |
-| `NativeLibrary` | `Linkage` (`Static`, `Dynamic`) | libraries to link |
+| `NativeLibrary` | `Linkage` (`Static`, `Dynamic`), `PkgConfig` | libraries to link; with `PkgConfig="name"`, flags and paths come from `pkg-config` |
+| `CDeltaFetch` | `Url`, `Hash`, and for a C library `Sources`, `IncludeDirs`, `Defines`, `Import`, `Recipe` | a dependency fetched by URL, [below](#fetched-dependencies) |
 | `NativeLibraryDir` | | library search directories |
 | `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)` |
 

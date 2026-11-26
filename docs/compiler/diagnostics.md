@@ -45,6 +45,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD0007 | an executable has no `Main` | [../language/errors.md](../language/errors.md#main) |
 | CD0008 | the corelib does not match the compiler | [frontend-csharp.md](frontend-csharp.md#the-corelib) |
 | CD0009 | a package uses an edition newer than this compiler; update the compiler | [../language/modules-build.md](../language/modules-build.md#editions) |
+| CD0010 | a fetched dependency does not match its hash | [../language/modules-build.md](../language/modules-build.md#fetched-dependencies) |
 | CD1000 | this C# construct is not part of CΔ | [../language/subset.md](../language/subset.md) |
 | CD1001 | classes are not part of CΔ; use a struct, or a static class for a module | [../language/subset.md](../language/subset.md#types) |
 | CD1002 | records are not part of CΔ | [../language/subset.md](../language/subset.md#types) |

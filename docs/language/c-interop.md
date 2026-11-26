@@ -167,10 +167,10 @@ Every build that has exports writes `<PackageName>.h` next to the output:
 | Output | What |
 |---|---|
 | executable | needs `Main` (`CD0007`) |
-| static library | `.a` or `.lib` with the exports and the header |
-| shared library | `.so`, `.dll` or `.dylib`; only exports are visible, everything else has hidden visibility |
+| static library | `.a` or `.lib` with the exports and the header, plus `<PackageName>Config.cmake` and `<PackageName>.pc` so CMake's `find_package` and `pkg-config` find it |
+| shared library | `.so`, `.dll` or `.dylib`; only exports are visible, everything else has hidden visibility; with the same CMake and `pkg-config` files |
 | object | one `.o` or `.obj` |
-| C source | the generated `.c` and the header, to vendor into a C project; see [../compiler/backend-c.md](../compiler/backend-c.md) |
+| C source | the generated `.c` files, the header and a `CMakeLists.txt` defining the library target, to vendor into a C project or reach with CMake's `FetchContent`; building it needs a C compiler and nothing of CΔ; see [../compiler/backend-c.md](../compiler/backend-c.md) |
 
 ### Bindings for other languages
 

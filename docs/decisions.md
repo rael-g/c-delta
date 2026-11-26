@@ -136,8 +136,10 @@ conflict with libc's (D129).
 **D107. libclang reads C, through ClangSharp until the port of D119.** It also answers sizes, offsets and constant
 values; nothing of C is reimplemented.
 
-**D108. `zig cc` is the default C toolchain**, for cross compilation with C libraries of every
-target out of the box. Clang, GCC and MSVC are alternatives.
+**D108. The platform's C compiler builds for the host; `zig cc` is the provider of cross
+compilation**, because it carries the C libraries of every target in one download. A user who
+never cross-compiles never needs Zig, and only one provider knows about it, so it can be replaced
+by clang with sysroots or by toolchain packs.
 
 **D109. The project file is an MSBuild SDK-style `.csproj` using `CDelta.Sdk`.** IDEs open it, NuGet
 distributes packages, MSBuild orders builds.
@@ -363,6 +365,20 @@ binds.
 generics, comptime and cross-package inlining need the bodies, and CΔ's own types have no C form
 worth freezing. Binary distribution goes through the C ABI and the CΔ projection backend; the
 object cache keeps rebuilding dependencies cheap.
+
+**D163. Toolchains are installed per target on request, from a pinned list.** Mature cross
+toolchains exist per target (wasi-sdk, the Arm GNU toolchain, llvm-mingw); `cdc toolchain install`
+fetches the right one by hash, so no single toolchain is a dependency of CΔ.
+
+**D164. Dependencies come from NuGet or from a URL with a hash.** NuGet carries published CΔ
+packages with versions, a package type and lock files; `CDeltaFetch` carries anything else, as
+`zig fetch` and CMake's `FetchContent` do: an archive or a git commit fixed by its hash, built
+as a CΔ package or by a recipe for C. A C library becomes a one-line dependency without being
+republished.
+
+**D165. A CΔ library is a plain C library to C consumers.** Binary outputs come with CMake and
+`pkg-config` files; the C source output comes with a `CMakeLists.txt`, so a C project uses a CΔ
+library with no CΔ tooling installed.
 
 ## Repository
 

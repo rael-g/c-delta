@@ -148,7 +148,8 @@ work in a sample.
 - `[CMacro]`, `CSource` items, macros of constant addresses.
 - `[Align]`, `[Naked]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` items, `EntrySymbol`,
   `LinkerScript`, `LinkerArgs`, the embedded targets ([language/c-parity.md](language/c-parity.md)).
-- `[Export]`, the export header, static and shared libraries, `--emit-c`.
+- `[Export]`, the export header, static and shared libraries, `--emit-c`; the CMake and
+  `pkg-config` files of libraries and the `CMakeLists.txt` of the C source output (D165).
 - Every `CD6xxx` rule.
 
 Accepted when: `zlib`, `sqlite`, `vulkan-headers` and `export-lib` end to end cases pass; the
@@ -168,7 +169,10 @@ Accepted when: `comptime` conformance passes; differential tests pass.
   `Std.Text`.
 - `CDelta.Sdk`, `cdc test`, `cdc fmt`, `cdc init`, package format, NuGet packaging, the `cdelta`
   tool.
-- Cross compilation to every tier 1 and 2 target.
+- Cross compilation to every tier 1 and 2 target; the `auto` order and toolchain packs with
+  `cdc toolchain install` (D108, D163).
+- Dependencies (D164): the `CDelta` package type, lock files, `CDeltaFetch` with recipes for C,
+  `cdc fetch --save`, `PkgConfig` on `NativeLibrary`, `cdc publish`, `CD0010`.
 - Build speed (D158): a compiler server, `cdc watch`, that keeps Roslyn, the imports and the core's
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET

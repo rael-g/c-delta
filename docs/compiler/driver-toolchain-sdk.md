@@ -18,6 +18,9 @@
 | `cdc targets` | list supported targets and their tiers |
 | `cdc toolchain` | show the C toolchain chosen for a target and its paths |
 | `cdc version` | compiler, corelib, Roslyn, libclang and toolchain versions |
+| `cdc toolchain install <target>` | install the pinned toolchain pack for a target ([below](#toolchain-packs)) |
+| `cdc fetch <url> [--save] [--name n]` | download a dependency into the cache and print its hash; with `--save`, add a `CDeltaFetch` item to the project |
+| `cdc publish [project] --target t` | build in the project's release mode and write `<PackageName>-<version>-<target>` as `.tar.gz`, or `.zip` for Windows, with the output, its header and its license files |
 
 Common options: `--target`, `--mode`, `-o`, `--emit-c`, `--dump-ir <stage>`, `--toolchain`,
 `--option name=value`, `--verbose`, `--time`, `--color`.
@@ -87,9 +90,27 @@ include directories for a target.
 | `gcc` | `CDELTA_GCC`, then `gcc` on `PATH` | the host |
 | `msvc` | `vswhere` on Windows | `*-windows-msvc` |
 
-`CToolchain=auto` takes the first one found in that order that supports the target. `zig cc` is the
-default because it cross-compiles to every target with no setup, which is the lazy way to make
-cross compilation the normal case.
+`CToolchain=auto` chooses by target (D108):
+
+| Target | Order |
+|---|---|
+| the host, Linux | `clang`, `gcc`, `zig` |
+| the host, macOS | `clang`, `zig` |
+| the host, `*-windows-msvc` | `msvc`, `clang`, `zig` |
+| the host, `*-windows-gnu` | `clang`, `zig` |
+| any other target | `zig`, then `clang` with a sysroot given by `CDELTA_SYSROOT_<TARGET>`, then an installed toolchain pack |
+
+The first one found that supports the target is used. A user who builds for the host needs no
+toolchain beyond the platform's own; `zig cc` is the provider of cross compilation, because it
+carries the C libraries of every target in one download. Only the `zig` provider knows about Zig.
+
+### Toolchain packs
+
+`cdc toolchain install <target>` downloads the toolchain best suited to a target from a list
+pinned in the compiler, each entry a URL and a SHA-256, into the user's cache, and verifies it:
+`zig` where it covers the target, `wasi-sdk` for `wasm32-wasi-musl`, the Arm GNU toolchain for the
+embedded Arm targets. When `auto` finds nothing for a target, `CD0002` names the command to run.
+Nothing is downloaded without that command.
 
 - System include directories are read from the compiler itself (`-E -v` on an empty input) and
   given to libclang, so imports see the same headers the C compiler uses.
@@ -162,13 +183,16 @@ produces it.
 | design-time `CoreCompile` | unchanged | the IDE still gets the Csc command line it needs for its language service |
 | `Run` | `RunCommand` | points `dotnet run` at the native output |
 | `VSTest` | replaced | runs `cdc test`, so `dotnet test` works |
-| `Pack` | extended | packs a CΔ package |
+| `Pack` | extended | packs a CΔ package, with `PackageType` `CDelta` |
+| `CDeltaFetch` | before restore and before `CDeltaImports`, also in design-time builds | runs `cdc fetch` for every `CDeltaFetch` item whose hash is not in the cache |
 
 Outputs go to `bin/<Configuration>/<Target>/`.
 
 ### Package format
 
-A CΔ NuGet package contains:
+A CΔ NuGet package has the NuGet package type `CDelta`, so feeds can filter CΔ packages and a
+reference to a package without it is `CD0001` with a note that it is not a CΔ package. It
+contains:
 
 | Path | Contents |
 |---|---|
@@ -186,7 +210,10 @@ sources, so whole-program compilation holds across packages.
 - `CDelta.Sdk` on NuGet contains `cdc` (framework-dependent on the .NET that runs MSBuild), the
   corelib, the std sources and reference assembly, and the analyzer.
 - The `cdelta` .NET tool installs the same `cdc` for command-line use.
-- Neither contains a C toolchain; `cdc toolchain` explains what is missing.
+- If the NativeAOT spike of D158 succeeds, self-contained `cdc` archives per host OS are also
+  published, with an install script.
+- None contains a C toolchain; `cdc toolchain` explains what is missing and `cdc toolchain
+  install` adds a toolchain pack.
 
 ## IDE
 
