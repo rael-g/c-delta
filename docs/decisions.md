@@ -354,7 +354,7 @@ splitting its ecosystem: each package keeps the C# version and CΔ rules it was 
 compiler supports every past edition, and packages of different editions form one program
 because each is its own Roslyn compilation. CΔ's own rules change incompatibly only at a new
 edition, with code fixes to migrate; the std only grows. 1.0 comes after months of real use, not
-after a milestone.
+after a milestone, and is a reset: nothing from the 0.x releases is carried into it.
 
 ## Repository
 

@@ -48,7 +48,7 @@ rules: the subset, the intrinsics, the attributes and the diagnostics (D161).
 
 | Edition | C# `LangVersion` | Introduced |
 |---|---|---|
-| `1` | `14` | the first release |
+| `1` | `14`, or the newest reviewed C# version when 1.0 is declared | 1.0 |
 
 - Every package of a build is bound by Roslyn as its own compilation with its own edition's
   `LangVersion` and rules, and all of them meet in Delta IR. A package of one edition depends on
@@ -58,6 +58,9 @@ rules: the subset, the intrinsics, the attributes and the diagnostics (D161).
   may change incompatibly; `cdc fix --edition <n>` rewrites a package to it with the code fixes of
   the rules that changed.
 - Raising a package's edition is its author's choice; `cdc init` writes the newest.
+- These guarantees start at 1.0. The 0.x releases promise no compatibility with each other or
+  with 1.0: whatever was deprecated or replaced before 1.0 is deleted when 1.0 is declared, and
+  edition `1` is the language as it is then, with no trace of its history.
 
 ## The project file
 
