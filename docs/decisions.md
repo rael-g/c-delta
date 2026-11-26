@@ -417,6 +417,10 @@ years to grow an ecosystem; CΔ inherits all of them by wrapping instead of rewr
 work concentrates on what wrapping cannot give: annotations and projections that make a foreign
 library feel native.
 
+**D174. The target property is `CDeltaTarget`.** MSBuild reserves `Target`, and the names .NET
+already uses (`RuntimeIdentifier`, `PlatformTarget`) carry other meanings and values. The
+`CDelta` prefix, as in `CDeltaEdition`, marks a property no other SDK defines.
+
 ## Repository
 
 **D201. Documents and code are in English.**

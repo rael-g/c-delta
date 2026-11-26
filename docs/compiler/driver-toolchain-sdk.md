@@ -31,7 +31,7 @@ directory of the first file, and its `PackageName` is that file's stem.
 
 | Option | Values | Default |
 |---|---|---|
-| `--target` | a triple of [../language/modules-build.md](../language/modules-build.md#targets), or `native` | the project's `Target`, else `native` |
+| `--target` | a triple of [../language/modules-build.md](../language/modules-build.md#targets), or `native` | the project's `CDeltaTarget`, else `native` |
 | `--mode` | `Debug`, `ReleaseSafe`, `ReleaseFast`, `ReleaseSmall` | the project's `OptimizeMode`, else `Debug` |
 | `-o` | output path | below |
 | `--toolchain` | `zig`, `clang`, `gcc`, `msvc`, `auto` | the project's `CToolchain`, else `auto` |

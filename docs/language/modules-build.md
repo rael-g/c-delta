@@ -108,7 +108,7 @@ rules: the subset, the intrinsics, the attributes and the diagnostics (D161).
 <Project Sdk="CDelta.Sdk/0.1.0">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <Target>x86_64-linux-gnu</Target>
+    <CDeltaTarget>x86_64-linux-gnu</CDeltaTarget>
   </PropertyGroup>
 
   <ItemGroup>
@@ -128,7 +128,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `CDeltaEdition` | an edition of [the table below](#editions) | the newest edition the compiler knows |
 | `OutputType` | `Exe`, `Library`, `None` | `Exe` |
 | `LibraryKind` | `Static`, `Shared` | `Static` |
-| `Target` | a target triple, or `native` | `native` |
+| `CDeltaTarget` | a target triple, or `native` | `native` |
 | `OptimizeMode` | `Debug`, `ReleaseSafe`, `ReleaseFast`, `ReleaseSmall` | `Debug` for `Configuration=Debug`, `ReleaseSafe` for `Release` |
 | `LinkLibC` | `true`, `false` | `true` unless the target OS is `freestanding` |
 | `CToolchain` | `zig`, `clang`, `gcc`, `msvc`, `auto` | `auto` |
