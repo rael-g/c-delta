@@ -59,9 +59,13 @@ These follow from the north and decide most design questions directly.
 - **Memory is a resource and allocation may fail.** Every allocation returns a `Result`.
 - **One obvious way.** When C# offers two spellings for one meaning, CΔ keeps both only if both
   are pure syntax; when one of them carries hidden behavior, it goes.
-- **Lazy by design.** The compiler delegates every solved problem: Roslyn parses, binds and
-  checks C#; libclang reads C; a C compiler optimizes, generates machine code and handles ABIs;
-  MSBuild and NuGet build and distribute; C libraries are wrapped instead of rewritten.
+- **Lazy by design: the world's software is CΔ's ecosystem.** CΔ builds no ecosystem of its
+  own; it reaches every one through the C ABI. The compiler delegates every solved problem:
+  Roslyn parses, binds and checks C#; libclang reads C and C++; a C compiler optimizes, generates
+  machine code and handles ABIs; the C++ compiler and cargo build the shims of their languages;
+  MSBuild and NuGet build and distribute. Libraries of C, C++, Rust and any language with a C
+  ABI are wrapped instead of rewritten, and there is no shame in it. What is left to CΔ is
+  making them idiomatic: annotations and projections are where its own effort goes (D173).
 - **Separation.** Frontends know their source language and nothing about targets. The core knows
   only Delta IR. Backends know their target and nothing about source languages.
 

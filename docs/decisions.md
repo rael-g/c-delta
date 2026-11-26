@@ -412,6 +412,11 @@ generated `extern "C"` shim lets the C++ compiler resolve mangling, layout and e
 importer of a language's own interface metadata turns its C ABI into rich declarations. Either
 way the result is ordinary IR declarations, so every backend and plugin serves them.
 
+**D173. CΔ's ecosystem is every library reachable through the C ABI.** A new language needs
+years to grow an ecosystem; CΔ inherits all of them by wrapping instead of rewriting. Its own
+work concentrates on what wrapping cannot give: annotations and projections that make a foreign
+library feel native.
+
 ## Repository
 
 **D201. Documents and code are in English.**
