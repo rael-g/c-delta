@@ -241,6 +241,15 @@ From 1.0 on, edition `1` is closed and every rule of
 
 Not scheduled; each starts when a real program needs it, with its gaps reviewed first.
 
+- **C++ libraries** (D172): the C frontend reads C++ through libclang and `cdc` generates an
+  `extern "C"` shim compiled as `CppSource`: objects as opaque handles, constructors and
+  destructors as functions, exceptions caught at the boundary as error codes, the template
+  instances a manifest names, conversions for the C++ standard library types at the boundary.
+  The shim is imported as C and projected; C and Zig can use it as well.
+- **Interface importers** (D172): readers of the interface descriptions other languages already
+  produce (uniffi metadata first, then rustdoc JSON and Nim's exported headers) into IR
+  declarations and annotations, so their libraries are consumed idiomatically by CΔ, C# and every
+  projection plugin.
 - **The DOM** (D160): `[WasmImport(module, name)]` for JavaScript functions on `wasm32`, and a
   TypeScript projection backend that writes the JavaScript glue from the IR's imports and exports.
 

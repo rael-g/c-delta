@@ -407,6 +407,11 @@ constructs save frontends from repeating lowerings and keep meaning for comptime
 but each one costs every component of the compiler; so none enters without a frontend that needs
 it, a C lowering and an interpreter semantics.
 
+**D172. C++ and other languages are consumed through C, never through their own ABI.** A
+generated `extern "C"` shim lets the C++ compiler resolve mangling, layout and exceptions; an
+importer of a language's own interface metadata turns its C ABI into rich declarations. Either
+way the result is ordinary IR declarations, so every backend and plugin serves them.
+
 ## Repository
 
 **D201. Documents and code are in English.**
