@@ -202,7 +202,7 @@ and nothing is changed in the corelib or the subset to make it pass.
 
 ## CI
 
-The repository has no remote yet. CI is `eng/ci.sh`, run in the distrobox `dev`:
+CI is `eng/ci.sh`, run in the distrobox `dev` and by the hosted workflow:
 
 1. `dotnet build CDelta.slnx` and `dotnet test CDelta.slnx`;
 2. conformance in all four modes on the host, then on `aarch64-linux-gnu` and
@@ -211,5 +211,7 @@ The repository has no remote yet. CI is `eng/ci.sh`, run in the distrobox `dev`:
 4. end to end cases.
 
 "Passes in CI" in [../roadmap.md](../roadmap.md) means `eng/ci.sh` exits `0`. Each step only
-runs the parts that exist at the current milestone. When the repository gets a remote, a hosted
-workflow runs `eng/ci.sh` in the same image, unchanged.
+runs the parts that exist at the current milestone. The hosted workflow,
+`.github/workflows/ci.yml`, runs on every push to `main` and every pull request on Ubuntu 24.04,
+the image of `dev`: it installs the .NET SDK of `global.json` and the `zig` of `dev`, then runs
+`eng/setup-dev.sh` and `eng/ci.sh` unchanged.
