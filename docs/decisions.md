@@ -439,6 +439,12 @@ so every member that takes or returns a count lives on the span, where it alread
 in C#. Members that expose no unit (`StartsWith`, `Split`, `Trim`, `==`) behave as in C#, and
 `EnumerateRunes()` keeps its BCL name and result.
 
+**D179. The annotation vocabulary comes from a clean room aimed at the CΔ projection.** Idiomatic
+CΔ projections of real APIs are written by hand without kabic's output, and each fact they need
+becomes an annotation only if it also means something in C#; how a language shows a fact is
+policy of its backend, never IR. CΔ comes first because CΔ consumes it, and the C# projection is
+its shape with the std swapped for the BCL, so code over a library looks alike in both.
+
 ## Repository
 
 **D201. Documents and code are in English.**

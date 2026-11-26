@@ -22,6 +22,35 @@ where it holds in CΔ:
 - Additional logic belongs in extensions that live with whoever needs them.
 - The generic output is the goal, never a reproduction of earlier output.
 
+## The clean room
+
+The vocabulary of annotations is not taken from kabic's tags (D179). It is found by writing, by
+hand and without reading kabic's output, the idiomatic CΔ projection of a slice of real APIs, and
+asking for every difference from the raw import which fact the header did not say:
+
+| API | Patterns it brings |
+|---|---|
+| KernelEngine | tables of function pointers with a `self` handle, owner pairs of a reference and a destructor, closures with a context, a library error enum |
+| sqlite, through a manifest | a constructor and a destructor as a pair of free functions, an owned result freed by a given function, a callback over a counted sequence of optional texts, a callback whose return means continue |
+| zlib | a length that goes in as a capacity and comes out as the count written, one error convention for the library |
+| Vulkan | the two-call enumeration, output structs, handles destroyed with their parent, optional pointers, integers that are flags of an enum, structs extended by an `sType` and `pNext` chain, text in fixed buffers, sequences of texts, pointer and 64-bit handles, functions loaded at run time from a parent |
+
+- A **fact** is true of the API in any language (this pointer owns, this function destroys it, these
+  two parameters are one sequence) and becomes an `ann.` annotation. A **policy** is how one
+  language chooses to show it (a class, an exception, a name style) and lives in the options of
+  that projection backend, never in the IR.
+- A fact enters the vocabulary only when it also means something in C#, checked by writing the
+  C# form beside the CΔ one, even before a C# projection exists.
+- Only then are kabic's tags and output read, as a list of cases the clean room may have missed,
+  never as solutions to copy.
+
+The CΔ projection comes first because CΔ consumes it: the std and every program get their C
+libraries through it. A CΔ projection is valid C#, so the C# projection is the same shape with
+a policy that swaps the std for the BCL (`Result` to exceptions or `TryX`, allocators to arrays,
+UTF-8 `string` to `System.String`), made more idiomatic only after it works. Code written against
+a library, such as a KernelEngine game, then has the same structure in CΔ and in C#. Both are
+modes of `CDelta.Backend.CSharp`, which already emits the raw import stubs.
+
 ## Candidates
 
 Each row is evaluated before it is built; the right column is where the piece would land if it
@@ -33,7 +62,7 @@ survives.
 | `Kabic.Core`: `ApiModel`, `CType` | Delta IR declarations; `CType` is the IR type with C spelling |
 | `Kabic.Core`: the slot classifier (owner, bag, vtable, factory) | `CDelta.Projection`: shared analyses over IR declarations used by every projection backend |
 | `Kabic.Core`: `Convention` (name rules and type maps per language) | projection backend options, in a format designed for `cdc` |
-| `Kabic.CSharp` writer | `CDelta.Backend.CSharp`, bindings mode |
+| `Kabic.CSharp` writer | `CDelta.Backend.CSharp`, its CΔ projection mode first and its C# projection mode after ([the clean room](#the-clean-room)) |
 | `Kabic.Zig` writer | `CDelta.Backend.Zig` |
 | `Kabic.Bindings` (raw bindings through ClangSharp) | the raw layer of `CDelta.Backend.CSharp`, still through ClangSharp |
 | `Kabic.Pipeline`, domains, regeneration, drift | `cdc project` command and its domain manifest |
@@ -45,6 +74,7 @@ survives.
 ## The command
 
 ```bash
+cdc project --manifest api_domains.json --lang cdelta --out src/cdelta
 cdc project --manifest api_domains.json --lang csharp --out src/csharp
 cdc project --manifest api_domains.json --lang zig --out src/zig
 cdc project --manifest api_domains.json --check
@@ -79,14 +109,16 @@ from kabic's manifests may exist if it is cheaper than rewriting them.
 
 1. CΔ reaches milestone M5 (C import) of the [roadmap](roadmap.md): the C frontend reads
    declarations, layouts, constants and comments.
-2. Review every candidate above against CΔ's design and record what is kept, changed or
-   dropped, before any of it is built; the review is a gap review like those of the milestones.
-3. Build the annotations of the C frontend, `CDelta.Projection` and the Zig and C# backends from
-   that review, taking kabic's tests as cases where they still apply.
-4. Run the end to end suites (probe, zlib, sqlite, vulkan) through `cdc project`. They must
+2. Run [the clean room](#the-clean-room) and record the vocabulary of facts it finds.
+3. Review every candidate above against CΔ's design and that vocabulary, and record what is kept,
+   changed or dropped, before any of it is built; the review is a gap review like those of the
+   milestones.
+4. Build the annotations of the C frontend, `CDelta.Projection` and the CΔ projection, then the C#
+   projection and the Zig backend, taking kabic's tests as cases where they still apply.
+5. Run the end to end suites (probe, zlib, sqlite, vulkan) through `cdc project`. They must
    compile and pass their runtime checks; their output is CΔ's, not kabic's.
-5. Switch KernelEngine to `cdc project`. Until then kabic stays untouched and in use.
-6. Archive kabic.
+6. Switch KernelEngine to `cdc project`. Until then kabic stays untouched and in use.
+7. Archive kabic.
 
 No change is made in the kabic repository during the migration; it keeps serving its consumers
-until step 6 succeeds.
+until step 7 succeeds.

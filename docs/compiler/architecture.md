@@ -76,7 +76,7 @@ These are invariants, checked by project references (a forbidden reference does 
 | `src/CDelta.Frontend.CSharp` | `net10.0` | Roslyn compilation, corelib symbols, lowering to IR |
 | `src/CDelta.Frontend.C` | `net10.0` | libclang reading of headers into IR declarations |
 | `src/CDelta.Backend.C` | `net10.0` | IR to C11 and the export header |
-| `src/CDelta.Backend.CSharp` | `net10.0` | IR declarations to C# source: import stubs now, idiomatic bindings later |
+| `src/CDelta.Backend.CSharp` | `net10.0` | IR declarations to C# source: import stubs now; the CΔ projection, then the C# projection (D179) |
 | `src/CDelta.Projection` (M8) | `net10.0` | shared analyses of IR declarations for projection backends |
 | `src/CDelta.Backend.Zig` (M8) | `net10.0` | IR declarations to idiomatic Zig bindings |
 | `src/CDelta.Toolchain` | `net10.0` | C toolchain discovery and invocation, target triples |

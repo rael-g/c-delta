@@ -189,13 +189,15 @@ LLDB.
 
 The steps of [kabic-migration.md](kabic-migration.md).
 
+- The clean room of the annotation vocabulary (D179), then the CΔ projection, then the C#
+  projection as its shape over the BCL.
 - The plugin protocol of projection backends (D167) and the version of the declaration layer of
   the IR (D168).
 - Hot reload (D160): a shared library reloaded by its host on change, with versioned file names;
   state in host or arena memory survives; a changed layout of a state struct, found by comparing
   `TypeInfo`, migrates the fields kept by name or refuses the reload.
 
-Accepted when: the review of kabic's pieces is recorded; the probe, zlib, sqlite and vulkan end to end suites pass through `cdc project`; KernelEngine builds with it;
+Accepted when: the vocabulary of the clean room and the review of kabic's pieces are recorded; the probe, zlib, sqlite and vulkan end to end suites pass through `cdc project`; KernelEngine builds with it;
 an official KernelEngine part written in CΔ runs in the engine and is reloaded while the engine
 runs after a change to its source.
 

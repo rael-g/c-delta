@@ -508,7 +508,7 @@ An annotation is an IR attribute in the `ann.` namespace that states a fact abou
 which its source language does not express: a pointer written back, a pointer and a count forming
 one sequence, an owner, a borrowed or optional value, an error convention (D170). The vocabulary is
 defined on IR concepts, never on the syntax of a language, so annotations of any frontend reach
-every projection backend and plugin. It is designed in the review of kabic's tags in M8.
+every projection backend and plugin. It is designed in M8 by the clean room of [../kabic-migration.md](../kabic-migration.md#the-clean-room).
 
 Annotations come from three sources:
 
