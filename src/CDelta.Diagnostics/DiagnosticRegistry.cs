@@ -48,6 +48,7 @@ public static class DiagnosticRegistry
         [DiagnosticCode.CD1031] = "'char' only exists as a constant; use 'Rune' or 'byte'",
         [DiagnosticCode.CD1032] = "only a constant 'string' converts to 'byte*'; use 'ToCString'",
         [DiagnosticCode.CD1033] = "the 'args' of top-level statements is an array; use 'Process.Args()'",
+        [DiagnosticCode.CD1034] = "'string' counts no UTF-16 units; positions and counts are bytes in 's.Bytes', characters are 'EnumerateRunes()'",
         [DiagnosticCode.CD2001] = "this switch does not cover every value; add the missing members or 'default'",
         [DiagnosticCode.CD2002] = "a capturing lambda cannot outlive the function that created it",
         [DiagnosticCode.CD2003] = "an opaque type can only be used behind a pointer",

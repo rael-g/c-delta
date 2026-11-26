@@ -46,6 +46,7 @@ public enum DiagnosticCode
     CD1031 = 1031,
     CD1032 = 1032,
     CD1033 = 1033,
+    CD1034 = 1034,
     CD2001 = 2001,
     CD2002 = 2002,
     CD2003 = 2003,

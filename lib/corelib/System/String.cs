@@ -9,6 +9,18 @@ public readonly unsafe struct String
 
     public String Slice(int start, int count) => throw null;
 
+    public int Length => throw null;
+
+    public byte this[int index] => throw null;
+
+    public int IndexOf(String value) => throw null;
+
+    public String Substring(int start) => throw null;
+
+    public String Substring(int start, int length) => throw null;
+
+    public int Count() => throw null;
+
     public Enumerator GetEnumerator() => throw null;
 
     public static bool operator ==(String left, String right) => throw null;
