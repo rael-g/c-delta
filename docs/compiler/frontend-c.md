@@ -73,11 +73,10 @@ Function-like macros are never imported automatically; `[CMacro]` declares them 
 
 ## Doc tags and annotations
 
-Doc comments are read with their tags, as kabic does today: a tag states a fact about a
-declaration that C cannot express (a pointer written back, a pointer and a count forming one
-sequence, a borrowed or optional value). Tags become IR attributes in the `c.tag.` namespace. A
-header that cannot be edited takes its tags from a YAML annotation file, with the same format and
-the same failure on stale keys as kabic. The CΔ import ignores tags; projection backends use them.
+Doc comments are read with their tags: a tag states a fact about a declaration that C cannot
+express (a pointer written back, a pointer and a count forming one sequence, a borrowed or
+optional value). Tags become annotations of the IR ([ir.md](ir.md#annotations)). The CΔ import
+ignores them; projection backends use them.
 
 ## Import stubs
 

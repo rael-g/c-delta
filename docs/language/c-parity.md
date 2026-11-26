@@ -28,6 +28,9 @@ is a design gap, not a limit of the language.
 | `__attribute__((naked))` | `[Naked]` | [intrinsics-attributes.md](intrinsics-attributes.md) |
 | interrupt handlers | `[Interrupt(kind)]`, the target's interrupt attribute | [intrinsics-attributes.md](intrinsics-attributes.md) |
 | inline assembly | `Asm(...)`, GNU extended assembly; assembly sources as `AsmSource` items | this document |
+| `__builtin_frame_address`, `__builtin_return_address` | `FrameAddress()`, `ReturnAddress()` intrinsics, for stack walking and conservative collectors | this document |
+| a guaranteed tail call (`__attribute__((musttail))`) | `return MustTail(F(x));` | this document |
+| C++ sources behind an `extern "C"` boundary | `CppSource` items, compiled by the toolchain's C++ compiler and linked with its C++ library | [modules-build.md](modules-build.md#items) |
 | SIMD types and intrinsics | `Vector64<T>`, `Vector128<T>`, `Vector256<T>`, `Vector512<T>` as corelib types with operators, over the C compilers' vector extensions; the intrinsic headers import against them | this document |
 | freestanding code, no libc | `LinkLibC=false`, `*-freestanding-none` and the embedded targets | [modules-build.md](modules-build.md#targets) |
 | a custom entry symbol, a reset vector | `EntrySymbol`, and `[Section]` on a table of function pointers | [modules-build.md](modules-build.md#properties) |
@@ -40,6 +43,14 @@ is a design gap, not a limit of the language.
 template string and typed operand lists for outputs, inputs and clobbers. Its exact signature is
 designed before M9. On MSVC, which has no inline assembly on x64, `Asm` is `CD0002` and
 `AsmSource` items are assembled by the toolchain's assembler.
+
+## Language runtimes
+
+These capabilities are what a language runtime needs: a collector scanning stacks, coroutines
+switching them, an interpreter dispatching by tail calls. They let a frontend for another
+language compile that language's runtime from its own sources, together with the program
+(D169). `FrameAddress`, `ReturnAddress` and `MustTail` are designed with `Asm` before M9;
+`MustTail` is `CD0002` on a toolchain without guaranteed tail calls.
 
 ## SIMD
 

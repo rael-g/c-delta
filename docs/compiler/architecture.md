@@ -38,6 +38,17 @@
 The **driver** owns the order of these steps; no component calls another component except through
 the data it receives.
 
+## Languages and their runtimes
+
+Delta IR knows no garbage collector, no exception model and no runtime of any language (D169).
+It reaches everything C reaches ([../language/c-parity.md](../language/c-parity.md)), so any
+runtime that can be written in C can be expressed in it. A language with a runtime is compiled
+by giving its frontend the runtime's sources with the program: the frontend lowers the language's
+semantics (classes to structs and tables, exceptions to returns, roots of a precise collector to
+an explicit shadow stack) and compiles the runtime like any other code of that language, or
+leaves parts of it in C or C++ for the toolchain (`CSource`, `CppSource`). CΔ itself needs no
+runtime; another frontend brings its own.
+
 ## Separation rules
 
 These are invariants, checked by project references (a forbidden reference does not compile):

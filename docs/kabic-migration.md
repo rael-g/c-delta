@@ -29,7 +29,7 @@ survives.
 
 | kabic | CΔ |
 |---|---|
-| `Kabic.Reader`: clang AST, doc tags, YAML annotations, constants | `CDelta.Frontend.C`: the same responsibilities on libclang, tags as `c.tag.*` IR attributes |
+| `Kabic.Reader`: clang AST, doc tags, YAML annotations, constants | `CDelta.Frontend.C`: reading on libclang; tags and the annotation manifest as `ann.*` annotations ([compiler/ir.md](compiler/ir.md#annotations)) |
 | `Kabic.Core`: `ApiModel`, `CType` | Delta IR declarations; `CType` is the IR type with C spelling |
 | `Kabic.Core`: the slot classifier (owner, bag, vtable, factory) | `CDelta.Projection`: shared analyses over IR declarations used by every projection backend |
 | `Kabic.Core`: `Convention` (name rules and type maps per language) | projection backend options, in a format designed for `cdc` |

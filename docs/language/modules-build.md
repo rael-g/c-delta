@@ -147,6 +147,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `Compile` | | CΔ sources; by default every `*.cs` under the project directory |
 | `CSource` | `Flags` | C sources compiled and linked |
 | `AsmSource` | `Flags` | assembly sources (`.s`, `.S`) assembled by the toolchain and linked |
+| `CppSource` | `Flags` | C++ sources compiled by the toolchain's C++ compiler (`clang++`, `g++`, `zig c++`, `cl`) and linked with its C++ library; CΔ reaches them only through `extern "C"` declarations |
 | `CIncludeDir` | | include directories for imports and C sources |
 | `CDefine` | `Value` | macros for imports and C sources |
 | `NativeLibrary` | `Linkage` (`Static`, `Dynamic`), `PkgConfig` | libraries to link; with `PkgConfig="name"`, flags and paths come from `pkg-config` |

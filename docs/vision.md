@@ -10,6 +10,11 @@ object model, and without a wall between the new code and the C that already exi
 CΔ answers it in one sentence: **a subset of C#, compiled ahead of time to C, that reads C and is
 read by C.**
 
+Its compiler is also infrastructure beyond CΔ. As an interface IR, Delta IR describes, enriches
+and projects the API of any language whose API can be stated in terms of the C ABI and its own
+richer types. As a compilation IR, it compiles any language whose runtime comes with it as source,
+because it reaches everything C reaches (D169).
+
 ## The north
 
 Every question that the documents do not answer is decided by these three, in this order of

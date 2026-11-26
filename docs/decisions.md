@@ -392,6 +392,16 @@ so each language's community writes its own backend in its own language.
 and projections need declarations; nothing outside the compiler builds bodies yet, so freezing
 them would only slow the compiler down.
 
+**D169. Delta IR knows no language runtime; a frontend brings its own.** Reaching everything C
+reaches is enough to express any runtime written in C, so a language with a collector or
+exceptions compiles through the IR with its runtime's sources, as Nim compiles its runtime with
+its programs. The IR gains only what runtimes need from C (frame addresses, guaranteed tail
+calls, assembly), never a model of one language.
+
+**D170. Annotations are language-neutral facts on IR declarations.** What enriches a C header
+for C# today enriches any frontend's declarations for any backend: the vocabulary is defined on
+IR concepts, and a manifest names declarations by IR key, so neither end is tied to C or to C#.
+
 ## Repository
 
 **D201. Documents and code are in English.**

@@ -308,13 +308,13 @@ core into a `switch` on the tag.
 ## Attributes
 
 ```
-Attribute  name (namespaced: cs.Obsolete, cdelta.Export, c.tag.out, proj.cs.name), arguments
+Attribute  name (namespaced: cs.Obsolete, cdelta.Export, ann.out, proj.cs.name), arguments
            (positional and named constants)
 ```
 
 The IR never interprets an attribute it does not own; the namespace says who does. This is how
-kabic's tags (`out`, `array_of`, `owner`, `opt`, `borrowed`) travel from the C frontend to the
-projection backends without new IR constructs ([../kabic-migration.md](../kabic-migration.md)).
+annotations travel from any frontend to the projection backends without new IR constructs
+([annotations](#annotations)).
 
 ## Text format
 
@@ -487,6 +487,24 @@ castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum"
   replace the repository root in full paths with `$ROOT` before comparing.
 - Declarations are printed in this order: sources, cimports, then each table (structs, enums,
   unions, interfaces, opaques, globals, functions, impls, error names) sorted ordinally by key.
+
+## Annotations
+
+An annotation is an IR attribute in the `ann.` namespace that states a fact about a declaration
+which its source language does not express: a pointer written back, a pointer and a count forming
+one sequence, an owner, a borrowed or optional value, an error convention (D170). The vocabulary is
+defined on IR concepts, never on the syntax of a language, so annotations of any frontend reach
+every projection backend and plugin. It is designed in the review of kabic's tags in M8.
+
+Annotations come from three sources:
+
+- comments of the source language, such as the doc tags of a C header;
+- attributes in CΔ, where a CΔ type does not already say it, which is rare, since spans,
+  `Result` and optionals carry most of these facts;
+- an annotation manifest, a file beside the project that names declarations by their IR key
+  (`c:sqlite3_open`, `MyLib.Parser.Parse(string)`) and so serves a header that cannot be edited and
+  any language alike. A key that names no declaration is an error, so a manifest never goes
+  stale silently.
 
 ## Stability
 
