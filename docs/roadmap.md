@@ -194,7 +194,7 @@ The steps of [kabic-migration.md](kabic-migration.md).
   state in host or arena memory survives; a changed layout of a state struct, found by comparing
   `TypeInfo`, migrates the fields kept by name or refuses the reload.
 
-Accepted when: kabic's end to end suites pass through `cdc project`; KernelEngine builds with it;
+Accepted when: the review of kabic's pieces is recorded; the probe, zlib, sqlite and vulkan end to end suites pass through `cdc project`; KernelEngine builds with it;
 an official KernelEngine part written in CΔ runs in the engine and is reloaded while the engine
 runs after a change to its source.
 

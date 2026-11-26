@@ -380,6 +380,10 @@ republished.
 `pkg-config` files; the C source output comes with a `CMakeLists.txt`, so a C project uses a CΔ
 library with no CΔ tooling installed.
 
+**D166. CΔ evolves from kabic; it does not port it.** kabic was designed for another context, so
+each of its pieces is evaluated against CΔ's design and redesigned or dropped. Its code and
+tests are a source of cases, and neither its output nor its manifest format binds CΔ.
+
 ## Repository
 
 **D201. Documents and code are in English.**

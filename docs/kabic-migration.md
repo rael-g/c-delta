@@ -1,13 +1,19 @@
 # kabic migration
 
 kabic (`~/Projetos/kabic`) reads C headers and their doc tags and describes them idiomatically in
-C# and Zig. Its pipeline is a compiler: a C reader, a model, a classifier, writers. CΔ already
-needs the reader and a model richer than kabic's; kabic therefore becomes a C frontend feature and
-a set of projection backends of CΔ, and is then discontinued.
+C# and Zig. Its pipeline is a compiler: a C reader, a model, a classifier, writers. CΔ is its
+evolution, with a richer model and more frontends and backends, so kabic is discontinued once CΔ
+does its job.
 
-## What carries over unchanged
+CΔ does not port kabic (D166). kabic was designed for another context, and it adapts to CΔ, never
+the reverse. Each piece below is a candidate: it is evaluated against CΔ's design, then redesigned
+on CΔ's terms or discarded. kabic's code, tests and end to end suites are a source of cases and
+of hard-won knowledge, not a specification, and matching kabic's output is not a goal.
 
-kabic's doctrine is the doctrine of the C frontend and of every projection backend:
+## The doctrine, as a starting point
+
+kabic's doctrine is the starting point of the C frontend and of every projection backend, kept
+where it holds in CΔ:
 
 - The C code already has semantics; what the AST says is read, never restated by a tag.
 - Tags add only what C cannot say, state facts about a declaration, and never name a consumer.
@@ -16,14 +22,17 @@ kabic's doctrine is the doctrine of the C frontend and of every projection backe
 - Additional logic belongs in extensions that live with whoever needs them.
 - The generic output is the goal, never a reproduction of earlier output.
 
-## Mapping
+## Candidates
+
+Each row is evaluated before it is built; the right column is where the piece would land if it
+survives.
 
 | kabic | CΔ |
 |---|---|
 | `Kabic.Reader`: clang AST, doc tags, YAML annotations, constants | `CDelta.Frontend.C`: the same responsibilities on libclang, tags as `c.tag.*` IR attributes |
 | `Kabic.Core`: `ApiModel`, `CType` | Delta IR declarations; `CType` is the IR type with C spelling |
 | `Kabic.Core`: the slot classifier (owner, bag, vtable, factory) | `CDelta.Projection`: shared analyses over IR declarations used by every projection backend |
-| `Kabic.Core`: `Convention` (name rules and type maps per language) | projection backend options, in the same YAML shape |
+| `Kabic.Core`: `Convention` (name rules and type maps per language) | projection backend options, in a format designed for `cdc` |
 | `Kabic.CSharp` writer | `CDelta.Backend.CSharp`, bindings mode |
 | `Kabic.Zig` writer | `CDelta.Backend.Zig` |
 | `Kabic.Bindings` (raw bindings through ClangSharp) | the raw layer of `CDelta.Backend.CSharp`, still through ClangSharp |
@@ -41,7 +50,8 @@ cdc project --manifest api_domains.json --lang zig --out src/zig
 cdc project --manifest api_domains.json --check
 ```
 
-The manifest format is kabic's, read as is, so consumers change the command, not their files.
+The manifest format is designed for `cdc`; kabic's format is not read. A one-time converter
+from kabic's manifests may exist if it is cheaper than rewriting them.
 
 ## What CΔ gains
 
@@ -56,14 +66,14 @@ The manifest format is kabic's, read as is, so consumers change the command, not
 
 1. CΔ reaches milestone M5 (C import) of the [roadmap](roadmap.md): the C frontend reads
    declarations, layouts, constants and comments.
-2. Port the tag reader and the YAML annotations into the C frontend, with kabic's tests for them.
-3. Build `CDelta.Projection` and port the classifier, with kabic's shape tests.
-4. Port the Zig writer, then the C# writer, each with its shape tests.
-5. Run kabic's end to end suites (probe, zlib, sqlite, vulkan) through `cdc project`. Outputs may
-   differ from kabic's where the difference is semantically equal; they must compile and pass the
-   same runtime checks.
-6. Switch KernelEngine to `cdc project`. Until then kabic stays untouched and in use.
-7. Archive kabic.
+2. Review every candidate above against CΔ's design and record what is kept, changed or
+   dropped, before any of it is built; the review is a gap review like those of the milestones.
+3. Build the annotations of the C frontend, `CDelta.Projection` and the Zig and C# backends from
+   that review, taking kabic's tests as cases where they still apply.
+4. Run the end to end suites (probe, zlib, sqlite, vulkan) through `cdc project`. They must
+   compile and pass their runtime checks; their output is CΔ's, not kabic's.
+5. Switch KernelEngine to `cdc project`. Until then kabic stays untouched and in use.
+6. Archive kabic.
 
 No change is made in the kabic repository during the migration; it keeps serving its consumers
 until step 6 succeeds.
