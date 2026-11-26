@@ -124,7 +124,7 @@ c-delta/
 | Dependency | Version policy |
 |---|---|
 | .NET SDK | `global.json`, one major version |
-| `Microsoft.CodeAnalysis.CSharp` | pinned exactly; `LangVersion` pinned to the C# version it ships. Raising it is a decision that reviews every new construct against [../language/subset.md](../language/subset.md). |
+| `Microsoft.CodeAnalysis.CSharp` | pinned exactly. Moving to a Roslyn with a new C# version is a decision that reviews every new construct against [../language/subset.md](../language/subset.md) and adds an edition; older editions keep their `LangVersion` ([../language/modules-build.md](../language/modules-build.md#editions)). |
 | ClangSharp and libclang runtime packages | pinned exactly, one libclang major for every platform |
 | C toolchain | a minimum version per toolchain, checked at startup ([driver-toolchain-sdk.md](driver-toolchain-sdk.md)) |
 | xunit | tests only |

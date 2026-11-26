@@ -13,6 +13,7 @@
 | `cdc refasm [project]` | write the Roslyn reference assembly of a package, for publishing |
 | `cdc ir [project] --stage lowered or instantiated or final` | print the IR |
 | `cdc fmt [paths] [--check]` | format sources with Roslyn's formatter and the one CΔ style |
+| `cdc fix --edition <n> [project]` | move a package to edition `n`, applying the code fixes of every rule that changed, and set `CDeltaEdition` |
 | `cdc init [--lib]` | create a project |
 | `cdc targets` | list supported targets and their tiers |
 | `cdc toolchain` | show the C toolchain chosen for a target and its paths |
@@ -147,7 +148,7 @@ produces it.
 - References the corelib and the std reference assemblies shipped in the SDK.
 - Adds the global usings file of [frontend-csharp.md](frontend-csharp.md#roslyn-compilation).
 - Adds the subset analyzer and suppressor.
-- Sets `LangVersion`, `AllowUnsafeBlocks`, the promoted warnings in `WarningsAsErrors` and the
+- Sets `LangVersion` from `CDeltaEdition`, `AllowUnsafeBlocks`, the promoted warnings in `WarningsAsErrors` and the
   suppressed ones in `NoWarn`.
 - Sets `DefineConstants` to the build symbols of the target and mode, so the IDE evaluates `#if`
   as the build does.

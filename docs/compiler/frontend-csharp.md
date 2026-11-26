@@ -11,7 +11,7 @@ One `CSharpCompilation` per package, created by the driver in dependency order.
 | Setting | Value |
 |---|---|
 | `OutputKind` | `DynamicallyLinkedLibrary` always: the entry point is a CΔ concept, so Roslyn's own entry point rules (`CS5001`) never apply |
-| `LanguageVersion` | the pinned C# version (14) |
+| `LanguageVersion` | the one of the package's edition; each package is its own compilation |
 | `AllowUnsafe` | `true` |
 | `CheckOverflow` | `false`: explicit `checked` and `unchecked` are read from syntax, see below |
 | `NullableContextOptions` | `Disable` |

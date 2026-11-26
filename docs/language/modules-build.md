@@ -41,6 +41,24 @@ Dependencies are ordinary MSBuild references:
 A published CΔ package carries its sources, its C headers and C sources, and a Roslyn reference
 assembly for the IDE. The format is in [../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md).
 
+### Editions
+
+An edition fixes the C# language version a package is bound with and the version of CΔ's own
+rules: the subset, the intrinsics, the attributes and the diagnostics (D161).
+
+| Edition | C# `LangVersion` | Introduced |
+|---|---|---|
+| `1` | `14` | the first release |
+
+- Every package of a build is bound by Roslyn as its own compilation with its own edition's
+  `LangVersion` and rules, and all of them meet in Delta IR. A package of one edition depends on
+  packages of any other.
+- A compiler supports every edition before its newest, for ever. A new edition follows each C#
+  version whose constructs have been reviewed (D003), and is the only place where a rule of CΔ
+  may change incompatibly; `cdc fix --edition <n>` rewrites a package to it with the code fixes of
+  the rules that changed.
+- Raising a package's edition is its author's choice; `cdc init` writes the newest.
+
 ## The project file
 
 ```xml
@@ -64,6 +82,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 
 | Property | Values | Default |
 |---|---|---|
+| `CDeltaEdition` | an edition of [the table below](#editions) | the newest edition the compiler knows |
 | `OutputType` | `Exe`, `Library`, `None` | `Exe` |
 | `LibraryKind` | `Static`, `Shared` | `Static` |
 | `Target` | a target triple, or `native` | `native` |

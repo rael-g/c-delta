@@ -6,12 +6,14 @@ registered in [../compiler/diagnostics.md](../compiler/diagnostics.md).
 
 ## How the subset is enforced
 
-- The source must compile under Roslyn with `LangVersion` 14, unsafe code allowed, nullable
+- The source must compile under Roslyn with the `LangVersion` of its package's edition
+  ([modules-build.md](modules-build.md#editions)), unsafe code allowed, nullable
   reference types disabled, against the CΔ corelib only. Any Roslyn error is an error.
 - The subset checker walks every syntax tree and every operation tree. It is an **allowlist**:
   syntax kinds and operation kinds it does not know are rejected with `CD1000`. A new C# version
   therefore adds nothing to CΔ until each new construct is reviewed and added here.
-- The same checker runs as a Roslyn analyzer in the IDE, so violations appear while typing.
+- The same checker runs as a Roslyn analyzer in the IDE, so violations appear while typing. It
+  applies the rules of the package's edition, read from `CDeltaEdition`.
 - Some Roslyn warnings are errors in CΔ; see the table at the end.
 
 ## The rule behind the cuts

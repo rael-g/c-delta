@@ -186,8 +186,13 @@ LLDB.
 
 The steps of [kabic-migration.md](kabic-migration.md).
 
-Accepted when: kabic's end to end suites pass through `cdc project`, and KernelEngine builds with
-it.
+- Hot reload (D160): a shared library reloaded by its host on change, with versioned file names;
+  state in host or arena memory survives; a changed layout of a state struct, found by comparing
+  `TypeInfo`, migrates the fields kept by name or refuses the reload.
+
+Accepted when: kabic's end to end suites pass through `cdc project`; KernelEngine builds with it;
+an official KernelEngine part written in CΔ runs in the engine and is reloaded while the engine
+runs after a change to its source.
 
 ## M9: Hardening
 
@@ -216,14 +221,19 @@ Accepted when: every portable project is CΔ; the compiler built by itself produ
 the compiler built by the previous release on the whole conformance suite; the host contains only
 the projects listed as host.
 
+## 1.0
+
+1.0 is not a milestone of features. It is declared by the owner after M8 and M10 are accepted and
+after a period of months in which CΔ is used in real projects, KernelEngine among them, until no
+change to the subset, to CΔ's rules or to the std is pending that would need a new edition. Until
+then CΔ is experimental and edition `1` is still open: its rules may change between releases.
+From 1.0 on, edition `1` is closed and every rule of
+[language/modules-build.md](language/modules-build.md#editions) applies.
+
 ## Later
 
 Not scheduled; each starts when a real program needs it, with its gaps reviewed first.
 
-- **Hot reload** (D160), after M9: game or plugin code built as a shared library and reloaded by
-  its host on change, with versioned file names; state lives in host or arena memory and
-  survives; a layout change of a state struct is detected by comparing `TypeInfo` and either
-  migrates fields kept by name or refuses the reload.
 - **The DOM** (D160): `[WasmImport(module, name)]` for JavaScript functions on `wasm32`, and a
   TypeScript projection backend that writes the JavaScript glue from the IR's imports and exports.
 

@@ -15,6 +15,9 @@ and fits CΔ's rules, the std projects it instead of reimplementing it (D147).
 - What needs the OS works through libc on targets that link it, and through the OS API where
   libc is absent or worse (Windows uses Win32 directly).
 - The std follows the same subset rules as user code; it gets no exemption.
+- The std and the corelib only grow. A build has one of each, shared by packages of every edition, so nothing in it
+  is removed or changed incompatibly: a member that ages gets `[Obsolete]` naming its
+  replacement, and an incompatible change is a new member (D161).
 
 ## What is CΔ and what is projected
 

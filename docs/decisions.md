@@ -346,7 +346,15 @@ falling back to MSBuild for anything else, is a candidate; a build language of C
 member, so the build writes formatters for GDB, LLDB and Visual Studio from it.
 
 **D160. Hot reload and the DOM are planned directions.** Both fit without a runtime: reloading a
-shared library whose state lives in its host, and a projection backend for JavaScript glue.
+shared library whose state lives in its host, and a projection backend for JavaScript glue. Hot
+reload is part of M8, because it decides whether CΔ is a good language for game code.
+
+**D161. Editions per package, meeting in Delta IR.** CΔ follows C# as it evolves without
+splitting its ecosystem: each package keeps the C# version and CΔ rules it was written for, the
+compiler supports every past edition, and packages of different editions form one program
+because each is its own Roslyn compilation. CΔ's own rules change incompatibly only at a new
+edition, with code fixes to migrate; the std only grows. 1.0 comes after months of real use, not
+after a milestone.
 
 ## Repository
 
