@@ -47,6 +47,7 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer
         new BitsRule(),
         new ThreadStaticRule(),
         new StackEscapeRule(),
+        new LoopCaptureRule(),
         new ErrorRule(),
         new CInteropRule(),
         new SurrogateRule(),
