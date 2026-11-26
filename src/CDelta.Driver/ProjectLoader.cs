@@ -6,7 +6,7 @@ namespace CDelta.Driver;
 
 public static class ProjectLoader
 {
-    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC";
+    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget";
     private const string Items = "Compile,CSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
 
     public static ProjectPlan? Load(IProcessRunner runner, string projectPath, DiagnosticBag diagnostics)
@@ -27,7 +27,7 @@ public static class ProjectLoader
         return new ProjectPlan(
             full,
             name,
-            null,
+            Property(properties, "CDeltaTarget"),
             Property(properties, "OptimizeMode"),
             Property(properties, "CToolchain"),
             string.Equals(Property(properties, "EmitC"), "true", StringComparison.OrdinalIgnoreCase),

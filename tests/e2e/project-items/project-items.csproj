@@ -4,6 +4,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <CDeltaTarget>x86_64-linux-gnu</CDeltaTarget>
   </PropertyGroup>
 
   <ItemGroup>

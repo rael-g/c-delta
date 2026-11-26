@@ -14,4 +14,7 @@ set -e
 test "$status" = 9
 
 test -f "$work/../" 2> /dev/null || true
+
+$CDC build project-items.csproj
+test -x bin/Debug/x86_64-linux-gnu/project-items
 rm -rf obj bin
