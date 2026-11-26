@@ -42,4 +42,5 @@ public enum TypeKind
     ErrorSet,
     AnyError,
     Opaque,
+    Param,
 }

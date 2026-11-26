@@ -85,8 +85,14 @@ public sealed class FunctionBuilder(Module module, Body body)
     public RvalueId Cast(CastKind kind, ArithMode mode, OperandId operand, TypeId target) =>
         AddRvalue(Blank(RvalueKind.Cast) with { Op = (int)kind, Mode = mode, A = operand, Type = target });
 
-    public RvalueId CallDirect(FunctionId callee, IReadOnlyList<OperandId> args) =>
-        AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Direct, CalleeId = callee.Index, Args = AddArgs(args) });
+    public RvalueId CallDirect(FunctionId callee, IReadOnlyList<OperandId> args, IReadOnlyList<TypeId>? typeArgs = null) =>
+        AddRvalue(Blank(RvalueKind.Call) with
+        {
+            Callee = CalleeKind.Direct,
+            CalleeId = callee.Index,
+            Args = AddArgs(args),
+            Aux = typeArgs is { Count: > 0 } ? module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0,
+        });
 
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });

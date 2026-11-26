@@ -47,6 +47,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             }
         }
 
+        if (stage != ModuleStage.Lowered && _function.TypeParams.Count > 0)
+        {
+            Fail("a function with type parameters is left after instantiation");
+        }
+
         if (stage == ModuleStage.Final && _function.Linkage is LinkageKind.Extern or LinkageKind.CMacro
             && _function.Origin.Kind == OriginKind.Source)
         {
@@ -65,6 +70,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         var paramLocals = new List<int>();
         for (int i = 0; i < body.Locals.Count; i++)
         {
+            if (stage != ModuleStage.Lowered && ValidType(body.Locals[i].Type) && KindOf(body.Locals[i].Type) == TypeKind.Param)
+            {
+                Fail("a type parameter is left after instantiation");
+            }
+
             if (!ValidType(body.Locals[i].Type))
             {
                 Fail("local %" + i + " type does not resolve");
@@ -685,14 +695,22 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             }
 
             FunctionDecl callee = module.Functions[r.CalleeId];
+            int[] typeArgs = IrTypes.CallTypeArgs(module, r);
+            if (typeArgs.Length != callee.TypeParams.Count)
+            {
+                Fail("a call passes " + typeArgs.Length + " type arguments to a function with " + callee.TypeParams.Count + " type parameters");
+                return TypeId.None;
+            }
+
+            Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, callee, typeArgs);
             var parameters = new List<TypeId>();
             for (int i = 0; i < callee.Params.Count; i++)
             {
-                parameters.Add(module.Params[callee.Params.Start + i].Type);
+                parameters.Add(IrSubstitution.Apply(module, module.Params[callee.Params.Start + i].Type, bindings));
             }
 
             CheckArguments(body, r, parameters, callee.Variadic);
-            return callee.Return;
+            return IrSubstitution.Apply(module, callee.Return, bindings);
         }
 
         TypeId calleeType = OperandType(body, new OperandId(r.CalleeId));

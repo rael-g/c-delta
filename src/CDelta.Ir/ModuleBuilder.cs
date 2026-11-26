@@ -149,6 +149,19 @@ public sealed class ModuleBuilder(Module module)
         return id;
     }
 
+    public TypeId ParamType(string name) => Module.Type(new TypeNode(TypeKind.Param, TypeFlags.None, Module.Intern(name).Index, 0));
+
+    public void SetTypeParams(FunctionId function, IReadOnlyList<string> names)
+    {
+        int start = Module.TypeParams.Count;
+        foreach (string name in names)
+        {
+            Module.TypeParams.Add(Module.Intern(name));
+        }
+
+        Module.Functions[function.Index] = Module.Functions[function.Index] with { TypeParams = new IdRange(start, names.Count) };
+    }
+
     public TypeId OpaqueType(OpaqueId id) => Module.Type(new TypeNode(TypeKind.Opaque, TypeFlags.None, id.Index, 0));
 
     public int AddCImport(CImportDecl import)

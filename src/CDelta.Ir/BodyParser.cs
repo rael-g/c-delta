@@ -405,12 +405,23 @@ internal sealed class BodyParser(
         string kind = cursor.ReadWord();
         FunctionId callee = FunctionId.None;
         OperandId indirect = OperandId.None;
+        var typeArgs = new List<TypeId>();
         if (kind == "direct")
         {
             string key = cursor.ReadReference();
             if (!module.FunctionsByKey.TryGetValue(key, out callee))
             {
                 throw cursor.Error("unknown function " + key);
+            }
+
+            if (cursor.TryChar('<'))
+            {
+                do
+                {
+                    typeArgs.Add(types.ParseType(cursor));
+                }
+                while (cursor.TryChar(','));
+                cursor.Expect('>');
             }
         }
         else
@@ -430,6 +441,6 @@ internal sealed class BodyParser(
             arguments.Add(ParseOperand(cursor));
         }
 
-        return kind == "direct" ? _f.CallDirect(callee, arguments) : _f.CallIndirect(indirect, arguments);
+        return kind == "direct" ? _f.CallDirect(callee, arguments, typeArgs) : _f.CallIndirect(indirect, arguments);
     }
 }

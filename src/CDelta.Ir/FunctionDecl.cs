@@ -15,4 +15,5 @@ public readonly record struct FunctionDecl(
     StringId ExportName,
     bool ExportWeak,
     InlineKind Inline,
-    SafetyOverride Safety);
+    SafetyOverride Safety,
+    IdRange TypeParams = default);

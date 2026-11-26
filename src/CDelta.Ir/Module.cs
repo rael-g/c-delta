@@ -37,6 +37,8 @@ public sealed class Module(string name)
 
     public List<ParamDecl> Params { get; } = [];
 
+    public List<StringId> TypeParams { get; } = [];
+
     public List<FieldDecl> Fields { get; } = [];
 
     public List<EnumMember> EnumMembers { get; } = [];

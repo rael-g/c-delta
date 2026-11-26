@@ -11,9 +11,15 @@ public sealed class Instantiator
     private readonly Module _destination;
     private readonly ModuleBuilder _builder;
     private readonly ModuleRemapper _remap;
-    private readonly Dictionary<int, FunctionId> _mapped = [];
+    private const int MaxInstantiationDepth = 64;
+
+    private readonly Dictionary<string, FunctionId> _mapped = [];
+    private readonly Dictionary<int, Body?> _bodies = [];
     private readonly Dictionary<int, GlobalId> _globals = [];
-    private readonly Queue<FunctionId> _pending = new();
+    private readonly Queue<Instance> _pending = new();
+    private int _depth;
+
+    private readonly record struct Instance(FunctionId Source, FunctionId Destination, Dictionary<int, TypeId> Bindings, int Depth);
 
     public Instantiator(Module source, IBodyProvider provider, DiagnosticBag diagnostics)
     {
@@ -30,13 +36,22 @@ public sealed class Instantiator
         _destination.Sources.AddRange(_source.Sources);
         foreach (FunctionId root in roots)
         {
-            Reach(root);
+            if (_source.Functions[root.Index].TypeParams.Count == 0)
+            {
+                Reach(root, []);
+            }
         }
 
         while (_pending.Count > 0)
         {
-            FunctionId id = _pending.Dequeue();
-            Body? body = _provider.Lower(id);
+            Instance instance = _pending.Dequeue();
+            FunctionId id = instance.Source;
+            if (!_bodies.TryGetValue(id.Index, out Body? body))
+            {
+                body = _provider.Lower(id);
+                _bodies.Add(id.Index, body);
+            }
+
             FunctionDecl declaration = _source.Functions[id.Index];
             if (body is null)
             {
@@ -48,7 +63,10 @@ public sealed class Instantiator
                 continue;
             }
 
-            _destination.Bodies[_mapped[id.Index].Index] = CopyBody(body);
+            _remap.Bindings = instance.Bindings;
+            _depth = instance.Depth;
+            _destination.Bodies[instance.Destination.Index] = CopyBody(body);
+            _remap.Bindings = null;
         }
 
         _destination.CImports.AddRange(_source.CImports);
@@ -67,14 +85,38 @@ public sealed class Instantiator
         }
     }
 
-    private FunctionId Reach(FunctionId id)
+    private FunctionId Reach(FunctionId id, IReadOnlyList<TypeId> typeArguments)
     {
-        if (_mapped.TryGetValue(id.Index, out FunctionId existing))
+        string instanceKey = id.Index + "|" + string.Join(",", typeArguments.Select(argument => argument.Index));
+        if (_mapped.TryGetValue(instanceKey, out FunctionId existing))
         {
             return existing;
         }
 
         FunctionDecl declaration = _source.Functions[id.Index];
+        int depth = typeArguments.Count > 0 ? _depth + 1 : _depth;
+        if (depth > MaxInstantiationDepth)
+        {
+            if (!_diagnostics.HasError)
+            {
+                string path = declaration.Span.IsNone ? _source.Name : _source.Sources[declaration.Span.File.Index].FullPath;
+                _diagnostics.Add(
+                    DiagnosticCode.CD5005,
+                    new Location(path, declaration.Span.Line, declaration.Span.Column),
+                    new Note(null, "while instantiating " + _source.Text(declaration.Key)));
+            }
+
+            return existing;
+        }
+
+        var bindings = new Dictionary<int, TypeId>();
+        for (int i = 0; i < declaration.TypeParams.Count; i++)
+        {
+            bindings[_source.TypeParams[declaration.TypeParams.Start + i].Index] = typeArguments[i];
+        }
+
+        Dictionary<int, TypeId>? saved = _remap.Bindings;
+        _remap.Bindings = bindings;
         var parameters = new List<ParamDecl>();
         for (int i = 0; i < declaration.Params.Count; i++)
         {
@@ -88,9 +130,12 @@ public sealed class Instantiator
             attributes.Add(_source.Text(_source.Attributes[declaration.Attributes.Start + i].Name));
         }
 
+        string instanceName = typeArguments.Count == 0
+            ? _source.Text(declaration.Key)
+            : _source.Text(declaration.Key) + "<" + string.Join(", ", typeArguments.Select(argument => IrPrinter.TypeText(_destination, argument))) + ">";
         FunctionId created = _builder.DeclareFunction(
-            _source.Text(declaration.Key),
-            _source.Text(declaration.Name),
+            instanceName,
+            typeArguments.Count == 0 ? _source.Text(declaration.Name) : instanceName,
             declaration.Span,
             _remap.Origin(declaration.Origin),
             parameters,
@@ -107,8 +152,9 @@ public sealed class Instantiator
             Safety = declaration.Safety,
             ExportWeak = declaration.ExportWeak,
         };
-        _mapped.Add(id.Index, created);
-        _pending.Enqueue(id);
+        _remap.Bindings = saved;
+        _mapped.Add(instanceKey, created);
+        _pending.Enqueue(new Instance(id, created, bindings, depth));
         return created;
     }
 
@@ -169,7 +215,7 @@ public sealed class Instantiator
             body.Operands.Add(operand.Kind switch
             {
                 OperandKind.Const => operand with { A = _remap.Constant(new ConstId(operand.A)).Index },
-                OperandKind.FnRef => operand with { A = Reach(new FunctionId(operand.A)).Index },
+                OperandKind.FnRef => operand with { A = Reach(new FunctionId(operand.A), []).Index },
                 OperandKind.Undef => operand with { A = _remap.Type(new TypeId(operand.A)).Index },
                 _ => operand,
             });
@@ -185,7 +231,9 @@ public sealed class Instantiator
 
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Direct)
             {
-                copy = copy with { CalleeId = Reach(new FunctionId(rvalue.CalleeId)).Index };
+                int[] typeArgs = IrTypes.CallTypeArgs(_source, rvalue);
+                var mappedArgs = typeArgs.Select(argument => _remap.Type(new TypeId(argument))).ToList();
+                copy = copy with { CalleeId = Reach(new FunctionId(rvalue.CalleeId), mappedArgs).Index, Aux = 0 };
             }
 
             body.Rvalues.Add(copy);

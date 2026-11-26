@@ -375,6 +375,18 @@ internal sealed class ModuleParser
         var cursor = new IrCursor(_lines[start], start + 1);
         cursor.ExpectWord("fn");
         string key = cursor.ReadReference();
+        var typeParams = new List<string>();
+        if (cursor.TryChar('<'))
+        {
+            do
+            {
+                cursor.ExpectWord("type");
+                typeParams.Add(cursor.ReadWord());
+            }
+            while (cursor.TryChar(','));
+            cursor.Expect('>');
+        }
+
         cursor.Expect('(');
         var parameters = new List<ParamDecl>();
         bool variadic = false;
@@ -446,6 +458,7 @@ internal sealed class ModuleParser
         SourceSpan span = ParseSpan(cursor);
         FunctionId id = _builder.DeclareFunction(key, key, span, origin, parameters, variadic, result, conv, linkage, exportName, attributes, returnMode);
         _module.Functions[id.Index] = _module.Functions[id.Index] with { Inline = inline, Safety = safety, ExportWeak = weak };
+        _builder.SetTypeParams(id, typeParams);
         return id;
     }
 

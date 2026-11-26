@@ -7,6 +7,8 @@ internal sealed class ModuleRemapper(Module source, Module destination)
     private readonly Dictionary<int, StructId> _structs = [];
     private readonly Dictionary<int, EnumId> _enums = [];
 
+    public Dictionary<int, TypeId>? Bindings { get; set; }
+
     public StringId String(StringId id) => id.IsNone ? id : destination.Intern(source.Text(id));
 
     public TypeId Type(TypeId id)
@@ -37,6 +39,13 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 return destination.Type(node with { A = Enum(new EnumId(node.A)).Index });
             case TypeKind.Opaque:
                 return destination.Type(node with { A = Opaque(new OpaqueId(node.A)).Index });
+            case TypeKind.Param:
+                if (Bindings is not null && Bindings.TryGetValue(node.A, out TypeId bound))
+                {
+                    return bound;
+                }
+
+                throw new InvalidOperationException("the type parameter " + source.Strings[node.A] + " is not bound");
             default:
                 return destination.Type(node);
         }

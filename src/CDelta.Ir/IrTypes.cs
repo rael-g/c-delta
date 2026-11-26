@@ -33,6 +33,9 @@ public static class IrTypes
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
+    public static int[] CallTypeArgs(Module module, Rvalue call) =>
+        call.Aux > 0 ? module.TypeLists[call.Aux - 1] : [];
+
     public static string Name(TypeKind kind) => kind switch
     {
         TypeKind.Void => "void",

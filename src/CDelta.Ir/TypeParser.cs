@@ -116,6 +116,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 }
 
                 return builder.StructType(structId);
+            case "param":
+                return builder.ParamType(cursor.ReadWord());
             case "opaque":
                 string opaqueKey = cursor.ReadReference();
                 if (!module.OpaquesByKey.TryGetValue(opaqueKey, out OpaqueId opaqueId))

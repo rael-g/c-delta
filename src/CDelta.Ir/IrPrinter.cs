@@ -128,6 +128,8 @@ public static partial class IrPrinter
                 return "enum " + Reference(module.Text(module.Enums[node.A].Key));
             case TypeKind.Opaque:
                 return "opaque " + Reference(module.Text(module.Opaques[node.A].Key));
+            case TypeKind.Param:
+                return "param " + module.Strings[node.A];
             default:
                 return IrTypes.Name(node.Kind);
         }
@@ -430,7 +432,16 @@ public static partial class IrPrinter
             text.Append("#[").Append(Reference(module.Text(attribute.Name))).Append("]\n");
         }
 
-        text.Append("fn ").Append(Reference(module.Text(function.Key))).Append('(');
+        text.Append("fn ").Append(Reference(module.Text(function.Key)));
+        if (function.TypeParams.Count > 0)
+        {
+            text.Append('<').Append(string.Join(
+                ", ",
+                Enumerable.Range(function.TypeParams.Start, function.TypeParams.Count).Select(i => "type " + module.Text(module.TypeParams[i]))))
+                .Append('>');
+        }
+
+        text.Append('(');
         for (int i = 0; i < function.Params.Count; i++)
         {
             ParamDecl parameter = module.Params[function.Params.Start + i];
@@ -896,6 +907,12 @@ public static partial class IrPrinter
                 if (rvalue.Callee == CalleeKind.Direct)
                 {
                     text.Append("direct ").Append(Reference(module.Text(module.Functions[rvalue.CalleeId].Key)));
+                    int[] typeArgs = IrTypes.CallTypeArgs(module, rvalue);
+                    if (typeArgs.Length > 0)
+                    {
+                        text.Append('<').Append(string.Join(", ", typeArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
+                    }
+
                 }
                 else
                 {
