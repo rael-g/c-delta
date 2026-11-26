@@ -30,7 +30,7 @@ public static class CompilationFactory
             trees.Add(CSharpSyntaxTree.ParseText(source.Text, parse, source.FullPath));
         }
 
-        CSharpCompilationOptions options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+        CSharpCompilationOptions options = new CSharpCompilationOptions(HasTopLevelStatements(trees) ? OutputKind.ConsoleApplication : OutputKind.DynamicallyLinkedLibrary)
             .WithAllowUnsafe(true)
             .WithOverflowChecks(false)
             .WithNullableContextOptions(NullableContextOptions.Disable)
@@ -38,6 +38,9 @@ public static class CompilationFactory
             .WithSpecificDiagnosticOptions(DiagnosticOptions());
         return CSharpCompilation.Create(assemblyName, trees, [MetadataReference.CreateFromFile(corelibPath)], options);
     }
+
+    private static bool HasTopLevelStatements(IReadOnlyList<SyntaxTree> trees) =>
+        trees.Any(tree => tree.GetRoot().ChildNodes().Any(node => node is Microsoft.CodeAnalysis.CSharp.Syntax.GlobalStatementSyntax));
 
     private static Dictionary<string, ReportDiagnostic> DiagnosticOptions()
     {

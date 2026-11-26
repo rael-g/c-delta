@@ -59,7 +59,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             _thisLocal = _f.NewLocal("this", _builder.Pointer(self, constness), LocalKind.Param, methodSpan);
         }
 
-        foreach (IParameterSymbol parameter in method.Parameters)
+        foreach (IParameterSymbol parameter in CSharpFrontend.IsTopLevelEntry(method) ? [] : method.Parameters)
         {
             _locals[parameter] = _f.NewLocal(parameter.Name, frontend.Types.ParameterType(parameter, location), LocalKind.Param, methodSpan);
         }

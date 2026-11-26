@@ -350,8 +350,18 @@ public sealed class CSharpFrontend : IBodyProvider
         return found;
     }
 
+    private const string TopLevelEntryName = "Program.Main";
+
+    internal static bool IsTopLevelEntry(IMethodSymbol method) =>
+        method.Name == "<Main>$";
+
     private IEnumerable<IMethodSymbol> EntryPointCandidates()
     {
+        if (_compilation.GetEntryPoint(default) is { } entry && IsTopLevelEntry(entry))
+        {
+            return [entry];
+        }
+
         var pending = new Stack<INamespaceOrTypeSymbol>();
         pending.Push(_compilation.Assembly.GlobalNamespace);
         var found = new List<IMethodSymbol>();
@@ -384,8 +394,9 @@ public sealed class CSharpFrontend : IBodyProvider
         }
 
         Location location = method.Locations.FirstOrDefault() ?? Location.None;
-        string key = method.GetDocumentationCommentId()![2..];
-        string name = method.ContainingType.ToDisplayString(_typeFormat) + "." + method.Name;
+        bool topLevel = IsTopLevelEntry(method);
+        string key = topLevel ? TopLevelEntryName : method.GetDocumentationCommentId()![2..];
+        string name = topLevel ? TopLevelEntryName : method.ContainingType.ToDisplayString(_typeFormat) + "." + method.Name;
         Module module = Module;
 
         var parameters = new List<ParamDecl>();
@@ -399,7 +410,7 @@ public sealed class CSharpFrontend : IBodyProvider
                 readOnly ? ParamMode.RefReadonly : ParamMode.Ref));
         }
 
-        foreach (IParameterSymbol parameter in method.Parameters)
+        foreach (IParameterSymbol parameter in topLevel ? [] : method.Parameters)
         {
             parameters.Add(new ParamDecl(
                 module.Intern(parameter.Name),
