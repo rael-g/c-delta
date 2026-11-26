@@ -8,6 +8,7 @@ internal sealed partial class BodyLowerer
 {
     public const string ArgumentCountKey = "synthetic:argc";
     public const string ArgumentValuesKey = "synthetic:argv";
+    public const string ArgumentStringsKey = "synthetic:args";
 
     private OperandId LowerStartup(IMethodSymbol target, SourceSpan span)
     {
@@ -19,6 +20,12 @@ internal sealed partial class BodyLowerer
             OperandId count = _f.Copy(_f.GlobalPlace(SyntheticGlobal(ArgumentCountKey, cInt, _builder.IntConstant(cInt, 0))));
             TypeId i32 = _builder.Primitive(TypeKind.I32);
             return Emit(i32, _f.Cast(CastKind.IntInt, ArithMode.Wrap, count, i32), span);
+        }
+
+        if (target.Name == "Args")
+        {
+            TypeId strings = _builder.SliceOf(frontend.Types.TextType(), true);
+            return _f.Copy(_f.GlobalPlace(SyntheticGlobal(ArgumentStringsKey, strings, _builder.NullConstant(strings))));
         }
 
         OperandId values = _f.Copy(_f.GlobalPlace(SyntheticGlobal(ArgumentValuesKey, argv, _builder.NullConstant(argv))));

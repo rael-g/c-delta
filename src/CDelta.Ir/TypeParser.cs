@@ -73,7 +73,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 cursor.Expect('<');
                 TypeId sliced = ParseType(cursor);
                 cursor.Expect('>');
-                return builder.SliceOf(sliced, cursor.TryWord("const"));
+                bool sliceConst = cursor.TryWord("const");
+                return builder.SliceOf(sliced, sliceConst, cursor.TryWord("text"));
             case "optional":
                 cursor.Expect('<');
                 TypeId payload = ParseType(cursor);

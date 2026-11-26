@@ -18,6 +18,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private const int RangeEnd = 1;
     private const int EnumeratorItems = 0;
     private const int EnumeratorIndex = 1;
+    private const int EnumeratorScalar = 2;
 
     private readonly Module _module = frontend.Module;
     private readonly ModuleBuilder _builder = frontend.Builder;
@@ -651,6 +652,15 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return _f.Copy(PlaceOf(operation));
             case IPropertyReferenceOperation { Property.IsIndexer: true } when TypeMapper.IsSpanLike(((IPropertyReferenceOperation)operation).Instance?.Type):
                 return _f.Copy(PlaceOf(operation));
+            case IPropertyReferenceOperation { Property.Name: "Bytes", Instance: { } text } when TypeMapper.IsString(text.Type):
+                TypeId bytesType = frontend.Types.Map(operation.Type!, location);
+                return Emit(bytesType, _f.Cast(CastKind.Bitcast, ArithMode.Default, LowerValue(text), bytesType), SpanOf(operation));
+            case IPropertyReferenceOperation { Property.Name: "Current", Instance: { } runes } when runes.Type?.ContainingType?.SpecialType == SpecialType.System_String:
+                return LowerRuneCurrent(runes, SpanOf(operation));
+            case IInvocationOperation { TargetMethod.Name: "GetEnumerator" } textEnumeration when TypeMapper.IsString(textEnumeration.TargetMethod.ContainingType):
+                return LowerStringEnumerator(textEnumeration);
+            case IInvocationOperation { TargetMethod.Name: "MoveNext" } textAdvance when textAdvance.TargetMethod.ContainingType.ContainingType?.SpecialType == SpecialType.System_String:
+                return LowerStringMoveNext(textAdvance);
             case IPropertyReferenceOperation { Property.GetMethod: { } } userProperty when IsUserAccessor(userProperty.Property):
                 return LowerPropertyGet(userProperty);
             case IOperation { Kind: OperationKind.ImplicitIndexerReference } rangeSlice when IsRangeAccess(rangeSlice):
@@ -763,6 +773,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         {
             ulong bits = value is double wide ? BitConverter.DoubleToUInt64Bits(wide) : BitConverter.SingleToUInt32Bits((float)value);
             return _f.Const(_builder.FloatConstant(typeId, bits));
+        }
+
+        if (value is string literal)
+        {
+            return _f.Const(_builder.BytesConstant(typeId, new UTF8Encoding(false, true).GetBytes(literal)));
         }
 
         Int128 number = value switch
@@ -881,6 +896,15 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         if (binary.IsLifted)
         {
             return LowerLiftedBinary(binary, span);
+        }
+
+        if (TypeMapper.IsString(binary.LeftOperand.Type) && binary.OperatorKind is BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals)
+        {
+            OperandId textLeft = Snapshot(LowerValue(binary.LeftOperand), span);
+            OperandId equal = TextEquals(textLeft, LowerValue(binary.RightOperand), span);
+            return binary.OperatorKind == BinaryOperatorKind.Equals
+                ? equal
+                : Emit(_builder.Primitive(TypeKind.Bool), _f.Unop(UnOp.Not, ArithMode.Default, equal), span);
         }
 
         if (UserOperator(binary.OperatorMethod) is { } method)
@@ -1094,9 +1118,16 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerTextBytes(literal, SpanOf(conversion));
         }
 
-        if (conversion.Operand.ConstantValue is { HasValue: true, Value: string text } && source?.SpecialType == SpecialType.System_String)
+        if (conversion.Operand.ConstantValue is { HasValue: true, Value: string text } && source?.SpecialType == SpecialType.System_String
+            && target is IPointerTypeSymbol)
         {
             return LowerStringToPointer(text, target, conversion, location);
+        }
+
+        if (source?.SpecialType == SpecialType.System_String && TypeMapper.IsReadOnlySpan(target))
+        {
+            TypeId spanType = frontend.Types.Map(target, location);
+            return Emit(spanType, _f.Cast(CastKind.Bitcast, ArithMode.Default, LowerValue(conversion.Operand), spanType), SpanOf(conversion));
         }
 
         if (conversion.Operand is IPropertyReferenceOperation { Property: { Name: "Current", ContainingType.Name: "IEnumerator" } })
@@ -1398,7 +1429,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerStartup(target, span);
         }
 
-        if (TypeMapper.IsSpanLike(target.ContainingType) && target.Name == "Slice")
+        if ((TypeMapper.IsSpanLike(target.ContainingType) || TypeMapper.IsString(target.ContainingType)) && target.Name == "Slice")
         {
             return LowerSlice(invocation, span);
         }
@@ -1452,6 +1483,54 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return Emit(returnType, call, span);
+    }
+
+    private OperandId TextEquals(OperandId left, OperandId right, SourceSpan span) =>
+        Emit(_builder.Primitive(TypeKind.Bool), _f.Intrinsic(IrTyper.TextEqlIntrinsic, [left, right]), span);
+
+    private OperandId LowerStringEnumerator(IInvocationOperation enumeration)
+    {
+        SourceSpan span = SpanOf(enumeration);
+        TypeId type = frontend.Types.Map(enumeration.Type!, enumeration.Syntax.GetLocation());
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        OperandId items = Snapshot(LowerValue(enumeration.Instance!), span);
+        OperandId zero = _f.Const(_builder.IntConstant(i32, 0));
+        return Emit(type, _f.Aggregate(type, [items, zero, zero]), span);
+    }
+
+    private OperandId LowerStringMoveNext(IInvocationOperation advance)
+    {
+        SourceSpan span = SpanOf(advance);
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId i32 = _builder.Primitive(TypeKind.I32);
+        PlaceId enumerator = PlaceOf(advance.Instance!);
+        PlaceId items = _f.Project(enumerator, ProjectionKind.Field, EnumeratorItems);
+        PlaceId offset = _f.Project(enumerator, ProjectionKind.Field, EnumeratorIndex);
+        PlaceId scalar = _f.Project(enumerator, ProjectionKind.Field, EnumeratorScalar);
+        LocalId result = NewTemp(boolean);
+        OperandId length = Emit(i32, _f.Len(items), span);
+        OperandId more = Emit(boolean, _f.Binop(BinOp.Lt, ArithMode.Default, _f.Copy(offset), length), span);
+        BlockId read = _f.NewBlock();
+        BlockId done = _f.NewBlock();
+        BlockId finished = _f.NewBlock();
+        _f.Branch(more, read, finished, span);
+        _f.SetBlock(read);
+        OperandId next = Emit(i32, _f.Intrinsic(IrTyper.Utf8NextIntrinsic, [_f.Copy(items), Emit(_builder.Pointer(i32, TypeFlags.None), _f.Addr(offset, true), span)]), span);
+        _f.Assign(scalar, _f.Use(next), span);
+        _f.Assign(_f.LocalPlace(result), _f.Use(_f.Const(_builder.BoolConstant(boolean, true))), span);
+        _f.Goto(done, span);
+        _f.SetBlock(finished);
+        _f.Assign(_f.LocalPlace(result), _f.Use(_f.Const(_builder.BoolConstant(boolean, false))), span);
+        _f.Goto(done, span);
+        _f.SetBlock(done);
+        return _f.Copy(_f.LocalPlace(result));
+    }
+
+    private OperandId LowerRuneCurrent(IOperation enumerator, SourceSpan span)
+    {
+        TypeId rune = _builder.StructType(frontend.Types.RuneStruct());
+        OperandId scalar = _f.Copy(_f.Project(PlaceOf(enumerator), ProjectionKind.Field, EnumeratorScalar));
+        return Emit(rune, _f.Aggregate(rune, [scalar]), span);
     }
 
     private bool IsUserAccessor(IPropertySymbol property) =>
@@ -1947,6 +2026,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         switch (pattern)
         {
+            case IConstantPatternOperation constant when TypeMapper.IsString(constant.Value.Type):
+                return TextEquals(_f.Copy(place), LowerValue(constant.Value), span);
             case IConstantPatternOperation constant:
                 return Emit(boolean, _f.Binop(BinOp.Eq, ArithMode.Default, _f.Copy(place), LowerValue(constant.Value)), span);
             case IRelationalPatternOperation relational:

@@ -15,7 +15,7 @@
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
-    <NoWarn>$(NoWarn);CS0169;CS0649</NoWarn>
+    <NoWarn>$(NoWarn);CS0169;CS0649;CS0660;CS0661</NoWarn>
   </PropertyGroup>
 
 </Project>

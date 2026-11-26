@@ -100,7 +100,7 @@ internal static class CConstants
 
                 return text.Append(" }").ToString();
             case ConstKind.Null:
-                return "0";
+                return node.Kind == TypeKind.Slice ? "{ 0 }" : "0";
             default:
                 return Spell(module, names, id);
         }

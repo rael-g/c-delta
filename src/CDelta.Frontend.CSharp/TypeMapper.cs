@@ -132,6 +132,45 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
     }
 
+    public static bool IsString(ITypeSymbol? type) => type?.SpecialType == SpecialType.System_String;
+
+    public TypeId TextType() => builder.SliceOf(builder.Primitive(TypeKind.U8), true, true);
+
+    public StructId RuneStruct()
+    {
+        Module module = builder.Module;
+        const string key = "System.Text.Rune";
+        if (module.StructsByKey.TryGetValue(key, out StructId existing))
+        {
+            return existing;
+        }
+
+        var fields = new List<FieldDecl>
+        {
+            new(module.Intern("Value"), builder.Primitive(TypeKind.I32), IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+        };
+        return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
+    }
+
+    public StructId StringEnumeratorStruct()
+    {
+        Module module = builder.Module;
+        const string key = "string.enumerator";
+        if (module.StructsByKey.TryGetValue(key, out StructId existing))
+        {
+            return existing;
+        }
+
+        TypeId i32 = builder.Primitive(TypeKind.I32);
+        var fields = new List<FieldDecl>
+        {
+            new(module.Intern("Items"), TextType(), IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+            new(module.Intern("Offset"), i32, IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+            new(module.Intern("Scalar"), i32, IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset),
+        };
+        return builder.DeclareStruct(key, key, SourceSpan.None, Origin.FromSource(module.Intern(Language)), fields, StructLayoutKind.C, 0, 0, []);
+    }
+
     public StructId EnumeratorOf(INamedTypeSymbol span, Location location) => EnumeratorOf(Map(span, location));
 
     public StructId EnumeratorOf(TypeId sliceType)
@@ -257,6 +296,12 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.Pointer(element, TypeFlags.Nullable | TypeFlags.Many);
             case INamedTypeSymbol { IsTupleType: true } tuple:
                 return builder.StructType(TupleOf(tuple, location));
+            case INamedTypeSymbol { SpecialType: SpecialType.System_String }:
+                return TextType();
+            case INamedTypeSymbol { Name: "Enumerator", ContainingType.SpecialType: SpecialType.System_String }:
+                return builder.StructType(StringEnumeratorStruct());
+            case INamedTypeSymbol { Name: "Rune", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: "System" } }:
+                return builder.StructType(RuneStruct());
             case INamedTypeSymbol { Name: "RangeEnumerator", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }:
                 return builder.StructType(RangeEnumeratorStruct());
             case INamedTypeSymbol { Name: "Enumerator", ContainingType: { } enumerated } when IsSpanLike(enumerated):

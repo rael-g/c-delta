@@ -12,6 +12,10 @@ internal sealed class CEmitState
 
     public bool UsesReport { get; set; }
 
+    public bool UsesTextEql { get; set; }
+
+    public bool UsesUtf8Next { get; set; }
+
     public bool UsesTracePush { get; set; }
 
     public SortedSet<(string From, string To, bool Trap)> FloatCasts { get; } = [];

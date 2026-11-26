@@ -149,6 +149,16 @@ public static class CBackend
             text.Append('\n').Append(slices);
         }
 
+        if (state.UsesTextEql)
+        {
+            text.Append('\n').Append(CPrelude.TextEql);
+        }
+
+        if (state.UsesUtf8Next)
+        {
+            text.Append('\n').Append(CPrelude.Utf8Next);
+        }
+
         List<(int ArrayType, int Struct)> typeOrder = structs.TypeOrder(structOrder);
         if (typeOrder.Count > 0)
         {

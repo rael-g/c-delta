@@ -7,9 +7,14 @@ enum CountError { CannotOpen, ReadFailed }
 
 static unsafe class Program
 {
-    static Result<long, CountError> CountLines(byte* path)
+    static Result<long, CountError> CountLines(string path)
     {
-        var file = C.fopen(path, "rb");
+        var file = default(C.FILE*);
+        fixed (byte* name = path.Bytes)
+        {
+            file = C.fopen(name, "rb");
+        }
+
         if (file == null) return CountError.CannotOpen;
         Defer(() => C.fclose(file));
 
@@ -29,7 +34,7 @@ static unsafe class Program
             Debug.Print("usage: count-lines <file>\n");
             Process.Exit(2);
         }
-        var lines = Try(CountLines(args[1].Pointer));
+        var lines = Try(CountLines(args[1]));
         C.printf("%lld\n", __arglist(lines));
         return default;
     }

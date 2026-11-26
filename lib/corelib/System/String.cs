@@ -1,8 +1,28 @@
 namespace System;
 
-public sealed class String
+public readonly unsafe struct String
 {
-    public static unsafe implicit operator byte*(string value) => throw null;
+    private readonly byte* _pointer;
+    private readonly int _length;
 
-    public static implicit operator ReadOnlySpan<byte>(string value) => throw null;
+    public ReadOnlySpan<byte> Bytes => throw null;
+
+    public String Slice(int start, int count) => throw null;
+
+    public Enumerator GetEnumerator() => throw null;
+
+    public static bool operator ==(String left, String right) => throw null;
+
+    public static bool operator !=(String left, String right) => throw null;
+
+    public static implicit operator byte*(String value) => throw null;
+
+    public static implicit operator ReadOnlySpan<byte>(String value) => throw null;
+
+    public struct Enumerator
+    {
+        public bool MoveNext() => throw null;
+
+        public System.Text.Rune Current => throw null;
+    }
 }

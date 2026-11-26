@@ -1,5 +1,3 @@
-using Std.C;
-
 namespace Std;
 
 public static unsafe class Process
@@ -7,9 +5,9 @@ public static unsafe class Process
     [DllImport("c")]
     private static extern void exit(int code);
 
-    public static ReadOnlySpan<CString> Args()
+    public static ReadOnlySpan<string> Args()
     {
-        return new ReadOnlySpan<CString>((CString*)Startup.ArgValues(), Startup.ArgCount());
+        return Startup.Args();
     }
 
     public static void Exit(int code)

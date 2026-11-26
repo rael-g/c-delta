@@ -14,8 +14,8 @@ public sealed class ModuleBuilder(Module module)
 
     public TypeId Pointer(TypeId element, TypeFlags flags) => Module.Type(new TypeNode(TypeKind.Ptr, flags, element.Index, 0));
 
-    public TypeId SliceOf(TypeId element, bool isConst) =>
-        Module.Type(new TypeNode(TypeKind.Slice, isConst ? TypeFlags.Const : TypeFlags.None, element.Index, 0));
+    public TypeId SliceOf(TypeId element, bool isConst, bool isText = false) =>
+        Module.Type(new TypeNode(TypeKind.Slice, (isConst ? TypeFlags.Const : TypeFlags.None) | (isText ? TypeFlags.Text : TypeFlags.None), element.Index, 0));
 
     public TypeId OptionalOf(TypeId payload) => Module.Type(new TypeNode(TypeKind.Optional, TypeFlags.None, payload.Index, 0));
 

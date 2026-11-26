@@ -4,6 +4,8 @@ public static class IrTyper
 {
     public const string ErrorNameIntrinsic = "error.name";
     public const string ErrorReportIntrinsic = "error.report";
+    public const string TextEqlIntrinsic = "text.eql";
+    public const string Utf8NextIntrinsic = "utf8.next";
 
     public static TypeId Pointee(Module module, TypeId pointer)
     {
@@ -132,7 +134,7 @@ public static class IrTyper
 
                 TypeNode slicedNode = module.Types[sliced.Index];
                 return slicedNode.Kind is TypeKind.Array or TypeKind.Slice
-                    ? module.Type(new TypeNode(TypeKind.Slice, slicedNode.Kind == TypeKind.Slice ? slicedNode.Flags & TypeFlags.Const : TypeFlags.None, slicedNode.A, 0))
+                    ? module.Type(new TypeNode(TypeKind.Slice, slicedNode.Kind == TypeKind.Slice ? slicedNode.Flags & (TypeFlags.Const | TypeFlags.Text) : TypeFlags.None, slicedNode.A, 0))
                     : TypeId.None;
             case RvalueKind.Alloca:
                 TypeFlags many = TypeFlags.Nullable | TypeFlags.Many;
@@ -156,9 +158,17 @@ public static class IrTyper
                     return module.Type(new TypeNode(TypeKind.Void, TypeFlags.None, 0, 0));
                 }
 
-                return module.Strings[r.Aux] == ErrorNameIntrinsic
-                    ? module.Type(new TypeNode(TypeKind.Slice, TypeFlags.Const, module.Type(new TypeNode(TypeKind.U8, TypeFlags.None, 0, 0)).Index, 0))
-                    : TypeId.None;
+                switch (module.Strings[r.Aux])
+                {
+                    case ErrorNameIntrinsic:
+                        return module.Type(new TypeNode(TypeKind.Slice, TypeFlags.Const, module.Type(new TypeNode(TypeKind.U8, TypeFlags.None, 0, 0)).Index, 0));
+                    case TextEqlIntrinsic:
+                        return module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0));
+                    case Utf8NextIntrinsic:
+                        return module.Type(new TypeNode(TypeKind.I32, TypeFlags.None, 0, 0));
+                    default:
+                        return TypeId.None;
+                }
             case RvalueKind.Call:
                 if (r.Callee == CalleeKind.Direct)
                 {

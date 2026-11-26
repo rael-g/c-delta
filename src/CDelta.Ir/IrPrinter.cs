@@ -108,7 +108,8 @@ public static partial class IrPrinter
                 return pointer.ToString();
             case TypeKind.Slice:
                 string slice = "slice<" + TypeText(module, new TypeId(node.A)) + ">";
-                return node.Flags.HasFlag(TypeFlags.Const) ? slice + " const" : slice;
+                slice += node.Flags.HasFlag(TypeFlags.Const) ? " const" : string.Empty;
+                return node.Flags.HasFlag(TypeFlags.Text) ? slice + " text" : slice;
             case TypeKind.Optional:
                 return "optional<" + TypeText(module, new TypeId(node.A)) + ">";
             case TypeKind.Result:

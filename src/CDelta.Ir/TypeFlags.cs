@@ -8,4 +8,5 @@ public enum TypeFlags
     Const = 2,
     Volatile = 4,
     Many = 8,
+    Text = 16,
 }

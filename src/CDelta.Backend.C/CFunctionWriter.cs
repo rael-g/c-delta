@@ -464,6 +464,9 @@ internal sealed partial class CFunctionWriter(
             case RvalueKind.Errcode:
                 Statement(destination + " = " + OperandText(rvalue.A) + ";");
                 break;
+            case RvalueKind.Intrinsic:
+                WriteIntrinsic(rvalue, destination);
+                break;
             case RvalueKind.OptionalSome:
                 Statement(destination + " = (" + cType + "){ " + OperandText(rvalue.A) + ", true };");
                 break;
@@ -490,6 +493,24 @@ internal sealed partial class CFunctionWriter(
             default:
                 WriteCast(rvalue, destination, cType, statement.Span);
                 break;
+        }
+    }
+
+    private void WriteIntrinsic(Rvalue rvalue, string destination)
+    {
+        string[] arguments = [.. Enumerable.Range(rvalue.Args.Start, rvalue.Args.Count).Select(i => OperandText(_body.Args[i]))];
+        switch (module.Strings[rvalue.Aux])
+        {
+            case IrTyper.TextEqlIntrinsic:
+                state.UsesTextEql = true;
+                Statement(destination + " = cd_text_eql(" + arguments[0] + ", " + arguments[1] + ");");
+                break;
+            case IrTyper.Utf8NextIntrinsic:
+                state.UsesUtf8Next = true;
+                Statement(destination + " = cd_utf8_next(" + arguments[0] + ", " + arguments[1] + ");");
+                break;
+            default:
+                throw new NotSupportedException("the intrinsic " + module.Strings[rvalue.Aux] + " is not supported at this stage");
         }
     }
 
@@ -732,6 +753,9 @@ internal sealed partial class CFunctionWriter(
                 return;
             case CastKind.SlicePtr:
                 Statement(destination + " = " + a + ".ptr;");
+                return;
+            case CastKind.Bitcast:
+                Statement(destination + " = " + a + ";");
                 return;
             case CastKind.IntFloat:
             case CastKind.FloatFloat:

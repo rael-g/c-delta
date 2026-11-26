@@ -6,9 +6,9 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace CDelta.Frontend.CSharp.Rules.Checks;
 
-internal sealed class StringRule : SubsetRule
+internal sealed class CharRule : SubsetRule
 {
-    public override DiagnosticCode Code => DiagnosticCode.CD1020;
+    public override DiagnosticCode Code => DiagnosticCode.CD1031;
 
     public override void Register(AnalysisContext context) =>
         context.RegisterSyntaxNodeAction(
@@ -28,7 +28,7 @@ internal sealed class StringRule : SubsetRule
                     return;
                 }
 
-                if (node.SemanticModel.GetTypeInfo(type).Type?.SpecialType == SpecialType.System_String
+                if (node.SemanticModel.GetTypeInfo(type).Type?.SpecialType == SpecialType.System_Char
                     && !Syntax.InAttributeClass(node.SemanticModel, node.Node))
                 {
                     Report(node, type);
