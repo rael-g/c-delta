@@ -131,6 +131,8 @@ completion of `C.fopen` and CΔ diagnostics.
 - Delegates, lambdas, closure conversion, local functions, function pointers (D144) and `CD1030`.
 - Indexer getters on user types (D150), `CD1005` narrowed to setters.
 - Getter-only static abstract properties and their implementations (D153), `CD1004` narrowed.
+- `CD2002` over values holding capturing lambdas (D154).
+- Top-level statements (D155), `CD1033`, `CD1022` retired; `Process.Run` with the first std.
 - `string` as UTF-8 text (D148): the corelib struct, equality, string `switch` and patterns,
   `foreach` over runes, `Rune`, `Startup.Args()` and `Process.Args()` as strings, `CD1031`,
   `CD1032`, `CD1020` retired.

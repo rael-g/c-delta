@@ -47,7 +47,7 @@ including the std, cannot declare them.
 | Namespaces, file-scoped namespaces | Kept |
 | `using` directives, `using static`, aliases, `global using` | Kept |
 | `extern alias` | Removed. `CD1000` |
-| Top-level statements | Removed. `CD1022` |
+| Top-level statements | Kept in one file of an executable: the entry point returns `void` or `int`, so `Try` there is `CD3001`; the implicit `args` is `CD1033` (D155) |
 | `file` types | Kept: visible only in their file |
 
 ## Types

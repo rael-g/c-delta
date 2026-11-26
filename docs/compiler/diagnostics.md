@@ -66,7 +66,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1019 | arrays are only allowed as initialized `static readonly` fields | [../language/types.md](../language/types.md#arrays) |
 | CD1020 | retired: `string` is a run-time type (D148) | [../language/types.md](../language/types.md#text) |
 | CD1021 | only constant strings concatenate, and interpolation needs a handler type | [../language/types.md](../language/types.md#text) |
-| CD1022 | top-level statements are not part of CΔ; declare `Main` | [../language/subset.md](../language/subset.md#namespaces-and-compilation-units) |
+| CD1022 | retired: top-level statements are kept (D155) | [../language/subset.md](../language/subset.md#namespaces-and-compilation-units) |
 | CD1023 | `#define` and `#undef` are not part of CΔ, and `#if` only tests build symbols | [../language/modules-build.md](../language/modules-build.md#conditional-compilation) |
 | CD1024 | `Deconstruct` methods are not part of CΔ | [../language/subset.md](../language/subset.md#members) |
 | CD1025 | fields must be `public` | [../language/modules-build.md](../language/modules-build.md#visibility) |
@@ -77,6 +77,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1030 | a function pointer with the default calling convention is written `delegate*<...>` | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#function-pointers) |
 | CD1031 | `char` only exists as a constant; use `Rune` or `byte` | [../language/types.md](../language/types.md#text) |
 | CD1032 | only a constant `string` converts to `byte*`; use `ToCString` | [../language/types.md](../language/types.md#text) |
+| CD1033 | the `args` of top-level statements is an array; use `Process.Args()` | [../language/errors.md](../language/errors.md#main) |
 | CD2001 | this switch does not cover every value; add the missing members or `default` | [../language/types.md](../language/types.md#enums) |
 | CD2002 | a capturing lambda cannot outlive the function that created it | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
 | CD2003 | an opaque type can only be used behind a pointer | [../language/types.md](../language/types.md#opaque-structs) |

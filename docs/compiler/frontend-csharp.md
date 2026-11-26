@@ -117,6 +117,9 @@ The frontend does not lower everything. The core starts from the roots (`Main`, 
 bodies through `IBodyProvider`. The subset checker still covers all code, so an unused function
 with a violation is still an error, which keeps the IDE and the build consistent.
 
+- The entry point Roslyn synthesizes for top-level statements (`Compilation.GetEntryPoint`) is the
+  `Main` of the executable. It is declared without its `string[] args` parameter, which no code
+  can read (`CD1033`).
 - Before the core runs, the frontend declares the root functions and marks them with the
   attributes `cdelta.EntryPoint` (the `Main` of an executable), `cdelta.Export`, `cdelta.Test` and
   `cdelta.PanicHandler`. The core's roots pass collects the functions that carry them.

@@ -55,7 +55,8 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |
 | `Std.Fs` | `File`, `Dir`, open, read, write, stat, iterate, paths | POSIX through libc; Win32 |
-| `Std.Process` | `Args()`, `Env`, `Exit`, child processes | libc; Win32 |
+| `Std.Process` | `Args()`, `Env`, `Exit`, `Run(Func<Result>)` and `Run(Func<Result<int>>)` giving the exit code of a failing `Main`, child processes | libc; Win32 |
+| `Std.Linq` | lazy queries over spans and enumerators, each operator a struct holding its source and delegate: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Zip`, `Concat`; terminals `Count`, `Any`, `All`, `Sum`, `Min`, `Max`, `Aggregate`, `First` and `Last` as optionals; those that need memory take an allocator: `ToList(allocator)`, `OrderBy` and `GroupBy`. Method syntax only; query expressions stay removed (`CD1014`) | itself |
 | `Std.Time` | monotonic and wall clocks, `Sleep`, `Stopwatch`, `TimeSpan`, `DateTime` (UTC; time zones are later) | `clock_gettime`; Win32 |
 | `Std.Random` | `Random`, a struct with an explicit seed; `Random.Shared`, one per thread, seeded from the OS | itself; the OS for seeding |
 | `Std.Thread` | `Thread`, `Mutex`, `Condition`, `Once`, `Atomic<T>` | C11 `<threads.h>` or pthreads; Win32 |

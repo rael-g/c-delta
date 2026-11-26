@@ -153,3 +153,21 @@ Only one `[PanicHandler]` may exist in a program (`CD3008`), and it must not ret
 | `static Result<int> Main()` | the returned value, or as above |
 
 Any other `Main` is `CD3006`. Arguments are read with `Std.Process.Args()`.
+
+Top-level statements are the entry point of their file, returning nothing or an `int` as in C#.
+They cannot use `Try`, since they do not return a `Result`; `Std.Process.Run` runs a function
+returning `Result` or `Result<int>`, reports an error as a failing `Main` would, and gives the
+exit code:
+
+```csharp
+using Std;
+
+return Process.Run(Run);
+
+static Result Run()
+{
+    var lines = Try(CountLines(Process.Args()[1]));
+    Debug.Print($"{lines}\n");
+    return default;
+}
+```

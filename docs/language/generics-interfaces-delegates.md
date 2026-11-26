@@ -155,10 +155,12 @@ var count = Count(items, x => x > threshold);
 - A capturing lambda captures **variables, not values**, as in C#. The compiler moves the captured
   locals of the enclosing function into a frame struct on the stack, and the delegate's context
   points to it. Mutation through either side is visible to both, as in C#.
-- The frame lives as long as the enclosing function call. A capturing lambda must not outlive it,
-  and the compiler rejects the direct escapes (`CD2002`): returning it, storing it in a field, a
-  static, or through a `ref` or `out` parameter. Passing it as an argument is allowed; the callee
-  storing it is the programmer's responsibility.
+- The frame lives as long as the enclosing function call. A capturing lambda must not outlive it.
+  A value that holds one, directly or in a field at any depth, is treated like the lambda itself,
+  and the compiler rejects the direct escapes of either (`CD2002`): returning it, storing it in a
+  static, writing it through a pointer, a `ref` or an `out` parameter. Storing it in a field of a
+  local, as a lazy query does, and passing it as an argument are allowed; the callee storing it is
+  the programmer's responsibility.
 - Lambdas passed to `Defer`, `ErrDefer` and `Comptime` are not delegates: they are inlined or
   evaluated, and none of the above applies.
 - Local functions follow the same rules as lambdas. A `static` local function is a nested

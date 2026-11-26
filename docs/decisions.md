@@ -314,6 +314,15 @@ static values as properties (`T.Zero`, `AdditiveIdentity`); without them a user 
 implement the numeric interfaces. A static property is not read as a field of a value, so the
 reason properties are removed does not apply; instance properties stay removed.
 
+**D154. LINQ is a std module of lazy struct queries.** Each operator is a struct over its source,
+so a chain is one value on the stack with no interface and no boxing; only the terminals that
+need memory take an allocator. Query syntax stays removed, one spelling per meaning. `CD2002`
+follows a capturing lambda into the values that hold it, so a query cannot escape its frame.
+
+**D155. Top-level statements are kept.** Short programs and scripts are a real use, as `cdc run
+file.cs` shows. C# makes them return only `void` or `int`, so `Try` goes through
+`Std.Process.Run`, and the implicit `args` array is rejected.
+
 ## Repository
 
 **D201. Documents and code are in English.**
