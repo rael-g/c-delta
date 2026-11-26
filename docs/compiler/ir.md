@@ -17,6 +17,20 @@ defined by what systems languages share, not by C# or by C.
 | Attributes | open list of named, typed constant arguments on every declaration | carries C# attributes, C doc tags and projection hints without changing the model |
 | Serialization | one textual format, printed and parsed, round-trip exact; a binary format from M10 | text for golden tests, dumps, and tests of the core and backends without a frontend; binary for the call from the host to the native core |
 
+### Growth
+
+C is the floor of the IR, not its ceiling: the IR already keeps generics, results, slices,
+optionals, unions, interface values and closures as what they are, so the comptime interpreter
+runs them, projections see them and the core checks them (D171). It grows by three rules:
+
+1. A construct enters when a real frontend needs it, never in anticipation.
+2. Every construct has a lowering to C11 and a meaning in the comptime interpreter, because the C
+   backend is the universal backend.
+3. A construct that serves one language lives in that language's dialect: attributes and
+   intrinsics in its namespace, lowered by its frontend into the common IR before the core runs.
+   It moves into the common IR only when more than one frontend needs it or backends and
+   projections need its meaning.
+
 ## Stages
 
 One model, three stages. The verifier knows which constructs each stage allows.

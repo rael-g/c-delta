@@ -402,6 +402,11 @@ calls, assembly), never a model of one language.
 for C# today enriches any frontend's declarations for any backend: the vocabulary is defined on
 IR concepts, and a manifest names declarations by IR key, so neither end is tied to C or to C#.
 
+**D171. The IR grows by need, always lowerable to C, with dialects for single languages.** Higher
+constructs save frontends from repeating lowerings and keep meaning for comptime and projections,
+but each one costs every component of the compiler; so none enters without a frontend that needs
+it, a C lowering and an interpreter semantics.
+
 ## Repository
 
 **D201. Documents and code are in English.**
