@@ -210,8 +210,9 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   fields, each `yield` a state, and the state lives in the caller's frame with no allocation. The
   result may only be iterated with `foreach` or held in a `var` local; converting it to the
   interface type is an error, except through `Dyn<IEnumerable<T>>`.
-- **Async** (D152), after iterators: the same transform, with `await` as the visible suspension
-  point. An async frame is a struct value of a size known at compile time, so recursive async is
-  an error; starting a task takes an allocator; task types are structs with their own builder;
-  the executor and the event loop over the OS's I/O readiness or completion API are std code, not a
-  runtime. The design is preceded by a study of how other languages do it.
+- **Concurrency** (D152), in three steps: `Std.Io`, an interface passed like `IAllocator` with
+  `Async` returning a future struct and `Await`, over a thread pool; an evented backend over the
+  OS's readiness or completion API with fixed-size stacks from an allocator and a context switch
+  per target; and only if a program still needs it, `async` and `await` as the iterator
+  transform, where an async frame is a struct of known size that never moves once started, so
+  recursive async is an error and starting a task takes an allocator.

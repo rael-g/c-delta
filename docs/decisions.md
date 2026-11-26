@@ -300,9 +300,13 @@ allocates.
 without allocation; the result stays a concrete value because an interface value would need
 boxing.
 
-**D152. Async, if ever, is the iterator transform plus a std executor, with frames as values and
-allocation only at spawn.** No runtime, no hidden allocation, and suspension stays visible as
-`await`.
+**D152. Concurrency starts as a library: an `Io` interface passed like an allocator.** Code
+written against it runs blocking, on threads or evented, as its caller chooses, so functions are
+not colored. In order: `Std.Io` with a thread pool backend, no compiler work; an evented backend
+over fixed-size stacks taken from an allocator (a fixed stack needs no garbage collector, a
+growing one does); and only if still needed, `async` and `await` as the iterator transform, with
+struct task types, frames as values that never move once started, and allocation only at spawn.
+No runtime, no hidden allocation.
 
 ## Repository
 
