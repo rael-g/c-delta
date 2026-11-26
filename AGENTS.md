@@ -44,35 +44,13 @@ design (D127).
   command or option. Names of private members, private helpers and the algorithm inside a
   function are implementation, and are yours.
 - When the documents are silent, ambiguous or contradictory, or a probe or test shows an
-  assumption is wrong, do not choose and do not work around it. Add a question to
-  `docs/kanban/questions.md`, mark the task blocked on `docs/kanban/board.md`, and continue with
-  work that does not depend on it.
+  assumption is wrong, do not choose and do not work around it: raise it with the owner and
+  continue with work that does not depend on it.
 - A tool missing from the distrobox `dev` is installed, not worked around
   ([docs/compiler/engineering.md](docs/compiler/engineering.md#environment)).
-- Do not change `docs/` except `docs/kanban/`, typos, broken links and the binding support table
-  of `docs/compiler/frontend-csharp.md`. Answers arrive as commits
-  that change the documents.
+- Do not change `docs/` except typos, broken links and the binding support table of
+  `docs/compiler/frontend-csharp.md`. Answers arrive as commits that change the documents.
 - A milestone is done when its acceptance criteria pass and `eng/ci.sh` exits `0`.
-
-`docs/kanban/board.md` lists each milestone's bullets as tasks:
-
-```markdown
-## M1: Hello, C
-- [x] IR model, builder, printer, verifier
-- [ ] Frontend: static methods ... (blocked: Q4)
-```
-
-`docs/kanban/questions.md` holds one entry per question:
-
-```markdown
-## Q4: <the question in one line>
-- Milestone: M1
-- Documents: docs/compiler/frontend-csharp.md#lowering-bodies
-- Context: what was being implemented, and what the documents say
-- Status: open
-```
-
-The answer sets `Status: answered` and names the commit that changed the documents.
 
 ## Layout
 
@@ -82,7 +60,7 @@ The answer sets `Status: answered` and names the commit that changed the documen
 - `lib/std/`: the standard library, in CΔ.
 - `tests/`: unit, conformance and end to end tests.
 - `samples/`: example programs.
-- `docs/`: the design; `docs/kanban/` holds status and is not versioned.
+- `docs/`: the design.
 
 ## Commands
 
@@ -105,5 +83,5 @@ Tools run in the distrobox `dev`: `distrobox enter dev -- bash -lc 'cd ~/Projeto
 - Conventional Commits, one line, one logical task per commit, staged selectively. No
   `Co-Authored-By`.
 - Every commit builds alone.
-- Code and documents are in English; answer the owner in Brazilian Portuguese.
+- Code and documents are in English.
 - Release builds and archives go to `~/Downloads`, never into the repository.

@@ -48,5 +48,3 @@ more specific one wins and the other is a bug to fix.
 24. [std.md](std.md): the standard library.
 25. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
 26. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
-
-Work status lives in `docs/kanban/`, which is not versioned.
