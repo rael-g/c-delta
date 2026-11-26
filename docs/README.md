@@ -25,27 +25,28 @@ more specific one wins and the other is a bug to fix.
 11. [language/c-interop.md](language/c-interop.md): importing C, extern functions, exporting.
 12. [language/modules-build.md](language/modules-build.md): namespaces, packages, visibility,
     projects, targets, conditional compilation, tests.
+13. [language/c-parity.md](language/c-parity.md): every capability of C and its form in CΔ.
 
 ## The compiler
 
-13. [compiler/architecture.md](compiler/architecture.md): components, dependencies, pipeline.
-14. [compiler/ir.md](compiler/ir.md): Delta IR.
-15. [compiler/frontend-csharp.md](compiler/frontend-csharp.md): Roslyn, the subset checker and
+14. [compiler/architecture.md](compiler/architecture.md): components, dependencies, pipeline.
+15. [compiler/ir.md](compiler/ir.md): Delta IR.
+16. [compiler/frontend-csharp.md](compiler/frontend-csharp.md): Roslyn, the subset checker and
     lowering.
-16. [compiler/frontend-c.md](compiler/frontend-c.md): reading C through libclang.
-17. [compiler/core-passes.md](compiler/core-passes.md): instantiation, comptime, safety, layout.
-18. [compiler/backend-c.md](compiler/backend-c.md): generating C11.
-19. [compiler/driver-toolchain-sdk.md](compiler/driver-toolchain-sdk.md): `cdc`, the C toolchain,
+17. [compiler/frontend-c.md](compiler/frontend-c.md): reading C through libclang.
+18. [compiler/core-passes.md](compiler/core-passes.md): instantiation, comptime, safety, layout.
+19. [compiler/backend-c.md](compiler/backend-c.md): generating C11.
+20. [compiler/driver-toolchain-sdk.md](compiler/driver-toolchain-sdk.md): `cdc`, the C toolchain,
     the MSBuild SDK and the IDE.
-20. [compiler/diagnostics.md](compiler/diagnostics.md): the registry of every diagnostic code.
-21. [compiler/testing.md](compiler/testing.md): how everything is tested.
-22. [compiler/engineering.md](compiler/engineering.md): environment, packages, project settings,
+21. [compiler/diagnostics.md](compiler/diagnostics.md): the registry of every diagnostic code.
+22. [compiler/testing.md](compiler/testing.md): how everything is tested.
+23. [compiler/engineering.md](compiler/engineering.md): environment, packages, project settings,
     code style, test infrastructure, Roslyn probes and CI.
 
 ## Libraries and the future
 
-23. [std.md](std.md): the standard library.
-24. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
-25. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
+24. [std.md](std.md): the standard library.
+25. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
+26. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
 
 Work status lives in `docs/kanban/`, which is not versioned.

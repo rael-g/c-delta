@@ -245,8 +245,22 @@ intrinsics on MSVC, both of which work on ordinary objects, unlike `_Atomic` typ
 ## Debug information
 
 In Debug and ReleaseSafe, each statement is preceded by `#line <line> "<file>"`, so the C
-compiler's debug information points at the CΔ source. Locals keep their source names, so a
-debugger shows them. ReleaseFast and ReleaseSmall omit `#line` unless `DebugSymbols` is set.
+compiler's debug information points at the CΔ source. Locals and fields keep their source names,
+so a debugger shows them. ReleaseFast and ReleaseSmall omit `#line` unless `DebugSymbols` is set.
+
+When `DebugSymbols` is set, the build also writes debugger formatters generated from the IR
+(D159), next to the output:
+
+| File | Debugger |
+|---|---|
+| `<PackageName>.gdb.py`, loaded through a `.debug_gdb_scripts` section | GDB |
+| `<PackageName>.lldb.py`, loaded by the generated launch configuration | LLDB |
+| `<PackageName>.natvis` and `<PackageName>.natstepfilter` | Visual Studio and the MSVC debugger |
+
+They show `string` as its text, a slice as its elements, `result` as `Ok(value)` or
+`Err(Name)` with the error's name, `optional` as `None` or its value, a `[Union]` as its active
+member, an exhaustive enum by member name, and every type and function by its CΔ name; they make
+stepping skip the prelude helpers.
 
 ## C compiler flags
 

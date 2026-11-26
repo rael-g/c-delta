@@ -331,6 +331,23 @@ name with a different behavior is worse than a missing one. So `string` has no b
 gets new memory per evaluation, loop captures that would differ are rejected (`CD2009`), and the
 default arithmetic context wraps when checks are off instead of being assumed not to overflow.
 
+**D157. CΔ can do anything C can, at worst through an explicit form.** Not being specialized
+means no closed door: freestanding code, vendor HALs, interrupt handlers, inline assembly, SIMD,
+linker control. Every capability is listed in [language/c-parity.md](language/c-parity.md); a
+missing one is a design gap.
+
+**D158. Build speed is a requirement, measured in CI.** A warm compiler server, the generated C
+split by module with cached objects, and a NativeAOT `cdc` remove most of the latency of a
+rebuild. If the spike shows that MSBuild is what keeps the .NET SDK required, a reader for the
+subset of the project file that [language/modules-build.md](language/modules-build.md) defines,
+falling back to MSBuild for anything else, is a candidate; a build language of CΔ's own is not.
+
+**D159. Debugging shows CΔ, not the generated C.** The IR knows every type, error name and union
+member, so the build writes formatters for GDB, LLDB and Visual Studio from it.
+
+**D160. Hot reload and the DOM are planned directions.** Both fit without a runtime: reloading a
+shared library whose state lives in its host, and a projection backend for JavaScript glue.
+
 ## Repository
 
 **D201. Documents and code are in English.**

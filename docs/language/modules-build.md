@@ -74,6 +74,9 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `PackageName` | the C-visible name of the package (header name, library name) | the project name |
 | `ErrorReturnTrace` | `true`, `false` | `true` in safe modes |
 | `DebugSymbols` | `true`, `false` | `true` in Debug and ReleaseSafe |
+| `EntrySymbol` | the symbol the linker starts at, for freestanding targets | the toolchain's default |
+| `LinkerScript` | a linker script, relative to the project | none |
+| `LinkerArgs` | extra arguments passed to the linker unchanged | none |
 
 ### Items
 
@@ -81,6 +84,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 |---|---|---|
 | `Compile` | | CΔ sources; by default every `*.cs` under the project directory |
 | `CSource` | `Flags` | C sources compiled and linked |
+| `AsmSource` | `Flags` | assembly sources (`.s`, `.S`) assembled by the toolchain and linked |
 | `CIncludeDir` | | include directories for imports and C sources |
 | `CDefine` | `Value` | macros for imports and C sources |
 | `NativeLibrary` | `Linkage` (`Static`, `Dynamic`) | libraries to link |
@@ -91,7 +95,8 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 
 A target is `<arch>-<os>-<abi>`: `x86_64-linux-gnu`, `x86_64-linux-musl`, `aarch64-linux-gnu`,
 `x86_64-windows-gnu`, `x86_64-windows-msvc`, `aarch64-macos-none`, `wasm32-wasi-musl`,
-`x86_64-freestanding-none`. `native` is the host. Cross compilation is the normal case: the
+`x86_64-freestanding-none`, and the embedded targets `thumbv6m-none-eabi`, `thumbv7em-none-eabi`,
+`thumbv7em-none-eabihf` and `riscv32imac-none-elf`. `native` is the host. Cross compilation is the normal case: the
 default C toolchain carries the C library headers of every target it supports
 ([../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md)).
 

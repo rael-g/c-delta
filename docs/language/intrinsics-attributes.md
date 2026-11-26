@@ -62,6 +62,10 @@ The second table lists the C# names CΔ reuses.
 | `[Test]` | static method | a test, compiled only by `cdc test` | [modules-build.md](modules-build.md#tests) |
 | `[Section(string name)]` | static field, static method | place in a linker section | [c-interop.md](c-interop.md#exporting) |
 | `[Linkage(LinkageKind kind)]` | exported symbol | `Strong`, `Weak` or `Internal` | [c-interop.md](c-interop.md#exporting) |
+| `[Align(int bytes)]` | struct, field, static field | minimum alignment, `_Alignas` in C | [c-parity.md](c-parity.md) |
+| `[Naked]` | static method | no prologue or epilogue; the body is only `Asm` | [c-parity.md](c-parity.md) |
+| `[Interrupt(InterruptKind kind)]` | static method | an interrupt handler with the target's attribute for `kind` | [c-parity.md](c-parity.md) |
+| `[NoAlias]` | pointer parameter | `restrict` in C | [c-parity.md](c-parity.md) |
 
 ## Reused C# names
 

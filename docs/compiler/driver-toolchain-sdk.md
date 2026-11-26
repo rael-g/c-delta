@@ -109,6 +109,10 @@ cross compilation the normal case.
 | `aarch64-macos-none` | `aarch64-macos-none` | `arm64-apple-macos` |
 | `wasm32-wasi-musl` | `wasm32-wasi-musl` | `wasm32-unknown-wasi` |
 | `x86_64-freestanding-none` | `x86_64-freestanding-none` | `x86_64-unknown-none-elf` |
+| `thumbv6m-none-eabi` | `thumb-freestanding-eabi -mcpu=cortex_m0` | `thumbv6m-none-eabi` |
+| `thumbv7em-none-eabi` | `thumb-freestanding-eabi -mcpu=cortex_m4` | `thumbv7em-none-eabi` |
+| `thumbv7em-none-eabihf` | `thumb-freestanding-eabihf -mcpu=cortex_m4` | `thumbv7em-none-eabihf` |
+| `riscv32imac-none-elf` | `riscv32-freestanding-none -mcpu=generic_rv32+m+a+c` | `riscv32-unknown-none-elf -march=rv32imac` |
 
 `gcc` builds only for the host and takes no target flag. `native` resolves to the host's
 architecture and OS from the .NET runtime; on Linux the ABI is `musl` when a file matching
@@ -120,7 +124,7 @@ architecture and OS from the .NET runtime; on Linux the ABI is `musl` when a fil
 |---|---|---|
 | 1 | `x86_64-linux-gnu`, `aarch64-linux-gnu`, `x86_64-windows-gnu` | built and tested by CI on every change, tests executed |
 | 2 | `x86_64-linux-musl`, `aarch64-macos-none`, `x86_64-windows-msvc`, `wasm32-wasi-musl` | built by CI on every change, tests executed when a runner exists |
-| 3 | `*-freestanding-none` | built by CI |
+| 3 | `*-freestanding-none` and the embedded targets | built by CI |
 
 ## Before the SDK package
 
