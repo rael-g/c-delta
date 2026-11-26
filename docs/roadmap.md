@@ -243,13 +243,19 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
 
 - **C++ libraries** (D172): the C frontend reads C++ through libclang and `cdc` generates an
   `extern "C"` shim compiled as `CppSource`: objects as opaque handles, constructors and
-  destructors as functions, exceptions caught at the boundary as error codes, the template
-  instances a manifest names, conversions for the C++ standard library types at the boundary.
+  destructors as functions, exceptions caught at the boundary as error codes, conversions for the
+  C++ standard library types at the boundary. Templates are instantiated on demand: the instances
+  the CΔ code uses (`std::vector<Player>`, with CΔ structs visible to C++ through the generated
+  header) are generated in the shim, plus any a manifest names.
   The shim is imported as C and projected; C and Zig can use it as well.
+- **Rust libraries** (D172): through uniffi. A crate that uses uniffi is read from its metadata
+  and called through the boundary uniffi generated; for one that does not, `cdc` generates a
+  wrapper crate that depends on it and marks the wanted functions and types with
+  `#[uniffi::export]`, with concrete instances of its generics, and cargo builds it. A boundary
+  of CΔ's own, without uniffi's serialization, only if performance requires it.
 - **Interface importers** (D172): readers of the interface descriptions other languages already
-  produce (uniffi metadata first, then rustdoc JSON and Nim's exported headers) into IR
-  declarations and annotations, so their libraries are consumed idiomatically by CΔ, C# and every
-  projection plugin.
+  produce (rustdoc JSON, Nim's exported headers) into IR declarations and annotations, so their
+  libraries are consumed idiomatically by CΔ, C# and every projection plugin.
 - **The DOM** (D160): `[WasmImport(module, name)]` for JavaScript functions on `wasm32`, and a
   TypeScript projection backend that writes the JavaScript glue from the IR's imports and exports.
 
