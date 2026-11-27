@@ -280,6 +280,14 @@ internal sealed class ModuleParser
         cursor.ExpectWord("interface");
         string key = cursor.ReadReference();
         List<string> typeParams = ParseTypeParams(cursor);
+        if (cursor.TryWord("extends"))
+        {
+            while (cursor.Peek != '@')
+            {
+                cursor.ReadToken();
+            }
+        }
+
         _builder.DeclareInterface(key, key, ParseSpan(cursor), typeParams);
     }
 
@@ -288,6 +296,18 @@ internal sealed class ModuleParser
         var header = new IrCursor(_lines[start], start + 1);
         header.ExpectWord("interface");
         InterfaceId id = _module.InterfacesByKey[header.ReadReference()];
+        ParseTypeParams(header);
+        if (header.TryWord("extends"))
+        {
+            var bases = new List<TypeId>();
+            do
+            {
+                bases.Add(_types.ParseType(header));
+            }
+            while (header.TryChar(','));
+            _builder.DefineInterfaceBases(id, bases);
+        }
+
         var methods = new List<InterfaceMethod>();
         for (int i = start + 1; i < end; i++)
         {

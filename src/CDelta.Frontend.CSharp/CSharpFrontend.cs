@@ -475,7 +475,7 @@ public sealed class CSharpFrontend : IBodyProvider
         foreach (INamedTypeSymbol contract in type.AllInterfaces)
         {
             var methods = new List<ImplMethod>();
-            foreach (IMethodSymbol member in contract.GetMembers().OfType<IMethodSymbol>())
+            foreach (IMethodSymbol member in contract.AllInterfaces.Prepend(contract).SelectMany(candidate => candidate.GetMembers().OfType<IMethodSymbol>()))
             {
                 if (member.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator)
                     || type.FindImplementationForInterfaceMember(member) is not IMethodSymbol implementation)

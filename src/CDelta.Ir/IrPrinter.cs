@@ -496,6 +496,13 @@ public static partial class IrPrinter
                 .Append('>');
         }
 
+        if (declaration.Bases.Count > 0)
+        {
+            text.Append(" extends ").Append(string.Join(
+                ", ",
+                Enumerable.Range(declaration.Bases.Start, declaration.Bases.Count).Select(i => TypeText(module, module.InterfaceBases[i]))));
+        }
+
         text.Append(' ').Append(Span(declaration.Span)).Append(" {\n");
         for (int i = 0; i < declaration.Methods.Count; i++)
         {

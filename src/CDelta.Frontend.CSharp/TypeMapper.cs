@@ -114,6 +114,10 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             spanOf(type.Locations.FirstOrDefault() ?? Location.None),
             [.. type.TypeParameters.Select(parameter => parameter.Name)]);
         _interfaces.Add(type, id);
+        if (!type.Interfaces.IsEmpty)
+        {
+            builder.DefineInterfaceBases(id, [.. type.Interfaces.Select(contract => InterfaceType(contract, location))]);
+        }
 
         var methods = new List<InterfaceMethod>();
         foreach (IMethodSymbol method in type.GetMembers().OfType<IMethodSymbol>())
@@ -211,20 +215,44 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
     public static bool IsContractMember(IMethodSymbol member) =>
         member.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator;
 
-    public static int ContractMethodIndex(IMethodSymbol method)
+    public static int ContractMethodIndex(INamedTypeSymbol receiver, IMethodSymbol method)
     {
         int index = 0;
-        foreach (IMethodSymbol member in method.ContainingType.OriginalDefinition.GetMembers().OfType<IMethodSymbol>().Where(IsContractMember))
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        bool Visit(INamedTypeSymbol contract)
         {
-            if (SymbolEqualityComparer.Default.Equals(member, method.OriginalDefinition))
+            if (!seen.Add(contract))
             {
-                return index;
+                return false;
             }
 
-            index++;
+            foreach (INamedTypeSymbol baseContract in contract.Interfaces)
+            {
+                if (Visit(baseContract))
+                {
+                    return true;
+                }
+            }
+
+            foreach (IMethodSymbol member in contract.OriginalDefinition.GetMembers().OfType<IMethodSymbol>().Where(IsContractMember))
+            {
+                if (SymbolEqualityComparer.Default.Equals(member, method.OriginalDefinition))
+                {
+                    return true;
+                }
+
+                index++;
+            }
+
+            return false;
         }
 
-        throw new InvalidOperationException("a method is not a member of its interface");
+        if (!Visit(receiver))
+        {
+            throw new InvalidOperationException("a method is not a member of its interface");
+        }
+
+        return index;
     }
 
     public StructId TupleOf(INamedTypeSymbol tuple, Location location)

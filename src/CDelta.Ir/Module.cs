@@ -63,6 +63,8 @@ public sealed class Module(string name)
 
     public List<InterfaceMethod> InterfaceMethods { get; } = [];
 
+    public List<TypeId> InterfaceBases { get; } = [];
+
     public Dictionary<string, InterfaceId> InterfacesByKey { get; } = [];
 
     public List<ImplDecl> Impls { get; } = [];

@@ -179,6 +179,13 @@ public sealed class ModuleBuilder(Module module)
         return id;
     }
 
+    public void DefineInterfaceBases(InterfaceId id, IReadOnlyList<TypeId> bases)
+    {
+        int start = Module.InterfaceBases.Count;
+        Module.InterfaceBases.AddRange(bases);
+        Module.Interfaces[id.Index] = Module.Interfaces[id.Index] with { Bases = new IdRange(start, bases.Count) };
+    }
+
     public void DefineInterfaceMethods(InterfaceId id, IReadOnlyList<InterfaceMethod> methods)
     {
         int start = Module.InterfaceMethods.Count;

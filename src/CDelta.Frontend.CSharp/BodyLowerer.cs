@@ -1843,7 +1843,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     {
         OperandId pointer = ReceiverAddress(invocation.Instance!, false, span);
         var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
-        RvalueId call = _f.CallUnion(pointer, TypeMapper.ContractMethodIndex(target), arguments);
+        RvalueId call = _f.CallUnion(pointer, TypeMapper.ContractMethodIndex((INamedTypeSymbol)invocation.Instance!.Type!, target), arguments);
         TypeId returnType = CallReturnType(target);
         if (_module.Types[returnType.Index].Kind == TypeKind.Void)
         {
@@ -1858,7 +1858,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     {
         OperandId dyn = Snapshot(LowerValue(invocation.Instance!), span);
         var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
-        RvalueId call = _f.CallDyn(dyn, TypeMapper.ContractMethodIndex(target), arguments);
+        RvalueId call = _f.CallDyn(dyn, TypeMapper.ContractMethodIndex((INamedTypeSymbol)invocation.Instance!.Type!, target), arguments);
         TypeId returnType = CallReturnType(target);
         if (_module.Types[returnType.Index].Kind == TypeKind.Void)
         {

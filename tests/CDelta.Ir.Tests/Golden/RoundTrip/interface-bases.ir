@@ -1,0 +1,11 @@
+module Bases stage lowered
+
+source 1 "$ROOT/Bases.cs" "Bases.cs"
+
+interface Gen.IBase<type T> @1:1:1 {
+  fn Read() -> param T
+}
+
+interface Gen.IDerived<type U> extends interface Gen.IBase<param U> @1:2:1 {
+  fn Both(param U) -> param U
+}

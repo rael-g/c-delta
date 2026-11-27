@@ -53,7 +53,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             case TypeKind.Union:
                 return destination.Type(node with { A = Union(new UnionId(node.A)).Index });
             case TypeKind.Interface:
-                return new ModuleBuilder(destination).InterfaceType(InterfaceInstance(new InterfaceId(node.A), IrTypes.StructTypeArgs(source, node).Select(argument => Type(new TypeId(argument))).ToList()));
+                return new ModuleBuilder(destination).InterfaceType(InterfaceInstance(id, IrTypes.StructTypeArgs(source, node).Select(argument => Type(new TypeId(argument))).ToList()));
             case TypeKind.Dyn:
                 return new ModuleBuilder(destination).DynOf(Type(new TypeId(node.A)));
             case TypeKind.Param:
@@ -223,9 +223,9 @@ internal sealed class ModuleRemapper(Module source, Module destination)
         return created;
     }
 
-    private InterfaceId InterfaceInstance(InterfaceId id, IReadOnlyList<TypeId> typeArguments)
+    private InterfaceId InterfaceInstance(TypeId sourceType, IReadOnlyList<TypeId> typeArguments)
     {
-        InterfaceDecl declaration = source.Interfaces[id.Index];
+        InterfaceDecl declaration = source.Interfaces[source.Types[sourceType.Index].A];
         string name = source.Text(declaration.Key) + (typeArguments.Count == 0
             ? string.Empty
             : "<" + string.Join(", ", typeArguments.Select(argument => IrPrinter.TypeText(destination, argument))) + ">");
@@ -236,22 +236,24 @@ internal sealed class ModuleRemapper(Module source, Module destination)
 
         var builder = new ModuleBuilder(destination);
         InterfaceId created = builder.DeclareInterface(name, name, declaration.Span, []);
-        var bindings = new Dictionary<int, TypeId>();
-        for (int i = 0; i < declaration.TypeParams.Count; i++)
-        {
-            bindings[source.TypeParams[declaration.TypeParams.Start + i].Index] = typeArguments[i];
-        }
-
-        Dictionary<int, TypeId>? saved = Bindings;
-        Bindings = bindings;
         var methods = new List<InterfaceMethod>();
-        for (int i = 0; i < declaration.Methods.Count; i++)
+        foreach ((TypeId owner, InterfaceMethod method) in IrTypes.FlatMethods(source, sourceType))
         {
-            InterfaceMethod method = source.InterfaceMethods[declaration.Methods.Start + i];
+            TypeNode ownerNode = source.Types[owner.Index];
+            InterfaceDecl ownerDeclaration = source.Interfaces[ownerNode.A];
+            var ownerBindings = new Dictionary<int, TypeId>();
+            int[] ownerArguments = IrTypes.StructTypeArgs(source, ownerNode);
+            for (int i = 0; i < ownerDeclaration.TypeParams.Count; i++)
+            {
+                ownerBindings[source.TypeParams[ownerDeclaration.TypeParams.Start + i].Index] = Type(new TypeId(ownerArguments[i]));
+            }
+
+            Dictionary<int, TypeId>? before = Bindings;
+            Bindings = ownerBindings;
             methods.Add(new InterfaceMethod(String(method.Name), method.IsStatic, Sig(method.Sig), FunctionId.None));
+            Bindings = before;
         }
 
-        Bindings = saved;
         builder.DefineInterfaceMethods(created, methods);
         return created;
     }

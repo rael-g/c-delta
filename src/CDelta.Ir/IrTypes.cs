@@ -36,16 +36,46 @@ public static class IrTypes
     public static int[] StructTypeArgs(Module module, TypeNode node) =>
         node.B > 0 ? module.TypeLists[node.B - 1] : [];
 
+    public static List<(TypeId Owner, InterfaceMethod Method)> FlatMethods(Module module, TypeId interfaceType)
+    {
+        var result = new List<(TypeId Owner, InterfaceMethod Method)>();
+        var seen = new HashSet<int>();
+        Visit(module, interfaceType, seen, result);
+        return result;
+    }
+
+    private static void Visit(Module module, TypeId type, HashSet<int> seen, List<(TypeId Owner, InterfaceMethod Method)> result)
+    {
+        if (!seen.Add(type.Index))
+        {
+            return;
+        }
+
+        TypeNode node = module.Types[type.Index];
+        InterfaceDecl declaration = module.Interfaces[node.A];
+        Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, declaration.TypeParams, StructTypeArgs(module, node));
+        for (int i = 0; i < declaration.Bases.Count; i++)
+        {
+            Visit(module, IrSubstitution.Apply(module, module.InterfaceBases[declaration.Bases.Start + i], bindings), seen, result);
+        }
+
+        for (int i = 0; i < declaration.Methods.Count; i++)
+        {
+            result.Add((type, module.InterfaceMethods[declaration.Methods.Start + i]));
+        }
+    }
+
     public static (List<TypeId> Parameters, TypeId Return, InterfaceMethod Method)? InterfaceMethodSignature(Module module, TypeId interfaceType, int method)
     {
-        TypeNode node = module.Types[interfaceType.Index];
-        InterfaceDecl declaration = module.Interfaces[node.A];
-        if (method < 0 || method >= declaration.Methods.Count)
+        List<(TypeId Owner, InterfaceMethod Method)> flat = FlatMethods(module, interfaceType);
+        if (method < 0 || method >= flat.Count)
         {
             return null;
         }
 
-        InterfaceMethod item = module.InterfaceMethods[declaration.Methods.Start + method];
+        (TypeId owner, InterfaceMethod item) = flat[method];
+        TypeNode node = module.Types[owner.Index];
+        InterfaceDecl declaration = module.Interfaces[node.A];
         SigNode sig = module.Sigs[item.Sig.Index];
         Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, declaration.TypeParams, StructTypeArgs(module, node));
         var parameters = new List<TypeId>();
