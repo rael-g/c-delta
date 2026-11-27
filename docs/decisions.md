@@ -491,6 +491,12 @@ comptime and the name is checked by C#.
 schemas are inputs whose members are names, which comptime cannot declare; a generator shipped
 with the SDK turns them into a static class with a member per file, when a program needs it.
 
+**D188. The std checks and computes at comptime what .NET leaves to run time.** A format
+specifier is literal in every interpolation, so it is checked against its type when compiling,
+and parsing it costs nothing when running. Unicode tables are computed by comptime from the
+Unicode data files embedded with `Embed`, so no generated file is kept and no table is built at
+startup.
+
 ## Repository
 
 **D201. Documents and code are in English.**

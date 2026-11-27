@@ -103,6 +103,14 @@ a fixed stack buffer and flushes to the writer: no allocation. `AppendFormatted<
 `T` at comptime (primitives, spans of `byte` as text, enums by name, `[Union]` values by member,
 structs field by field through `TypeInfo`).
 
+The format of an interpolation hole is always literal, so the `format` parameter of
+`AppendFormatted<T>` is `[Comptime]` (D188): a specifier `T` does not accept is `CD4004` at the
+hole, and the specifier is parsed by comptime, never at run time.
+
+The Unicode tables of `Std.Text` (general category, case mapping, display width) are
+`static readonly` data that comptime computes from the Unicode data files in `lib/std`, read with
+`Embed`, under a raised `[ComptimeQuota]` (D188).
+
 ### Virtual arena
 
 `VirtualArenaAllocator` reserves a range of address space once and commits pages as its top
