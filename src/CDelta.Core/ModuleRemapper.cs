@@ -228,7 +228,12 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             items = destination.TypeList(mapped);
         }
 
-        Int128 value = node.Kind == ConstKind.Error ? destination.Intern(source.Strings[(int)node.Value]).Index : node.Value;
+        Int128 value = node.Kind switch
+        {
+            ConstKind.Error => destination.Intern(source.Strings[(int)node.Value]).Index,
+            ConstKind.Type => Type(new TypeId((int)node.Value)).Index,
+            _ => node.Value,
+        };
         return destination.Constant(node with { Type = Type(node.Type), Value = value, Bytes = bytes, Items = items });
     }
 

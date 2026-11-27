@@ -708,6 +708,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return LowerTuple(tuple);
             case IDeconstructionAssignmentOperation deconstruction:
                 return LowerDeconstruction(deconstruction);
+            case IIsTypeOperation { ValueOperand.Type: ITypeParameterSymbol typeParameter } isType:
+                return TestTypeParameter(isType.TypeOperand, typeParameter, PlaceOf(isType.ValueOperand), null, location, SpanOf(operation));
             case IIsPatternOperation isPattern:
                 return TestPattern(isPattern.Pattern, PlaceOf(isPattern.Value), SpanOf(operation));
             case IObjectCreationOperation creation:
@@ -719,6 +721,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return Zero(frontend.Types.Map(operation.Type!, location), SpanOf(operation));
             case IAddressOfOperation address:
                 return LowerAddressOf(address);
+            case ITypeOfOperation typeOf:
+                return _f.Const(_builder.TypeConstant(frontend.Types.Map(typeOf.TypeOperand, location)));
             case ISizeOfOperation sizeOf:
                 return Emit(_builder.Primitive(TypeKind.I32), _f.SizeOf(frontend.Types.Map(sizeOf.TypeOperand, location)), SpanOf(operation));
             case IParenthesizedOperation parenthesized:
@@ -899,6 +903,16 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         if (binary.IsLifted)
         {
             return LowerLiftedBinary(binary, span);
+        }
+
+        IOperation typeLeft = WithoutObjectConversion(binary.LeftOperand);
+        if (typeLeft.Type?.ToDisplayString() == "System.Type" && binary.OperatorKind is BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals)
+        {
+            BinOp typeComparison = binary.OperatorKind == BinaryOperatorKind.Equals ? BinOp.Eq : BinOp.Ne;
+            return Emit(
+                _builder.Primitive(TypeKind.Bool),
+                _f.Binop(typeComparison, ArithMode.Default, LowerValue(typeLeft), LowerValue(WithoutObjectConversion(binary.RightOperand))),
+                span);
         }
 
         if (TypeMapper.IsString(binary.LeftOperand.Type) && binary.OperatorKind is BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals)
@@ -2115,6 +2129,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private OperandId TestPattern(IPatternOperation pattern, PlaceId place, SourceSpan span)
     {
         TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        if (pattern.InputType is ITypeParameterSymbol parameter && pattern is IDeclarationPatternOperation or ITypePatternOperation)
+        {
+            return TestTypeParameter(pattern, parameter, place, span);
+        }
+
         if (_module.Types[IrTyper.OfPlace(_module, _body, place).Index].Kind == TypeKind.Optional
             && pattern is not (IDiscardPatternOperation or INegatedPatternOperation or IBinaryPatternOperation))
         {
@@ -2164,6 +2183,49 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             default:
                 throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported yet", pattern.Syntax.GetLocation());
         }
+    }
+
+    private static IOperation WithoutObjectConversion(IOperation operation) =>
+        operation is IConversionOperation { Operand: { Type: { } inner } operand } && inner.ToDisplayString() == "System.Type" ? operand : operation;
+
+    private OperandId TestTypeParameter(IPatternOperation pattern, ITypeParameterSymbol parameter, PlaceId place, SourceSpan span)
+    {
+        Location location = pattern.Syntax.GetLocation();
+        ITypeSymbol tested = (pattern switch
+        {
+            IDeclarationPatternOperation declaration => declaration.MatchedType,
+            ITypePatternOperation type => type.MatchedType,
+            _ => null,
+        }) ?? throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported on a type parameter", location);
+        var declared = (pattern as IDeclarationPatternOperation)?.DeclaredSymbol as ILocalSymbol;
+        return TestTypeParameter(tested, parameter, place, declared, location, span);
+    }
+
+    private OperandId TestTypeParameter(ITypeSymbol tested, ITypeParameterSymbol parameter, PlaceId place, ILocalSymbol? declared, Location location, SourceSpan span)
+    {
+        if (tested is ITypeParameterSymbol || tested.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface)
+        {
+            throw new UnsupportedConstructException("a type parameter is tested against a concrete type only", location);
+        }
+
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId target = frontend.Types.Map(tested, location);
+        OperandId parameterType = _f.Const(_builder.TypeConstant(frontend.Types.Map(parameter, location)));
+        OperandId testedType = _f.Const(_builder.TypeConstant(target));
+        LocalId result = NewTemp(boolean);
+        _f.Assign(_f.LocalPlace(result), _f.Binop(BinOp.Eq, ArithMode.Default, parameterType, testedType), span);
+        if (declared is not null)
+        {
+            BlockId bind = _f.NewBlock();
+            BlockId join = _f.NewBlock();
+            _f.Branch(_f.Copy(_f.LocalPlace(result)), bind, join, span);
+            _f.SetBlock(bind);
+            _f.Assign(_f.LocalPlace(LocalOf(declared, span)), _f.Cast(CastKind.Bitcast, ArithMode.Default, _f.Copy(place), target), span);
+            _f.Goto(join, span);
+            _f.SetBlock(join);
+        }
+
+        return _f.Copy(_f.LocalPlace(result));
     }
 
     private OperandId TestPayload(IPatternOperation pattern, PlaceId place, SourceSpan span)

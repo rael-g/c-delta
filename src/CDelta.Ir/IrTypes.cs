@@ -44,6 +44,7 @@ public static class IrTypes
         TypeKind.Void => "void",
         TypeKind.NoReturn => "noreturn",
         TypeKind.Bool => "bool",
+        TypeKind.ComptimeType => "comptime.type",
         TypeKind.I8 => "i8",
         TypeKind.I16 => "i16",
         TypeKind.I32 => "i32",

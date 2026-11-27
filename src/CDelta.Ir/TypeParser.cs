@@ -148,6 +148,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 return builder.InterfaceType(interfaceId, interfaceArgs);
             case "param":
                 return builder.ParamType(cursor.ReadWord());
+            case "comptime.type":
+                return builder.Primitive(TypeKind.ComptimeType);
             case "opaque":
                 string opaqueKey = cursor.ReadReference();
                 if (!module.OpaquesByKey.TryGetValue(opaqueKey, out OpaqueId opaqueId))
@@ -247,6 +249,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 return builder.BytesConstant(type, cursor.ReadStringBytes());
             case "error":
                 return builder.ErrorConstant(type, cursor.ReadWord());
+            case "type":
+                return builder.TypeConstant(ParseType(cursor));
             default:
                 return builder.IntConstant(type, Int128.Parse(word));
         }

@@ -1,0 +1,17 @@
+module TypeTests stage lowered
+
+source 1 "$ROOT/TypeTests.cs" "TypeTests.cs"
+
+fn TypeTests.Is<type T>(x: param T) -> i32 origin source(csharp) @1:1:1 {
+  local %0 x: param T param
+  local %1 same: bool temp
+  local %2 y: i32 user
+bb0:
+  %1 = binop eq const comptime.type type param T, const comptime.type type i32  @1:1:3
+  branch copy %1 ? bb1 : bb2  @1:1:3
+bb1:
+  %2 = cast bitcast copy %0 to i32  @1:1:3
+  goto bb2  @1:1:3
+bb2:
+  return const i32 1  @1:1:3
+}

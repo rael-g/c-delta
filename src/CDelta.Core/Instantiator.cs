@@ -252,6 +252,7 @@ public sealed class Instantiator
             body.SwitchCases.Add(item with { Value = _remap.Constant(item.Value) });
         }
 
+        TypeTestFolding.Fold(_destination, body);
         return body;
     }
 

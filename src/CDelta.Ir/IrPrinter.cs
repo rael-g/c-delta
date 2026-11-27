@@ -819,6 +819,9 @@ public static partial class IrPrinter
             case ConstKind.Null:
                 text.Append("null");
                 break;
+            case ConstKind.Type:
+                text.Append("type ").Append(TypeText(module, new TypeId((int)constant.Value)));
+                break;
             case ConstKind.Error:
                 text.Append("error ").Append(module.Strings[(int)constant.Value]);
                 break;

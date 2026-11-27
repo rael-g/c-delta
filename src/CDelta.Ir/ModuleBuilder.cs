@@ -110,6 +110,9 @@ public sealed class ModuleBuilder(Module module)
         return id;
     }
 
+    public ConstId TypeConstant(TypeId type) =>
+        Module.Constant(new ConstNode(ConstKind.Type, Primitive(TypeKind.ComptimeType), type.Index, BytesId.None, TypeListId.None));
+
     public ConstId NullConstant(TypeId type) => Module.Constant(new ConstNode(ConstKind.Null, type, 0, BytesId.None, TypeListId.None));
 
     public EnumId DeclareEnum(

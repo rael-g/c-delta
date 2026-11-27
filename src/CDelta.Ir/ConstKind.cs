@@ -10,4 +10,5 @@ public enum ConstKind
     Undef,
     Aggregate,
     Error,
+    Type,
 }

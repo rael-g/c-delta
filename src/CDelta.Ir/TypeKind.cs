@@ -44,4 +44,5 @@ public enum TypeKind
     Opaque,
     Param,
     Interface,
+    ComptimeType,
 }

@@ -36,6 +36,7 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer
         new StringPointerRule(),
         new StringPositionRule(),
         new ConstraintRule(),
+        new TypeParameterTestRule(),
         new StringConcatenationRule(),
         new DirectiveRule(),
         new DeconstructRule(),

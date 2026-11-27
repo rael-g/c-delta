@@ -598,6 +598,16 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         }
 
         var op = (BinOp)r.Op;
+        if (KindOf(left) == TypeKind.ComptimeType)
+        {
+            if (op is not (BinOp.Eq or BinOp.Ne) || left != right)
+            {
+                Fail("only eq and ne compare types");
+            }
+
+            return module.Type(new TypeNode(TypeKind.Bool, TypeFlags.None, 0, 0));
+        }
+
         if (KindOf(left) == TypeKind.Ptr)
         {
             return PointerBinop(op, left, right);
