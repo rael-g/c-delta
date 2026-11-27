@@ -6,6 +6,10 @@ struct Handle layout c origin source(csharp) @1:1:8 {
   Id: i32
 }
 
+interface System.IDisposable @0:0:0 {
+  fn Dispose() -> void
+}
+
 global Program.Closed: i32 mutable = i32 0 origin source(csharp) @1:13:23
 
 fn Handle.Dispose(this: ref ptr<struct Handle>) -> void origin source(csharp) @1:5:17 {
@@ -131,4 +135,8 @@ bb16:
   %13 = addr.mut %1  @1:24:19
   call direct Handle.Dispose(copy %13)  @1:24:19
   goto bb15  @1:22:16
+}
+
+impl "Handle:interface System.IDisposable" = struct Handle : interface System.IDisposable {
+  Dispose = Handle.Dispose
 }

@@ -35,7 +35,7 @@ public sealed class CSharpFrontend : IBodyProvider
         _compilation = compilation;
         Builder = builder;
         _diagnostics = diagnostics;
-        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf };
+        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls };
     }
 
     public ModuleBuilder Builder { get; }
@@ -385,7 +385,74 @@ public sealed class CSharpFrontend : IBodyProvider
         return found.OrderBy(m => m.GetDocumentationCommentId(), StringComparer.Ordinal);
     }
 
+    private readonly Queue<(INamedTypeSymbol Type, StructId Id)> _pendingImpls = new();
+    private int _declaring;
+
+    private void QueueImpls(INamedTypeSymbol type, StructId id)
+    {
+        _pendingImpls.Enqueue((type, id));
+        if (_declaring == 0)
+        {
+            DrainImpls();
+        }
+    }
+
+    private void DrainImpls()
+    {
+        while (_pendingImpls.Count > 0)
+        {
+            (INamedTypeSymbol type, StructId id) = _pendingImpls.Dequeue();
+            DeclareImpls(type, id);
+        }
+    }
+
+    private void DeclareImpls(INamedTypeSymbol type, StructId id)
+    {
+        if (type.IsGenericType)
+        {
+            return;
+        }
+
+        Location location = type.Locations.FirstOrDefault() ?? Location.None;
+        TypeId concrete = Builder.StructType(id);
+        foreach (INamedTypeSymbol contract in type.AllInterfaces)
+        {
+            var methods = new List<ImplMethod>();
+            foreach (IMethodSymbol member in contract.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (member.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator)
+                    || type.FindImplementationForInterfaceMember(member) is not IMethodSymbol implementation)
+                {
+                    continue;
+                }
+
+                methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), TypeListId.None));
+            }
+
+            TypeId interfaceType = _types.Map(contract, location);
+            string key = type.GetDocumentationCommentId()![2..] + ":" + IrPrinter.TypeText(Module, interfaceType);
+            Builder.DeclareImpl(key, concrete, interfaceType, methods);
+        }
+    }
+
     private FunctionId Declare(IMethodSymbol method, IReadOnlyList<string> attributes)
+    {
+        _declaring++;
+        try
+        {
+            return DeclareFunction(method, attributes);
+        }
+        finally
+        {
+            _declaring--;
+            if (_declaring == 0)
+            {
+                DrainImpls();
+            }
+        }
+    }
+
+    private FunctionId DeclareFunction(IMethodSymbol method, IReadOnlyList<string> attributes)
     {
         method = method.OriginalDefinition;
         if (_functions.TryGetValue(method, out FunctionId existing))
@@ -464,6 +531,14 @@ public sealed class CSharpFrontend : IBodyProvider
             null,
             attributes,
             TypeMapper.ModeOf(method.RefKind));
+        var typeParameters = new List<string>();
+        if (method.ContainingType.IsGenericType)
+        {
+            typeParameters.AddRange(method.ContainingType.TypeParameters.Select(parameter => parameter.Name));
+        }
+
+        typeParameters.AddRange(method.TypeParameters.Select(parameter => parameter.Name));
+        Builder.SetTypeParams(id, typeParameters);
         _functions.Add(method, id);
         _symbols.Add(method);
         return id;

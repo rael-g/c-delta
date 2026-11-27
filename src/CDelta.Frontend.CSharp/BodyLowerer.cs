@@ -38,12 +38,13 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private int _currentOrdinal;
     private FunctionBuilder _f = null!;
     private ControlFlowGraph _cfg = null!;
+    private SemanticModel _model = null!;
 
     public Body Lower()
     {
         Location location = method.Locations[0];
         SyntaxNode syntax = method.DeclaringSyntaxReferences[0].GetSyntax();
-        SemanticModel model = frontend.Compilation.GetSemanticModel(syntax.SyntaxTree);
+        SemanticModel model = _model = frontend.Compilation.GetSemanticModel(syntax.SyntaxTree);
         IOperation? operation = model.GetOperation(syntax);
         _cfg = operation switch
         {
@@ -944,7 +945,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private OperandId? CallOperator(IMethodSymbol method, IReadOnlyList<OperandId> arguments, SourceSpan span)
     {
         FunctionId callee = frontend.Declare(method);
-        return Emit(_module.Functions[callee.Index].Return, _f.CallDirect(callee, arguments.ToList()), span);
+        return Emit(CallReturnType(method), _f.CallDirect(callee, arguments.ToList(), TypeArguments(method)), span);
     }
 
     private PlaceId SpillToPlace(OperandId operand, SourceSpan span)
@@ -1447,7 +1448,57 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             }
         }
 
+        if (ConstrainedParameter(invocation.Instance, target, invocation.Syntax) is { } parameter)
+        {
+            return LowerConstrainedCall(parameter, target, invocation.Instance, invocation.Arguments, span);
+        }
+
         return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private ITypeParameterSymbol? ConstrainedParameter(IOperation? instance, IMethodSymbol target, SyntaxNode syntax)
+    {
+        if (target.ContainingType.TypeKind != Microsoft.CodeAnalysis.TypeKind.Interface)
+        {
+            return null;
+        }
+
+        if (instance?.Type is ITypeParameterSymbol receiver)
+        {
+            return receiver;
+        }
+
+        MemberAccessExpressionSyntax? access = syntax as MemberAccessExpressionSyntax ?? (syntax as InvocationExpressionSyntax)?.Expression as MemberAccessExpressionSyntax;
+        return instance is null && target.IsStatic && access is not null
+            ? _model.GetTypeInfo(access.Expression).Type as ITypeParameterSymbol
+            : null;
+    }
+
+    private OperandId? LowerConstrainedCall(ITypeParameterSymbol parameter, IMethodSymbol target, IOperation? instance, IEnumerable<IArgumentOperation> callArguments, SourceSpan span)
+    {
+        var arguments = new List<OperandId>();
+        if (!target.IsStatic)
+        {
+            arguments.Add(ReceiverAddress(instance!, frontend.IsReadOnlyMember(target), span));
+        }
+
+        foreach (IArgumentOperation argument in callArguments)
+        {
+            arguments.Add(LowerArgument(argument, span));
+        }
+
+        Location location = target.Locations.FirstOrDefault() ?? Location.None;
+        TypeId contract = frontend.Types.Map(target.ContainingType, location);
+        int reference = _builder.ConstrainedRef(parameter.Name, contract, target.Name);
+        RvalueId call = _f.CallConstrained(reference, arguments);
+        TypeId returnType = CallReturnType(target);
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
     }
 
     private OperandId? LowerDirectCall(IMethodSymbol target, IOperation? instance, IEnumerable<IArgumentOperation> callArguments, SourceSpan span)
@@ -1474,8 +1525,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         FunctionId callee = frontend.Declare(target);
-        RvalueId call = _f.CallDirect(callee, arguments);
-        TypeId returnType = _module.Functions[callee.Index].Return;
+        RvalueId call = _f.CallDirect(callee, arguments, TypeArguments(target));
+        TypeId returnType = CallReturnType(target);
         if (_module.Types[returnType.Index].Kind == TypeKind.Void)
         {
             _f.CallStatement(call, span);
@@ -1484,6 +1535,24 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         return Emit(returnType, call, span);
     }
+
+    private List<TypeId> TypeArguments(IMethodSymbol target)
+    {
+        Location location = target.Locations.FirstOrDefault() ?? Location.None;
+        var arguments = new List<TypeId>();
+        if (target.ContainingType.IsGenericType)
+        {
+            arguments.AddRange(target.ContainingType.TypeArguments.Select(argument => frontend.Types.Map(argument, location)));
+        }
+
+        arguments.AddRange(target.TypeArguments.Select(argument => frontend.Types.Map(argument, location)));
+        return arguments;
+    }
+
+    private TypeId CallReturnType(IMethodSymbol target) =>
+        frontend.Types.ReferenceType(
+            frontend.Types.Map(target.ReturnType, target.Locations.FirstOrDefault() ?? Location.None),
+            target.RefKind);
 
     private OperandId TextEquals(OperandId left, OperandId right, SourceSpan span) =>
         Emit(_builder.Primitive(TypeKind.Bool), _f.Intrinsic(IrTyper.TextEqlIntrinsic, [left, right]), span);
@@ -1539,7 +1608,10 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private OperandId LowerPropertyGet(IPropertyReferenceOperation property)
     {
         SourceSpan span = SpanOf(property);
-        OperandId result = LowerDirectCall(property.Property.GetMethod!, property.Instance, property.Arguments, span)!.Value;
+        IMethodSymbol getter = property.Property.GetMethod!;
+        OperandId result = ConstrainedParameter(property.Instance, getter, property.Syntax) is { } constrained
+            ? LowerConstrainedCall(constrained, getter, property.Instance, property.Arguments, span)!.Value
+            : LowerDirectCall(getter, property.Instance, property.Arguments, span)!.Value;
         return property.Property.RefKind == RefKind.None ? result : _f.Copy(_f.DerefPlace(Spill(result, span)));
     }
 
@@ -1603,7 +1675,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             arguments.Add(LowerArgument(argument, span));
         }
 
-        _f.CallStatement(_f.CallDirect(frontend.Declare(constructor), arguments), span);
+        _f.CallStatement(_f.CallDirect(frontend.Declare(constructor), arguments, TypeArguments(constructor)), span);
         return _f.Copy(_f.LocalPlace(temp));
     }
 

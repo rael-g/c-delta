@@ -725,6 +725,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
             SigNode sig = module.Sigs[method.Sig.Index];
             Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, declaration.TypeParams, interfaceArgs);
             var parameters = new List<TypeId>();
+            if (!method.IsStatic && r.Args.Count > 0)
+            {
+                parameters.Add(OperandType(body, body.Args[r.Args.Start]));
+            }
+
             foreach (int item in module.TypeLists[sig.Params.Index])
             {
                 parameters.Add(IrSubstitution.Apply(module, SigParam.Decode(item).Type, bindings));

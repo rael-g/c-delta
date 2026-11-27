@@ -19,6 +19,10 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public Func<INamedTypeSymbol?, int> ImportIdOf { get; set; } = _ => -1;
 
+    public Action<INamedTypeSymbol, StructId> StructDefined { get; set; } = (_, _) => { };
+
+    private readonly Dictionary<INamedTypeSymbol, InterfaceId> _interfaces = new(SymbolEqualityComparer.Default);
+
     private readonly Dictionary<INamedTypeSymbol, TypeId> _opaques = new(SymbolEqualityComparer.Default);
 
     private Origin OriginOf(INamedTypeSymbol type)
@@ -57,7 +61,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             return existing;
         }
 
-        if (type.TypeKind != Microsoft.CodeAnalysis.TypeKind.Struct || type.IsGenericType || !type.Locations.Any(l => l.IsInSource))
+        if (type.TypeKind != Microsoft.CodeAnalysis.TypeKind.Struct || !type.Locations.Any(l => l.IsInSource))
         {
             throw new UnsupportedConstructException("the type " + type.ToDisplayString() + " is not supported yet", location);
         }
@@ -74,6 +78,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             minSize,
             []);
         _structs.Add(type, id);
+        builder.SetStructTypeParams(id, [.. type.TypeParameters.Select(parameter => parameter.Name)]);
 
         var fields = new List<FieldDecl>();
         foreach (IFieldSymbol field in type.GetMembers().OfType<IFieldSymbol>())
@@ -87,6 +92,46 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         }
 
         builder.DefineFields(id, fields);
+        StructDefined(type, id);
+        return id;
+    }
+
+    public InterfaceId InterfaceOf(INamedTypeSymbol type, Location location)
+    {
+        type = type.OriginalDefinition;
+        if (_interfaces.TryGetValue(type, out InterfaceId existing))
+        {
+            return existing;
+        }
+
+        InterfaceId id = builder.DeclareInterface(
+            type.GetDocumentationCommentId()![2..],
+            type.ToDisplayString(_nameFormat),
+            spanOf(type.Locations.FirstOrDefault() ?? Location.None),
+            [.. type.TypeParameters.Select(parameter => parameter.Name)]);
+        _interfaces.Add(type, id);
+
+        var methods = new List<InterfaceMethod>();
+        foreach (IMethodSymbol method in type.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator))
+            {
+                continue;
+            }
+
+            if (method.IsGenericMethod)
+            {
+                throw new UnsupportedConstructException("a generic interface method is not supported yet", location);
+            }
+
+            var parameters = method.Parameters
+                .Select(parameter => new SigParam(Map(parameter.Type, location), ModeOf(parameter.RefKind)))
+                .ToList();
+            SigId sig = builder.Signature(CallConv.Default, parameters, ReferenceType(Map(method.ReturnType, location), method.RefKind), false, ModeOf(method.RefKind));
+            methods.Add(new InterfaceMethod(builder.Module.Intern(method.Name), method.IsStatic, sig, FunctionId.None));
+        }
+
+        builder.DefineInterfaceMethods(id, methods);
         return id;
     }
 
@@ -289,6 +334,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
     {
         switch (type)
         {
+            case ITypeParameterSymbol parameter:
+                return builder.ParamType(parameter.Name);
             case IPointerTypeSymbol pointer:
                 TypeId element = pointer.PointedAtType.SpecialType == SpecialType.System_Void
                     ? builder.Primitive(TypeKind.Void)
@@ -327,9 +374,11 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             case INamedTypeSymbol opaque when IsOpaque(opaque):
                 return OpaqueOf(opaque, location);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, SpecialType: SpecialType.None } named:
-                return builder.StructType(StructOf(named, location));
+                return builder.StructType(StructOf(named, location), [.. named.TypeArguments.Select(argument => Map(argument, location))]);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
                 return builder.EnumType(EnumOf(enumeration, location));
+            case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract:
+                return builder.InterfaceType(InterfaceOf(contract, location), [.. contract.TypeArguments.Select(argument => Map(argument, location))]);
         }
 
         TypeKind? kind = type.SpecialType switch
