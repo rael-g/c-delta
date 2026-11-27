@@ -35,6 +35,7 @@ public sealed class CSharpFrontend : IBodyProvider
         _compilation = compilation;
         Builder = builder;
         _diagnostics = diagnostics;
+        Primitives = new PrimitiveImpls(this);
         _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls };
     }
 
@@ -105,8 +106,17 @@ public sealed class CSharpFrontend : IBodyProvider
 
     public FunctionId Declare(IMethodSymbol method) => Declare(method, []);
 
+    internal PrimitiveImpls Primitives { get; }
+
+    internal void ReserveSymbol() => _symbols.Add(null!);
+
     public Body? Lower(FunctionId function)
     {
+        if (Primitives.Owns(function))
+        {
+            return Primitives.Lower(function);
+        }
+
         IMethodSymbol method = _symbols[function.Index];
         if (method.IsExtern)
         {

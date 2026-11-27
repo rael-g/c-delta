@@ -940,12 +940,35 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     }
 
     private static IMethodSymbol? UserOperator(IMethodSymbol? method) =>
-        method is { IsImplicitlyDeclared: false } && method.Locations.Any(location => location.IsInSource) ? method : null;
+        method is { IsImplicitlyDeclared: false } && (method.Locations.Any(location => location.IsInSource) || IsInterfaceMember(method)) ? method : null;
+
+    private static bool IsInterfaceMember(IMethodSymbol method) =>
+        method.IsStatic && method.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface;
 
     private OperandId? CallOperator(IMethodSymbol method, IReadOnlyList<OperandId> arguments, SourceSpan span)
     {
+        if (method.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface && method.IsStatic)
+        {
+            return Emit(CallReturnType(method), _f.CallConstrained(ConstrainedOperator(method, arguments), arguments.ToList()), span);
+        }
+
         FunctionId callee = frontend.Declare(method);
         return Emit(CallReturnType(method), _f.CallDirect(callee, arguments.ToList(), TypeArguments(method)), span);
+    }
+
+    private int ConstrainedOperator(IMethodSymbol method, IReadOnlyList<OperandId> arguments)
+    {
+        foreach (OperandId argument in arguments)
+        {
+            TypeNode node = _module.Types[OperandType(argument).Index];
+            if (node.Kind == TypeKind.Param)
+            {
+                TypeId contract = frontend.Types.Map(method.ContainingType, method.Locations.FirstOrDefault() ?? Location.None);
+                return _builder.ConstrainedRef(_module.Text(new StringId(node.A)), contract, method.Name);
+            }
+        }
+
+        throw new UnsupportedConstructException("an operator of an interface needs an operand of a type parameter", method.Locations.FirstOrDefault() ?? Location.None);
     }
 
     private PlaceId SpillToPlace(OperandId operand, SourceSpan span)
@@ -1546,6 +1569,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         arguments.AddRange(target.TypeArguments.Select(argument => frontend.Types.Map(argument, location)));
+        foreach (ITypeSymbol argument in target.ContainingType.TypeArguments.Concat(target.TypeArguments))
+        {
+            frontend.Primitives.Ensure(argument);
+        }
+
         return arguments;
     }
 
@@ -1603,7 +1631,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     }
 
     private bool IsUserAccessor(IPropertySymbol property) =>
-        SymbolEqualityComparer.Default.Equals(property.ContainingAssembly, frontend.Compilation.Assembly);
+        SymbolEqualityComparer.Default.Equals(property.ContainingAssembly, frontend.Compilation.Assembly)
+        || property.IsStatic && property.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface;
 
     private OperandId LowerPropertyGet(IPropertyReferenceOperation property)
     {
