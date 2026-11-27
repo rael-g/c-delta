@@ -175,7 +175,8 @@ Struct   name, type params, fields (name, type, attributes, [Bits n]),
          layout: c | c.packed(n) | auto | explicit(offsets), min size,
          computed: size, alignment, field offsets (Final)
 Enum     name, backing integer type, members (name, value), exhaustive flag
-Union    name, members (struct types), computed: tag type, payload size, alignment, member tags
+Union    name, interface, members (struct types), computed: tag type, payload size, alignment,
+         member tags
 Interface name, type params, methods (signature, has default body), static members,
          extends
 Opaque   name
@@ -243,7 +244,8 @@ Rvalue   := Operand
   `error.error`. `slice.ptr` gives the pointer a slice
   holds, as `ptr<T> nullable many` (`const` for a `const` slice).
 - `Callee`: `direct(Function<args>)`, `indirect(Operand)` for function pointers,
-  `closure(Operand)`, `dyn(Operand, method)`, `constrained(param T, Interface.method)` (Lowered
+  `closure(Operand)`, `dyn(Operand, method)`, `union(Operand, method)` (Lowered only, lowered by
+  the core into a `switch` on the tag), `constrained(param T, Interface.method)` (Lowered
   only, resolved by instantiation), `c.macro(text, types)`: the macro's name, or with `template` its
   template, and the C types of the instance's type arguments.
 - Constants: integers (128 bits of two's complement with a type, the widest IR integer), floats (bit pattern), `bool`, `null`,
@@ -323,8 +325,11 @@ Impl     struct S<args>, interface I<args>, method -> Function
 ```
 
 `dyn.make(Impl, self)` takes the table of an `Impl`. The core emits one table global per `Impl`
-used by a `dyn`. `[Union]` interfaces do not use tables: a call on a union value is lowered by the
-core into a `switch` on the tag.
+used by a `dyn`. `[Union]` interfaces do not use tables. Each member of a `union` has an `Impl` of
+the union's interface, and a call on a union value uses the callee `union(p, method)`: `p` is a
+`ptr<union U>` (`const` for a `readonly` method), `method` the index in the interface as for
+`dyn`. The core lowers it into a `switch` on `tag (*p)` whose case for member `k` calls the
+`Impl` method of that member with `this` set to `addr (*p).payload(k)`.
 
 ## Attributes
 
@@ -402,7 +407,7 @@ struct      = attrs "struct" ref [tparams] [layout] ["size" int "align" int] ["m
 layout      = "layout" ("c" | "c.packed" "(" int ")" | "auto" | "explicit")
 field       = attrs ident ":" type ["bits" int ["at" int]] ["@" int] NL
 enum        = attrs "enum" ref ":" type ["exhaustive"] [origin] span "{" NL {ident "=" int NL} "}" NL
-union       = attrs "union" ref ["tag" type "size" int "align" int] span "{" NL {type ["=" int] NL} "}" NL
+union       = attrs "union" ref "of" type ["tag" type "size" int "align" int] span "{" NL {type ["=" int] NL} "}" NL
 interface   = attrs "interface" ref [tparams] ["extends" type {"," type}] span "{" NL {imethod} "}" NL
 imethod     = ["static"] "fn" ident sig ["default" ref] NL
 opaque      = attrs "opaque" ref [origin] span NL
@@ -484,7 +489,7 @@ rvalue      = operand
             | "intrinsic" ident "(" [operand {"," operand}] ")"
             | "comptime" ref
 callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
-            | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" ["template"] string [targs]
+            | "dyn" operand int | "union" operand int | "constrained" "param" ident type ident | "c.macro" ["template"] string [targs]
 mode        = "default" | "trap" | "wrap" | "assume"
 castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
             | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr" | "enum.error"
@@ -501,8 +506,8 @@ castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum"
 - An aggregate constant lists the values of the fields, elements, `{ptr, len}` or `{value, has}` of its type in
   order; nested aggregates nest braces.
 - The deref base takes a local only: a pointer held anywhere else is first copied into a temp.
-- `dyn` callees name the method by its index in the interface; `union.make` names the member by
-  its index in the union.
+- `dyn` and `union` callees name the method by its index in the interface, methods inherited
+  through `extends` included; `union.make` names the member by its index in the union.
 - A `source` line gives the full path, then the display path: the path relative to its package
   root with `/` separators (with `..` segments for a file outside the root), prefixed with `<PackageName>/` for packages other than the one being
   built. Panic messages and traces use the display path; `#line` uses the full path. Golden tests

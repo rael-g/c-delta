@@ -136,7 +136,7 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | namespace and static class | path segments of member names; no IR type |
 | struct | `Struct`; fixed buffers become `array` fields; `[InlineArray(n)]` becomes a struct with one `array<T, n>` field |
 | enum | `Enum`, exhaustive unless `[Flags]`, `[NonExhaustive]` or imported |
-| `[Union]` interface and its implementers | `Union` with the implementers in declaration order, then by file path |
+| `[Union]` interface and its implementers | `Interface`, and a `Union` naming it with the implementers in declaration order, then by file path; one `Impl` per implementer |
 | other interface | `Interface`, and one `Impl` per implementing struct |
 | delegate type | `closure(sig)`; the delegate's name is kept as an attribute |
 | function pointer type | `fn(sig)` |
@@ -179,6 +179,7 @@ branches, with explicit flow captures for evaluation order. The translation is t
 | `TryAndFinally` region (only from `using`) | the finally body copied on each exit edge, like `Defer` |
 | invocations, operators, conversions, member references | the corresponding rvalues and statements |
 | `T.P` for a static abstract property, and a user static property | `call` of its getter: `constrained` in `Lowered`, `direct` after instantiation |
+| a method call on a `[Union]` value | `call union` with `addr` of the value's place (`addr.mut` unless the method is `readonly`) and the method's index in the interface |
 | a user indexer access | `call direct` of the getter; a `ref` getter returns `ptr<T>`, copied into a temp and used as the place `(*%t)`, so `x[i] = v` and `x[i].F++` write through it |
 | an operator or conversion whose `OperatorMethod` is a user method | `call direct` of that method; Roslyn has already chosen the `checked` form in a checked context |
 | a lifted operator (`IsLifted`) on optionals | expanded as C# defines it: arithmetic gives `optional.none` unless both operands have a payload; `==` is true when both have none and compares payloads when both have one; `< > <= >=` are false unless both have a payload |

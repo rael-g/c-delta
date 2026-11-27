@@ -73,7 +73,9 @@ An interpreter over IR, inside the core, used for comptime regions, static initi
 
 - Each `Union` gets its tag type (the smallest unsigned integer that counts its members), its
   payload size and alignment.
-- Calls of methods on a union value become a `switch` on the tag calling each member's method.
+- Each `union` callee becomes a `switch` on the tag whose case for each member calls the method
+  of that member's `Impl` with `this` pointing at the payload
+  ([ir.md](ir.md#impls-and-dispatch)).
 - Each `Impl` used by `dyn.make` gets a table global: one function pointer per interface method,
   in interface declaration order, with thunks adapting `this` to `void*`.
 

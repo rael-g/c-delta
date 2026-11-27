@@ -77,7 +77,13 @@ removed before any stage checks it.
 
 **D020. Interfaces have three uses: constraint (static dispatch), `Dyn<I>.Of(ref x)` (fat
 pointer), and `[Union]` (tagged union by value).** The implicit struct to interface conversion
-exists only for `[Union]`, where its C# meaning (a copy) is kept without the heap.
+exists only for `[Union]`, where its C# meaning (a copy) is kept without the heap. In the IR a
+`union` names the interface it came from, as a `dyn<I>` does through its type; every member gets
+an `Impl` like any implementer, so default methods and constraints take the same path; and a call
+on a union value is its own callee, `union(Operand, method)`, never a `dyn`: a table read at run
+time and a `switch` on the tag are different operations. Its operand points at the union, so a
+method that mutates its struct mutates the member held in the union, as a mutation through a C#
+interface changes the object it holds.
 
 **D021. Delegates are values of two pointers (function and context), never multicast.**
 Capturing lambdas capture variables by reference into a stack frame struct; escaping the frame is
