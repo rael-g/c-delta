@@ -285,11 +285,15 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   or llhttp. Route templates are `[Comptime]` and compiled into a table, a route parameter without
   a handler parameter is a compile error, parameters and JSON bodies are bound through `TypeInfo`,
   and each request has an arena freed when it ends.
-- **A data package**, outside the std, in the manner of a micro ORM: SQL written by hand and rows
-  mapped to structs. `Query<T>`, `QueryFirst<T>`, `QuerySingle<T>`, `Execute` and
-  `ExecuteScalar<T>` on a connection; parameters come from an interpolated string handler, so
-  each hole becomes a bound parameter and never text. The fields of `T` are a comptime table, and
-  the first execution of a statement matches its columns to fields once. Results go to an
-  allocator, or are iterated row by row with text valid until the next row; a transaction is a
-  `using` that rolls back unless committed. Drivers over SQLite and libpq, whose non-blocking
-  socket joins `IIo`.
+- **A data package**, outside the std, in two layers. The base has ADO.NET's abstractions and
+  names: `IDbConnection`, `IDbCommand`, `IDbDataReader` (`Read`, `FieldCount`, `GetName`,
+  `GetInt64`, `GetString` with text valid until the next row, `IsDBNull`), `IDbTransaction` as a
+  `using` that rolls back unless committed, and `DbProviderFactory`. A driver implements them and
+  gives its parameter marker (`?`, `$1`, `@p1`). Code over a connection is generic over
+  `TConnection : IDbConnection`, so a known driver costs no dispatch, or takes a
+  `Dyn<IDbConnection>` when the driver is chosen at run time. The micro ORM above it uses only
+  those interfaces, so it works with every driver: SQL written by hand, `Query<T>`,
+  `QueryFirst<T>`, `QuerySingle<T>`, `Execute` and `ExecuteScalar<T>`; parameters from an
+  interpolated string handler, each hole a bound parameter and never text; the fields of `T` a
+  comptime table, matched to the columns of a statement once at its first execution; results to an
+  allocator, or row by row. Drivers over SQLite and libpq, whose non-blocking socket joins `IIo`.
