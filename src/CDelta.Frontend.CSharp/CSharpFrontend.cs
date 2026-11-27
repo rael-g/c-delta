@@ -36,6 +36,7 @@ public sealed class CSharpFrontend : IBodyProvider
         Builder = builder;
         _diagnostics = diagnostics;
         Primitives = new PrimitiveImpls(this);
+        Closures = new ClosureFunctions(this);
         _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls, ImplementersOf = ImplementersOf };
     }
 
@@ -108,6 +109,18 @@ public sealed class CSharpFrontend : IBodyProvider
 
     internal PrimitiveImpls Primitives { get; }
 
+    internal ClosureFunctions Closures { get; }
+
+    internal string KeyOf(IMethodSymbol method) =>
+        method.MethodKind == MethodKind.AnonymousFunction ? Closures.KeyOf(method)
+        : IsTopLevelEntry(method) ? TopLevelEntryName : method.GetDocumentationCommentId()![2..];
+
+    internal void RegisterSymbol(IMethodSymbol symbol, FunctionId id)
+    {
+        _functions.Add(symbol, id);
+        _symbols.Add(symbol);
+    }
+
     internal void ReserveSymbol() => _symbols.Add(null!);
 
     public Body? Lower(FunctionId function)
@@ -115,6 +128,11 @@ public sealed class CSharpFrontend : IBodyProvider
         if (Primitives.Owns(function))
         {
             return Primitives.Lower(function);
+        }
+
+        if (Closures.IsThunk(function))
+        {
+            return Closures.ThunkBody(function);
         }
 
         IMethodSymbol method = _symbols[function.Index];

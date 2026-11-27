@@ -39,6 +39,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private FunctionBuilder _f = null!;
     private ControlFlowGraph _cfg = null!;
     private SemanticModel _model = null!;
+    private int _lambdaCount;
 
     public Body Lower()
     {
@@ -46,7 +47,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         SyntaxNode syntax = method.DeclaringSyntaxReferences[0].GetSyntax();
         SemanticModel model = _model = frontend.Compilation.GetSemanticModel(syntax.SyntaxTree);
         IOperation? operation = model.GetOperation(syntax);
-        _cfg = operation switch
+        _cfg = frontend.Closures.TryGraph(method, out ControlFlowGraph lambdaGraph) ? lambdaGraph : operation switch
         {
             IMethodBodyOperation methodBody => ControlFlowGraph.Create(methodBody),
             IConstructorBodyOperation constructorBody => ControlFlowGraph.Create(constructorBody),
@@ -55,7 +56,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         };
         _f = new FunctionBuilder(_module, _body);
         SourceSpan methodSpan = frontend.SpanOf(location);
-        if (!method.IsStatic)
+        if (method.MethodKind == MethodKind.AnonymousFunction)
+        {
+            _f.NewLocal("ctx", frontend.Closures.ContextType(), LocalKind.Param, methodSpan);
+        }
+        else if (!method.IsStatic)
         {
             TypeId self = frontend.Types.Map(method.ContainingType, location);
             TypeFlags constness = frontend.IsReadOnlyMember(method) ? TypeFlags.Const : TypeFlags.None;
@@ -723,6 +728,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return LowerAddressOf(address);
             case ITypeOfOperation typeOf:
                 return _f.Const(_builder.TypeConstant(frontend.Types.Map(typeOf.TypeOperand, location)));
+            case IDelegateCreationOperation creation:
+                return LowerDelegateCreation(creation);
             case ISizeOfOperation sizeOf:
                 return Emit(_builder.Primitive(TypeKind.I32), _f.SizeOf(frontend.Types.Map(sizeOf.TypeOperand, location)), SpanOf(operation));
             case IParenthesizedOperation parenthesized:
@@ -1513,6 +1520,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerConstrainedCall(parameter, target, invocation.Instance, invocation.Arguments, span);
         }
 
+        if (target.MethodKind == MethodKind.DelegateInvoke)
+        {
+            return LowerDelegateInvoke(invocation, target, span);
+        }
+
         if (target is { Name: "Of", ContainingType: { Name: "Dyn", Arity: 1, ContainingNamespace.Name: "CDelta" } })
         {
             return LowerDynOf(invocation, target, span);
@@ -1529,6 +1541,62 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private OperandId? LowerDelegateInvoke(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
+    {
+        OperandId closure = Snapshot(LowerValue(invocation.Instance!), span);
+        var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
+        RvalueId call = _f.CallClosure(closure, arguments);
+        TypeId returnType = CallReturnType(target);
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
+    }
+
+    private OperandId LowerDelegateCreation(IDelegateCreationOperation creation)
+    {
+        Location location = creation.Syntax.GetLocation();
+        SourceSpan span = SpanOf(creation);
+        TypeId closureType = frontend.Types.Map(creation.Type!, location);
+        FunctionId function;
+        switch (creation.Target)
+        {
+            case IFlowAnonymousFunctionOperation flow:
+                function = LambdaFunction(flow, location);
+                break;
+            case IMethodReferenceOperation { Method: { IsStatic: true } method }:
+                function = frontend.Closures.Thunk(method, location);
+                break;
+            default:
+                throw new UnsupportedConstructException("this delegate conversion is not supported yet", location);
+        }
+
+        OperandId context = _f.Const(_builder.NullConstant(frontend.Closures.ContextType()));
+        return Emit(closureType, _f.ClosureMake(function, context), span);
+    }
+
+    private FunctionId LambdaFunction(IFlowAnonymousFunctionOperation flow, Location location)
+    {
+        IMethodSymbol lambda = flow.Symbol;
+        SyntaxNode syntax = flow.Syntax;
+        if (method.IsGenericMethod || method.ContainingType.IsGenericType)
+        {
+            throw new UnsupportedConstructException("a lambda inside a generic method is not supported yet", location);
+        }
+
+        DataFlowAnalysis analysis = _model.AnalyzeDataFlow(syntax)!;
+        if (analysis.Captured.Any(symbol => symbol is ILocalSymbol or IParameterSymbol))
+        {
+            throw new UnsupportedConstructException("a lambda that captures variables is not supported yet", location);
+        }
+
+        string key = frontend.KeyOf(method) + "/lambda" + _lambdaCount++;
+        return frontend.Closures.Lambda(lambda, key, location, _cfg.GetAnonymousFunctionControlFlowGraph(flow));
     }
 
     private OperandId LowerDynOf(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
@@ -2482,6 +2550,9 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
                 parts.Add(_builder.IntConstant(_builder.Primitive(TypeKind.U16), 0));
                 return _builder.AggregateConstant(type, parts);
+            case TypeKind.Closure:
+                TypeId contextPointer = frontend.Closures.ContextType();
+                return _builder.AggregateConstant(type, [_builder.NullConstant(contextPointer), _builder.NullConstant(contextPointer)]);
             case TypeKind.Dyn:
                 TypeId voidPointer = _builder.Pointer(_builder.Primitive(TypeKind.Void), TypeFlags.Nullable | TypeFlags.Many);
                 return _builder.AggregateConstant(type, [_builder.NullConstant(voidPointer), _builder.NullConstant(voidPointer)]);

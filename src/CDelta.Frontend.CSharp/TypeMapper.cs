@@ -142,6 +142,15 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
     public TypeId InterfaceType(INamedTypeSymbol contract, Location location) =>
         builder.InterfaceType(InterfaceOf(contract, location), [.. contract.TypeArguments.Select(argument => Map(argument, location))]);
 
+    public SigId DelegateSignature(INamedTypeSymbol delegateType, Location location)
+    {
+        IMethodSymbol invoke = delegateType.DelegateInvokeMethod!;
+        var parameters = invoke.Parameters
+            .Select(parameter => new SigParam(ParameterType(parameter, location), ModeOf(parameter.RefKind)))
+            .ToList();
+        return builder.Signature(CallConv.Default, parameters, ReferenceType(Map(invoke.ReturnType, location), invoke.RefKind), false, ModeOf(invoke.RefKind));
+    }
+
     public static bool IsUnion(ITypeSymbol? type) =>
         type is INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract
         && contract.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == "CDelta.UnionAttribute");
@@ -440,6 +449,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.StructType(StructOf(named, location), [.. named.TypeArguments.Select(argument => Map(argument, location))]);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
                 return builder.EnumType(EnumOf(enumeration, location));
+            case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Delegate } delegateType:
+                return builder.ClosureType(DelegateSignature(delegateType, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } union when IsUnion(union):
                 return builder.UnionType(UnionOf(union, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract:
