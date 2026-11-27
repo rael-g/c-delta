@@ -25,6 +25,8 @@ internal static class CTypes
             case TypeKind.ErrorSet:
             case TypeKind.AnyError:
                 return "uint16_t";
+            case TypeKind.Dyn:
+                return "cd_dyn";
             case TypeKind.Struct:
                 return names.Struct(new StructId(node.A));
             case TypeKind.Enum:

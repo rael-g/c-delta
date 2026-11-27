@@ -45,4 +45,5 @@ public enum TypeKind
     Param,
     Interface,
     ComptimeType,
+    Dyn,
 }

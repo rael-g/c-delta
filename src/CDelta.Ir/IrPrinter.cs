@@ -146,6 +146,8 @@ public static partial class IrPrinter
                 int[] interfaceArgs = IrTypes.StructTypeArgs(module, node);
                 return "interface " + Reference(module.Text(module.Interfaces[node.A].Key))
                     + (interfaceArgs.Length == 0 ? string.Empty : "<" + string.Join(", ", interfaceArgs.Select(arg => TypeText(module, new TypeId(arg)))) + ">");
+            case TypeKind.Dyn:
+                return "dyn<" + TypeText(module, new TypeId(node.A)) + ">";
             case TypeKind.Param:
                 return "param " + module.Strings[node.A];
             default:
@@ -971,6 +973,21 @@ public static partial class IrPrinter
 
                 text.Append(')');
                 break;
+            case RvalueKind.DynMake:
+                text.Append("dyn.make ");
+                if (rvalue.Callee == CalleeKind.Constrained)
+                {
+                    ConstrainedRef made = module.ConstrainedRefs[rvalue.Aux];
+                    text.Append("param ").Append(module.Text(made.Param)).Append(' ').Append(TypeText(module, made.Interface));
+                }
+                else
+                {
+                    text.Append("impl ").Append(Reference(module.Text(module.Impls[rvalue.Aux].Key)));
+                }
+
+                text.Append(' ');
+                PrintOperand(module, body, rvalue.A, text);
+                break;
             case RvalueKind.SizeOf:
                 text.Append("sizeof ").Append(TypeText(module, rvalue.Type));
                 break;
@@ -1002,6 +1019,12 @@ public static partial class IrPrinter
                     {
                         text.Append('<').Append(string.Join(", ", constrainedArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
                     }
+                }
+                else if (rvalue.Callee == CalleeKind.Dyn)
+                {
+                    text.Append("dyn ");
+                    PrintOperand(module, body, new OperandId(rvalue.CalleeId), text);
+                    text.Append(' ').Append(rvalue.Aux);
                 }
                 else
                 {

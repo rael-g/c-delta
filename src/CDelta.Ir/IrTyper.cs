@@ -112,6 +112,7 @@ public static class IrTyper
                 return OfOperand(module, body, r.A);
             case RvalueKind.Cast:
             case RvalueKind.Aggregate:
+            case RvalueKind.DynMake:
                 return r.Type;
             case RvalueKind.Addr:
                 TypeId target = OfPlace(module, body, r.Place);
@@ -173,6 +174,14 @@ public static class IrTyper
                 if (r.Callee == CalleeKind.Direct)
                 {
                     return module.Functions[r.CalleeId].Return;
+                }
+
+                if (r.Callee == CalleeKind.Dyn)
+                {
+                    TypeId dynType = OfOperand(module, body, new OperandId(r.CalleeId));
+                    return dynType.IsNone || module.Types[dynType.Index].Kind != TypeKind.Dyn
+                        ? TypeId.None
+                        : IrTypes.InterfaceMethodSignature(module, new TypeId(module.Types[dynType.Index].A), r.Aux)?.Return ?? TypeId.None;
                 }
 
                 TypeId calleeType = OfOperand(module, body, new OperandId(r.CalleeId));

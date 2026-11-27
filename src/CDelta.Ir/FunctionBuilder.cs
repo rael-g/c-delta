@@ -103,6 +103,15 @@ public sealed class FunctionBuilder(Module module, Body body)
             Aux = typeArgs is { Count: > 0 } ? module.TypeList([.. typeArgs.Select(type => type.Index)]).Index + 1 : 0,
         });
 
+    public RvalueId CallDyn(OperandId dyn, int method, IReadOnlyList<OperandId> args) =>
+        AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Dyn, CalleeId = dyn.Index, Aux = method, Args = AddArgs(args) });
+
+    public RvalueId DynMakeImpl(int impl, OperandId self, TypeId dynType) =>
+        AddRvalue(Blank(RvalueKind.DynMake) with { Callee = CalleeKind.Direct, Aux = impl, A = self, Type = dynType });
+
+    public RvalueId DynMakeConstrained(int reference, OperandId self, TypeId dynType) =>
+        AddRvalue(Blank(RvalueKind.DynMake) with { Callee = CalleeKind.Constrained, Aux = reference, A = self, Type = dynType });
+
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });
 

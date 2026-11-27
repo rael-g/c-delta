@@ -186,6 +186,8 @@ public sealed class ModuleBuilder(Module module)
         Module.Interfaces[id.Index] = Module.Interfaces[id.Index] with { Methods = new IdRange(start, methods.Count) };
     }
 
+    public TypeId DynOf(TypeId interfaceType) => Module.Type(new TypeNode(TypeKind.Dyn, TypeFlags.None, interfaceType.Index, 0));
+
     public TypeId InterfaceType(InterfaceId id, IReadOnlyList<TypeId>? typeArgs = null) =>
         Module.Type(new TypeNode(
             TypeKind.Interface,

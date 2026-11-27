@@ -389,6 +389,9 @@ internal sealed class BodyParser(
             case "call":
                 cursor.ReadWord();
                 return ParseCall(cursor);
+            case "dyn.make":
+                cursor.ReadWord();
+                return ParseDynMake(cursor);
             default:
                 return _f.Use(ParseOperand(cursor));
         }
@@ -398,6 +401,26 @@ internal sealed class BodyParser(
     {
         string word = cursor.PeekWord();
         return word is "copy" or "const" or "fnref" or "undef";
+    }
+
+    private RvalueId ParseDynMake(IrCursor cursor)
+    {
+        var builder = new ModuleBuilder(module);
+        if (cursor.ReadWord() == "impl")
+        {
+            string key = cursor.ReadReference();
+            int index = module.Impls.FindIndex(candidate => module.Text(candidate.Key) == key);
+            if (index < 0)
+            {
+                throw cursor.Error("unknown impl " + key);
+            }
+
+            return _f.DynMakeImpl(index, ParseOperand(cursor), builder.DynOf(module.Impls[index].Interface));
+        }
+
+        string param = cursor.ReadWord();
+        TypeId contract = types.ParseType(cursor);
+        return _f.DynMakeConstrained(builder.ConstrainedRef(param, contract, string.Empty), ParseOperand(cursor), builder.DynOf(contract));
     }
 
     private RvalueId ParseCall(IrCursor cursor)
@@ -424,6 +447,11 @@ internal sealed class BodyParser(
                 while (cursor.TryChar(','));
                 cursor.Expect('>');
             }
+        }
+        else if (kind == "dyn")
+        {
+            indirect = ParseOperand(cursor);
+            constrainedRef = cursor.ReadInt();
         }
         else if (kind == "constrained")
         {
@@ -462,6 +490,11 @@ internal sealed class BodyParser(
         if (kind == "constrained")
         {
             return _f.CallConstrained(constrainedRef, arguments, typeArgs);
+        }
+
+        if (kind == "dyn")
+        {
+            return _f.CallDyn(indirect, constrainedRef, arguments);
         }
 
         return kind == "direct" ? _f.CallDirect(callee, arguments, typeArgs) : _f.CallIndirect(indirect, arguments);

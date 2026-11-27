@@ -23,4 +23,5 @@ public enum RvalueKind
     Err,
     Errcode,
     Intrinsic,
+    DynMake,
 }

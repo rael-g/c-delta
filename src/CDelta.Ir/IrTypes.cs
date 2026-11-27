@@ -36,6 +36,27 @@ public static class IrTypes
     public static int[] StructTypeArgs(Module module, TypeNode node) =>
         node.B > 0 ? module.TypeLists[node.B - 1] : [];
 
+    public static (List<TypeId> Parameters, TypeId Return, InterfaceMethod Method)? InterfaceMethodSignature(Module module, TypeId interfaceType, int method)
+    {
+        TypeNode node = module.Types[interfaceType.Index];
+        InterfaceDecl declaration = module.Interfaces[node.A];
+        if (method < 0 || method >= declaration.Methods.Count)
+        {
+            return null;
+        }
+
+        InterfaceMethod item = module.InterfaceMethods[declaration.Methods.Start + method];
+        SigNode sig = module.Sigs[item.Sig.Index];
+        Dictionary<int, TypeId> bindings = IrSubstitution.Bind(module, declaration.TypeParams, StructTypeArgs(module, node));
+        var parameters = new List<TypeId>();
+        foreach (int encoded in module.TypeLists[sig.Params.Index])
+        {
+            parameters.Add(IrSubstitution.Apply(module, SigParam.Decode(encoded).Type, bindings));
+        }
+
+        return (parameters, IrSubstitution.Apply(module, sig.Return, bindings), item);
+    }
+
     public static int[] CallTypeArgs(Module module, Rvalue call) =>
         call.Aux > 0 ? module.TypeLists[call.Aux - 1] : [];
 

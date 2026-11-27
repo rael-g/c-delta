@@ -146,6 +146,11 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 }
 
                 return builder.InterfaceType(interfaceId, interfaceArgs);
+            case "dyn":
+                cursor.Expect('<');
+                TypeId contract = ParseType(cursor);
+                cursor.Expect('>');
+                return builder.DynOf(contract);
             case "param":
                 return builder.ParamType(cursor.ReadWord());
             case "comptime.type":

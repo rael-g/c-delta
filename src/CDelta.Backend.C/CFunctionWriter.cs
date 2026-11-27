@@ -169,7 +169,7 @@ internal sealed partial class CFunctionWriter(
             MarkPlaceRead(_body.Places[rvalue.Place.Index], read);
         }
 
-        if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Indirect)
+        if (rvalue.Kind == RvalueKind.Call && rvalue.Callee is CalleeKind.Indirect or CalleeKind.Dyn)
         {
             MarkOperandReads(new OperandId(rvalue.CalleeId), read);
         }
@@ -384,8 +384,30 @@ internal sealed partial class CFunctionWriter(
         return "cd_err_" + direction + "_" + CNames.MangleSpelling(names.Enum(new EnumId(module.Types[enumType.Index].A)));
     }
 
+    private string DynCallText(Rvalue rvalue)
+    {
+        OperandId dyn = new(rvalue.CalleeId);
+        TypeId contract = new(module.Types[IrTyper.OfOperand(module, _body, dyn).Index].A);
+        (List<TypeId> parameters, TypeId result, _) = IrTypes.InterfaceMethodSignature(module, contract, rvalue.Aux)!.Value;
+        string pointerType = CTypes.Spell(module, names, result) + " (*)(void*"
+            + string.Concat(parameters.Select(parameter => ", " + CTypes.Spell(module, names, parameter))) + ")";
+        string value = OperandText(dyn);
+        var text = new StringBuilder("((" + pointerType + ")" + value + ".table[" + rvalue.Aux + "])(" + value + ".self");
+        for (int i = 0; i < rvalue.Args.Count; i++)
+        {
+            text.Append(", ").Append(OperandText(_body.Args[rvalue.Args.Start + i]));
+        }
+
+        return text.Append(')').ToString();
+    }
+
     private string CallText(Rvalue rvalue)
     {
+        if (rvalue.Callee == CalleeKind.Dyn)
+        {
+            return DynCallText(rvalue);
+        }
+
         var text = new StringBuilder();
         bool imported = rvalue.Callee == CalleeKind.Direct && module.Functions[rvalue.CalleeId].Origin.Kind == OriginKind.CHeader;
         if (rvalue.Callee == CalleeKind.Direct)
@@ -466,6 +488,9 @@ internal sealed partial class CFunctionWriter(
                 break;
             case RvalueKind.Intrinsic:
                 WriteIntrinsic(rvalue, destination);
+                break;
+            case RvalueKind.DynMake:
+                Statement(destination + " = (cd_dyn){ (void*)" + OperandText(rvalue.A) + ", " + CBackend.TableName(rvalue.Aux) + " };");
                 break;
             case RvalueKind.OptionalSome:
                 Statement(destination + " = (" + cType + "){ " + OperandText(rvalue.A) + ", true };");

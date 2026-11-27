@@ -149,6 +149,11 @@ public static class CBackend
             text.Append('\n').Append(slices);
         }
 
+        if (module.Types.Any(node => node.Kind == TypeKind.Dyn))
+        {
+            text.Append('\n').Append(CPrelude.DynType);
+        }
+
         if (state.UsesTextEql)
         {
             text.Append('\n').Append(CPrelude.TextEql);
@@ -172,6 +177,11 @@ public static class CBackend
         }
 
         text.Append('\n').Append(prototypes);
+        if (module.Impls.Count > 0)
+        {
+            text.Append('\n').Append(DispatchTables(module, names));
+        }
+
         if (state.UsesPanic && handler is { } panicHandler)
         {
             text.Append('\n').Append(PanicDispatch(module, names, panicHandler));
@@ -185,6 +195,38 @@ public static class CBackend
         text.Append(definitions);
         string? libc = (defaultPanic || report) && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
+    }
+
+    public static string TableName(int impl) => "cd_vtable_" + impl;
+
+    private static string DispatchTables(Module module, CNames names)
+    {
+        var text = new StringBuilder();
+        for (int index = 0; index < module.Impls.Count; index++)
+        {
+            ImplDecl impl = module.Impls[index];
+            InterfaceDecl contract = module.Interfaces[module.Types[impl.Interface.Index].A];
+            var entries = new List<string>();
+            for (int slot = 0; slot < contract.Methods.Count; slot++)
+            {
+                InterfaceMethod method = module.InterfaceMethods[contract.Methods.Start + slot];
+                string entry = "0";
+                for (int i = 0; i < impl.Methods.Count && !method.IsStatic; i++)
+                {
+                    ImplMethod candidate = module.ImplMethods[impl.Methods.Start + i];
+                    if (candidate.Name == method.Name)
+                    {
+                        entry = "(cd_fn)" + names.Function(candidate.Function);
+                    }
+                }
+
+                entries.Add(entry);
+            }
+
+            text.Append("static const cd_fn ").Append(TableName(index)).Append("[] = { ").Append(string.Join(", ", entries)).Append(" };\n");
+        }
+
+        return text.ToString();
     }
 
     private static string ErrorHelpers(Module module, CNames names, CEmitState state)

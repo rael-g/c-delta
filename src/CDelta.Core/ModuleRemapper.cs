@@ -50,7 +50,9 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             case TypeKind.Opaque:
                 return destination.Type(node with { A = Opaque(new OpaqueId(node.A)).Index });
             case TypeKind.Interface:
-                throw new InvalidOperationException("an interface type is not copied into the instantiated module");
+                return new ModuleBuilder(destination).InterfaceType(InterfaceInstance(new InterfaceId(node.A), IrTypes.StructTypeArgs(source, node).Select(argument => Type(new TypeId(argument))).ToList()));
+            case TypeKind.Dyn:
+                return new ModuleBuilder(destination).DynOf(Type(new TypeId(node.A)));
             case TypeKind.Param:
                 if (Bindings is not null && Bindings.TryGetValue(node.A, out TypeId bound))
                 {
@@ -194,6 +196,39 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             Fields = new IdRange(fieldStart, fields.Count),
             Attributes = new IdRange(attributeStart, declaration.Attributes.Count),
         };
+        return created;
+    }
+
+    private InterfaceId InterfaceInstance(InterfaceId id, IReadOnlyList<TypeId> typeArguments)
+    {
+        InterfaceDecl declaration = source.Interfaces[id.Index];
+        string name = source.Text(declaration.Key) + (typeArguments.Count == 0
+            ? string.Empty
+            : "<" + string.Join(", ", typeArguments.Select(argument => IrPrinter.TypeText(destination, argument))) + ">");
+        if (destination.InterfacesByKey.TryGetValue(name, out InterfaceId existing))
+        {
+            return existing;
+        }
+
+        var builder = new ModuleBuilder(destination);
+        InterfaceId created = builder.DeclareInterface(name, name, declaration.Span, []);
+        var bindings = new Dictionary<int, TypeId>();
+        for (int i = 0; i < declaration.TypeParams.Count; i++)
+        {
+            bindings[source.TypeParams[declaration.TypeParams.Start + i].Index] = typeArguments[i];
+        }
+
+        Dictionary<int, TypeId>? saved = Bindings;
+        Bindings = bindings;
+        var methods = new List<InterfaceMethod>();
+        for (int i = 0; i < declaration.Methods.Count; i++)
+        {
+            InterfaceMethod method = source.InterfaceMethods[declaration.Methods.Start + i];
+            methods.Add(new InterfaceMethod(String(method.Name), method.IsStatic, Sig(method.Sig), FunctionId.None));
+        }
+
+        Bindings = saved;
+        builder.DefineInterfaceMethods(created, methods);
         return created;
     }
 

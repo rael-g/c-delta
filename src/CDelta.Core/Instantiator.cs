@@ -20,6 +20,7 @@ public sealed class Instantiator
     private int _depth;
     private Dictionary<string, ImplDecl>? _impls;
     private readonly List<ImplDecl> _genericImpls = [];
+    private readonly Dictionary<string, int> _reachedImpls = [];
 
     private readonly record struct Instance(FunctionId Source, FunctionId Destination, Dictionary<int, TypeId> Bindings, int Depth);
 
@@ -231,6 +232,11 @@ public sealed class Instantiator
                 copy = copy with { Aux = _remap.String(new StringId(rvalue.Aux)).Index };
             }
 
+            if (rvalue.Kind == RvalueKind.DynMake)
+            {
+                copy = copy with { Callee = CalleeKind.Direct, Aux = ReachImpl(rvalue) };
+            }
+
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Constrained)
             {
                 copy = ResolveConstrained(rvalue, copy);
@@ -256,18 +262,68 @@ public sealed class Instantiator
         return body;
     }
 
+    private ImplDecl FindImpl(TypeId concrete, TypeNode interfaceNode, out Dictionary<int, TypeId> bindings, out string key)
+    {
+        key = ImplKey(concrete, interfaceNode);
+        _impls ??= IndexImpls();
+        bindings = [];
+        if (!_impls.TryGetValue(key, out ImplDecl impl) && !TryMatchGeneric(concrete, interfaceNode, out impl, out bindings))
+        {
+            throw new InvalidOperationException("no impl of " + key + " was found");
+        }
+
+        return impl;
+    }
+
+    private int ReachImpl(Rvalue rvalue)
+    {
+        ImplDecl impl;
+        Dictionary<int, TypeId> bindings;
+        string key;
+        if (rvalue.Callee == CalleeKind.Constrained)
+        {
+            ConstrainedRef reference = _source.ConstrainedRefs[rvalue.Aux];
+            impl = FindImpl(_remap.Bindings![reference.Param.Index], _source.Types[reference.Interface.Index], out bindings, out key);
+        }
+        else
+        {
+            impl = _source.Impls[rvalue.Aux];
+            bindings = [];
+            _impls ??= IndexImpls();
+            key = _impls.First(pair => pair.Value.Key == impl.Key).Key;
+        }
+
+        if (_reachedImpls.TryGetValue(key, out int existing))
+        {
+            return existing;
+        }
+
+        Dictionary<int, TypeId>? saved = _remap.Bindings;
+        _remap.Bindings = bindings;
+        TypeId type = _remap.Type(impl.Type);
+        TypeId contract = _remap.Type(impl.Interface);
+        var methods = new List<ImplMethod>();
+        for (int i = 0; i < impl.Methods.Count; i++)
+        {
+            ImplMethod item = _source.ImplMethods[impl.Methods.Start + i];
+            List<TypeId> arguments = item.TypeArgs.IsNone
+                ? []
+                : _source.TypeLists[item.TypeArgs.Index].Select(argument => _remap.Type(new TypeId(argument))).ToList();
+            methods.Add(new ImplMethod(_remap.String(item.Name), Reach(item.Function, arguments), TypeListId.None));
+        }
+
+        _remap.Bindings = saved;
+        _builder.DeclareImpl(key, type, contract, methods);
+        _reachedImpls.Add(key, _destination.Impls.Count - 1);
+        return _destination.Impls.Count - 1;
+    }
+
     private Rvalue ResolveConstrained(Rvalue rvalue, Rvalue copy)
     {
         ConstrainedRef reference = _source.ConstrainedRefs[rvalue.CalleeId];
         TypeId concrete = _remap.Bindings![reference.Param.Index];
         TypeNode interfaceNode = _source.Types[reference.Interface.Index];
-        string key = ImplKey(concrete, interfaceNode);
-        _impls ??= IndexImpls();
-        var bindings = new Dictionary<int, TypeId>();
-        if (!_impls.TryGetValue(key, out ImplDecl impl) && !TryMatchGeneric(concrete, interfaceNode, out impl, out bindings))
-        {
-            throw new InvalidOperationException("no impl of " + key + " was found");
-        }
+        ImplDecl impl = FindImpl(concrete, interfaceNode, out Dictionary<int, TypeId> bindings, out string key);
 
         string method = _source.Text(reference.Method);
         for (int i = 0; i < impl.Methods.Count; i++)

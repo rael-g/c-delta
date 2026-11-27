@@ -361,6 +361,8 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 return BinopType(body, r);
             case RvalueKind.Unop:
                 return UnopType(body, r);
+            case RvalueKind.DynMake:
+                return DynMakeType(body, r);
             case RvalueKind.Cast:
                 OperandType(body, r.A);
                 if (stage == ModuleStage.Final && r.Mode == ArithMode.Default && IrNames.HasMode((CastKind)r.Op))
@@ -693,6 +695,58 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         return operand;
     }
 
+    private TypeId DynCallType(Body body, Rvalue r)
+    {
+        TypeId dyn = OperandType(body, new OperandId(r.CalleeId));
+        if (dyn.IsNone || KindOf(dyn) != TypeKind.Dyn)
+        {
+            Fail("a dyn call through a value that is not a dyn");
+            return TypeId.None;
+        }
+
+        (List<TypeId> Parameters, TypeId Return, InterfaceMethod Method)? signature = IrTypes.InterfaceMethodSignature(module, new TypeId(module.Types[dyn.Index].A), r.Aux);
+        if (signature is not { } found || found.Method.IsStatic)
+        {
+            Fail("a dyn call names a missing or static method");
+            return TypeId.None;
+        }
+
+        CheckArguments(body, r, found.Parameters, false);
+        return found.Return;
+    }
+
+    private TypeId DynMakeType(Body body, Rvalue r)
+    {
+        TypeId self = OperandType(body, r.A);
+        if (self.IsNone || KindOf(self) != TypeKind.Ptr)
+        {
+            Fail("dyn.make takes the address of the value");
+            return TypeId.None;
+        }
+
+        if (!ValidType(r.Type) || KindOf(r.Type) != TypeKind.Dyn)
+        {
+            Fail("dyn.make does not produce a dyn");
+            return TypeId.None;
+        }
+
+        if (r.Callee == CalleeKind.Constrained)
+        {
+            if (stage != ModuleStage.Lowered || r.Aux < 0 || r.Aux >= module.ConstrainedRefs.Count)
+            {
+                Fail("a constrained dyn.make is outside Lowered or names a missing reference");
+                return TypeId.None;
+            }
+        }
+        else if (r.Aux < 0 || r.Aux >= module.Impls.Count || module.Impls[r.Aux].Interface != new TypeId(module.Types[r.Type.Index].A))
+        {
+            Fail("dyn.make names a missing impl or one of another interface");
+            return TypeId.None;
+        }
+
+        return r.Type;
+    }
+
     private TypeId ConstrainedCallType(Body body, Rvalue r)
     {
         if (stage != ModuleStage.Lowered)
@@ -786,6 +840,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         if (r.Callee == CalleeKind.Constrained)
         {
             return ConstrainedCallType(body, r);
+        }
+
+        if (r.Callee == CalleeKind.Dyn)
+        {
+            return DynCallType(body, r);
         }
 
         TypeId calleeType = OperandType(body, new OperandId(r.CalleeId));
@@ -1033,7 +1092,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
         if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate or RvalueKind.Intrinsic)
         {
-            if (r.Kind == RvalueKind.Call && r.Callee == CalleeKind.Indirect)
+            if (r.Kind == RvalueKind.Call && r.Callee is CalleeKind.Indirect or CalleeKind.Dyn)
             {
                 ReadOperand(body, new OperandId(r.CalleeId), state, report);
             }
