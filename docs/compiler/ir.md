@@ -286,6 +286,7 @@ Errors and results:
 | `r.Catch(d)` | `trace.save`; `branch` on `haspayload r`; success: `r.payload(0)`; error: `trace.restore`, then `d` |
 | `r.Try()` in a function returning `result<U, F>` | `branch` on `haspayload r`; success: `r.payload(0)`; error: `err r`, `cast error.error` to `F` (or `anyerror`), the deferred bodies, `trace.push`, `return result.err` |
 | `error.Name` | `intrinsic error.name(e)`, of type `slice<u8> const`; the core replaces it by an index into the name table |
+| `PrintErrorTrace()` | the statement `intrinsic trace.print()` |
 | an error from `Main`, in the synthetic entry point only | the statement `intrinsic error.report(name)`, with `name` a `slice<u8> const`: writes `error: <name>` and the trace block to standard error ([backend-c.md](backend-c.md#output-of-an-error-from-main)) |
 
 - On a `result` place, `haspayload` is true on success and `payload(0)` is the `T`; `err` gives

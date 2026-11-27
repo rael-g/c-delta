@@ -164,7 +164,8 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 With checks on: `fill.undef` after `Unsafe.SkipInit` and after the array local of a constant
 `stackalloc` under `[SkipLocalsInit]`, and `alloca` with `undef` becomes `alloca` with `fill`. The
 frontend emits every `trace.push`, `trace.save` and `trace.restore`; this pass keeps them when
-`ErrorReturnTrace` is enabled and removes them otherwise.
+`ErrorReturnTrace` is enabled and removes them otherwise, with every `intrinsic trace.print`,
+which is also removed without libc.
 
 ## 9. Reachability cleanup
 

@@ -101,6 +101,7 @@ An area this document lacks is a gap to add here, not a limit.
 | .NET | CΔ | Answer | Basis or candidates |
 |---|---|---|---|
 | `Debug`, `Trace`, stack traces | `Std.Debug`, error return traces | std | libc |
+| the error return trace as data, for a logger to format | `PrintErrorTrace()` writes it only | open | CΔ, entries of file and line |
 | `ILogger` | | open | CΔ, levels decided at comptime so calls below them leave the binary |
 | metrics, `EventSource`, tracing | | open | a package |
 | xUnit, NUnit | `[Test]`, `Std.Testing` | std | CΔ |

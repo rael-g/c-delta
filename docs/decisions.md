@@ -246,7 +246,10 @@ knows no C compiler.
 1 targets run under `qemu-aarch64` and `wine`.
 
 **D126. A handled error removes its entries from the error return trace.** `Catch` and `TryGet`
-save and restore the trace length, so a trace shows only the error in flight.
+save and restore the trace length, so a trace shows only the error in flight. Code reaches the
+trace only through the intrinsic `PrintErrorTrace()`, which writes the trace block to standard
+error, so `Std.Process.Run` and a `[PanicHandler]` report an error as a failing `Main` does with
+no case of the compiler for them.
 
 **D127. Implementation follows the documents and never decides design.** A gap or a conflict in
 the documents is answered by a change to the documents, and the affected work waits for it.

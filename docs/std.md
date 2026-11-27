@@ -68,7 +68,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | `Std.Random` | `Random`, a struct with an explicit seed; `Random.Shared`, one per thread, seeded from the OS | itself; the OS for seeding |
 | `Std.Threading` | `Thread`, `ThreadLocal<T>`, `Atomic<T>`, `SpinWait`, `Mutex`, `RwLock`, `SpinLock`, `Condition`, `Semaphore`, `Barrier`, `CountdownEvent`, `ResetEvent`, `Once`, `Lazy<T>`, `CancellationTokenSource`, `CancellationToken` ([below](#concurrency)) | pthreads, Win32; futex, `WaitOnAddress`, `__ulock` |
 | `Std.Math` | the functions of `<math.h>`, checked and wrapping integer helpers with explicit overflow results | libm and compiler builtins |
-| `Std.Debug` | `Print` to standard error, `Assert`, stack traces where the platform gives them | `Std.Io`, libc `backtrace` where available |
+| `Std.Debug` | `Print` to standard error, `Assert`, `PrintErrorTrace`, stack traces where the platform gives them | `Std.Io`, libc `backtrace` where available |
 | `Std.Testing` | `Expect`, `ExpectEqual`, `ExpectError`, `Allocator` | `Std.Debug` |
 | `Std.C` | helpers for C interop: `CString`, `ToCString(string, allocator)`, `Flexible<T>`, `errno` | libc |
 

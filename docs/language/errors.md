@@ -109,7 +109,10 @@ In Debug and ReleaseSafe the compiler records, per thread, the source location o
 panic happens while an error is in flight, the trace is printed. ReleaseFast and ReleaseSmall
 record nothing. The ring needs no allocation and is part of the generated code, not a runtime.
 An error handled by `Catch` or `TryGet` removes the entries it added, so the trace shows only the
-path of the error that is still in flight. The output format is in
+path of the error that is still in flight. `PrintErrorTrace()` writes the trace of the current
+thread to standard error, as a failing `Main` does, and leaves it unchanged; it writes nothing
+when the trace is empty, in ReleaseFast and ReleaseSmall, and without libc. `Std.Process.Run`
+writes `error: <Name>` with `error.Name`, then calls it; a `[PanicHandler]` may call it too. The output format is in
 [../compiler/backend-c.md](../compiler/backend-c.md#output-of-a-panic).
 
 ## Panics

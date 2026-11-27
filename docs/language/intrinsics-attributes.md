@@ -27,6 +27,7 @@ The second table lists the C# names CΔ reuses.
 | `void CompileError(ReadOnlySpan<byte> message)` | compile error if reached | [comptime.md](comptime.md#errors-at-comptime) |
 | `ReadOnlySpan<byte> Embed(ReadOnlySpan<byte> path)` | a file's bytes as static data, path relative to the source file, inside the package (`CD4008`) | [comptime.md](comptime.md) |
 | `void Breakpoint()` | a debugger trap instruction | |
+| `void PrintErrorTrace()` | write the error return trace of this thread to standard error | [errors.md](errors.md#error-return-traces) |
 
 ## CΔ intrinsic types (`CDelta`)
 
