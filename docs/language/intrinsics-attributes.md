@@ -48,7 +48,7 @@ The second table lists the C# names CΔ reuses.
 | `[Import(string header, ...)]` | `static partial class` | import a C header into the class | [c-interop.md](c-interop.md) |
 | `[Export]`, `[Export(string name)]` | static method, struct, enum, static field | export with C ABI and into the header | [c-interop.md](c-interop.md#exporting) |
 | `[CName(string name)]` | extern method, struct, field | the C name, when it differs | [c-interop.md](c-interop.md) |
-| `[CMacro]` | `static extern` method | a call to a C function-like macro | [c-interop.md](c-interop.md#macros) |
+| `[CMacro]`, `[CMacro(string template)]` | `static extern` method | a call to a C function-like macro, or its template | [c-interop.md](c-interop.md#macros) |
 | `[CFlexible(string name, Type element)]` | imported struct | a flexible array member | [c-interop.md](c-interop.md#what-a-header-becomes) |
 | `[Unsupported(string reason)]` | imported declaration | could not be translated; using it is `CD6003` | [c-interop.md](c-interop.md#what-a-header-becomes) |
 | `[Opaque]` | struct | incomplete type, only behind pointers | [types.md](types.md#opaque-structs) |

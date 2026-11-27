@@ -89,8 +89,12 @@ portable.
 
 ### Macros
 
-A function-like macro that expands to an expression is declared by hand with its intended
-signature:
+A macro that expands to declarations (X-macros, tables of functions or structs instantiated by a
+macro) needs nothing: the header is read after preprocessing, so what the expansion declares is
+imported like any other declaration. To use such a library, instantiate its macros in a header of
+the project and import that header.
+
+A function-like macro used as a call is declared by hand with its intended signature (D030):
 
 ```csharp
 static unsafe partial class C
@@ -99,8 +103,35 @@ static unsafe partial class C
 }
 ```
 
-The C backend writes the call as written; the C compiler expands the macro. `[CMacro]` applies
-only to `static extern` methods (`CD6008`).
+The C backend writes a call of the macro with the arguments; the C compiler expands it and checks
+the expansion. `[CMacro]` applies only to `static extern` methods (`CD6008`). Every form of macro
+has a declaration (D189):
+
+| Macro | Declaration | Written in C as |
+|---|---|---|
+| an expression | `[CMacro] static extern int isdigit(int c);` | `isdigit(c)` |
+| a statement, such as `do { ... } while (0)` | a `void` method | `NAME(args);` as a statement |
+| one that assigns an argument | that parameter is `ref` | the lvalue itself, `(*p)`, not its address |
+| generic in its arguments (`MAX`, `_Generic`, containers) | a generic method, instantiated like any other | the same call in each instance, with that instance's C types |
+| one that takes a type, or is not shaped like a call | `[CMacro("template")]` | the template, with `{0}`, `{1}` ... replaced by the arguments and `{T}` by the C spelling of type argument `T` |
+
+```csharp
+static unsafe partial class Ds
+{
+    [CMacro] public static extern void arrput<T>(ref T* a, T v);
+    [CMacro] public static extern nint arrlen<T>(T* a);
+}
+
+static unsafe partial class C
+{
+    [CMacro("va_arg({0}, {T})")] public static extern T va_arg<T>(ref va_list ap);
+    [CMacro("offsetof({T}, {0})")] public static extern nuint offsetof<T>([Comptime] string field);
+}
+```
+
+A template that names an argument or a type argument the method does not have is `CD6011`. An
+argument of a `[Comptime]` `string` parameter is written as its text, unquoted, which is how a
+macro receives a field or a member name.
 
 ## Declaring a C function by hand
 

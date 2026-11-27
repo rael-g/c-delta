@@ -242,7 +242,8 @@ Rvalue   := Operand
   holds, as `ptr<T> nullable many` (`const` for a `const` slice).
 - `Callee`: `direct(Function<args>)`, `indirect(Operand)` for function pointers,
   `closure(Operand)`, `dyn(Operand, method)`, `constrained(param T, Interface.method)` (Lowered
-  only, resolved by instantiation), `c.macro(name)`.
+  only, resolved by instantiation), `c.macro(text, types)`: the macro's name, or with `template` its
+  template, and the C types of the instance's type arguments.
 - Constants: integers (128 bits of two's complement with a type, the widest IR integer), floats (bit pattern), `bool`, `null`,
   bytes (static data, with or without NUL), aggregates, pointers to globals with an offset,
   function references, error codes, `undef`.
@@ -476,7 +477,7 @@ rvalue      = operand
             | "intrinsic" ident "(" [operand {"," operand}] ")"
             | "comptime" ref
 callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
-            | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" string
+            | "dyn" operand int | "constrained" "param" ident type ident | "c.macro" ["template"] string [targs]
 mode        = "default" | "trap" | "wrap" | "assume"
 castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
             | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr" | "enum.error"

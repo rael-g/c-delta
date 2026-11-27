@@ -69,7 +69,9 @@ static const __typeof__(NAME) __cdelta_macro_NAME = (NAME);
 
 and evaluates it with clang's constant evaluation. If it parses and evaluates to an integer,
 float, character or string, the macro becomes a constant with that type. Otherwise it is skipped.
-Function-like macros are never imported automatically; `[CMacro]` declares them by hand.
+Function-like macros are never imported automatically; `[CMacro]` declares them by hand. Macros
+that expand to declarations need nothing: libclang reads the preprocessed header, so their
+expansions are ordinary declarations.
 
 ## Doc tags and annotations
 

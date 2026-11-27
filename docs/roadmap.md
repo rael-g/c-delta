@@ -144,7 +144,7 @@ work in a sample.
 
 - The rest of the C frontend: comments into doc comments, doc tags and annotations, the import
   cache.
-- `[CMacro]`, `CSource` items, macros of constant addresses.
+- `[CMacro]` in every form of D189, `CSource` items, macros of constant addresses.
 - `[Align]`, `[Naked]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` and `CppSource` items, `EntrySymbol`,
   `LinkerScript`, `LinkerArgs`, the embedded targets ([language/c-parity.md](language/c-parity.md)).
 - `[Export]`, the export header, static and shared libraries, `--emit-c`; the CMake and

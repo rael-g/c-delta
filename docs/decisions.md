@@ -497,6 +497,13 @@ and parsing it costs nothing when running. Unicode tables are computed by compti
 Unicode data files embedded with `Embed`, so no generated file is kept and no table is built at
 startup.
 
+**D189. `[CMacro]` reaches every form of function-like macro.** A macro has no type, so its
+signature stays written by hand (D030), but no shape of macro is out of reach: a `ref` parameter
+is the lvalue the macro writes, a `void` one is a statement, a generic one is instantiated like
+any generic with each expansion checked by the C compiler, and a template spells the macros that
+take types or are not shaped like a call. Macros that declare need nothing, since the header is
+read after preprocessing.
+
 ## Repository
 
 **D201. Documents and code are in English.**
