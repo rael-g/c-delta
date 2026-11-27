@@ -19,6 +19,10 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public Func<INamedTypeSymbol?, int> ImportIdOf { get; set; } = _ => -1;
 
+    public Func<INamedTypeSymbol, IReadOnlyList<INamedTypeSymbol>> ImplementersOf { get; set; } = _ => [];
+
+    private readonly Dictionary<INamedTypeSymbol, UnionId> _unions = new(SymbolEqualityComparer.Default);
+
     public Action<INamedTypeSymbol, StructId> StructDefined { get; set; } = (_, _) => { };
 
     private readonly Dictionary<INamedTypeSymbol, InterfaceId> _interfaces = new(SymbolEqualityComparer.Default);
@@ -137,6 +141,42 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public TypeId InterfaceType(INamedTypeSymbol contract, Location location) =>
         builder.InterfaceType(InterfaceOf(contract, location), [.. contract.TypeArguments.Select(argument => Map(argument, location))]);
+
+    public static bool IsUnion(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract
+        && contract.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == "CDelta.UnionAttribute");
+
+    public UnionId UnionOf(INamedTypeSymbol contract, Location location)
+    {
+        contract = contract.OriginalDefinition;
+        if (_unions.TryGetValue(contract, out UnionId existing))
+        {
+            return existing;
+        }
+
+        UnionId id = builder.DeclareUnion(
+            contract.GetDocumentationCommentId()![2..],
+            contract.ToDisplayString(_nameFormat),
+            spanOf(contract.Locations.FirstOrDefault() ?? Location.None));
+        _unions.Add(contract, id);
+        builder.DefineUnionMembers(id, [.. ImplementersOf(contract).Select(member => Map(member, location))]);
+        return id;
+    }
+
+    public int UnionMemberIndex(INamedTypeSymbol contract, ITypeSymbol member, Location location)
+    {
+        UnionDecl declaration = builder.Module.Unions[UnionOf(contract, location).Index];
+        TypeId type = Map(member, location);
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            if (builder.Module.UnionMembers[declaration.Members.Start + i] == type)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     public static bool IsContractMember(IMethodSymbol member) =>
         member.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator;
@@ -399,6 +439,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 return builder.StructType(StructOf(named, location), [.. named.TypeArguments.Select(argument => Map(argument, location))]);
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
                 return builder.EnumType(EnumOf(enumeration, location));
+            case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } union when IsUnion(union):
+                return builder.UnionType(UnionOf(union, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract:
                 return builder.DynOf(InterfaceType(contract, location));
         }

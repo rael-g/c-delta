@@ -25,10 +25,22 @@ internal sealed class ObjectRule : SubsetRule
             operation =>
             {
                 var conversion = (Microsoft.CodeAnalysis.Operations.IConversionOperation)operation.Operation;
-                if (Microsoft.CodeAnalysis.CSharp.CSharpExtensions.GetConversion(conversion).IsBoxing)
+                if (!Microsoft.CodeAnalysis.CSharp.CSharpExtensions.GetConversion(conversion).IsBoxing)
                 {
-                    Report(operation, conversion);
+                    return;
                 }
+
+                if (conversion.Type is { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract)
+                {
+                    if (!contract.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == "CDelta.UnionAttribute"))
+                    {
+                        operation.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(Descriptors.For(DiagnosticCode.CD5001), conversion.Syntax.GetLocation()));
+                    }
+
+                    return;
+                }
+
+                Report(operation, conversion);
             },
             OperationKind.Conversion);
     }

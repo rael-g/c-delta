@@ -1141,6 +1141,25 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         ITypeSymbol target = conversion.Type!;
         ITypeSymbol? source = conversion.Operand.Type;
+        if (TypeMapper.IsUnion(target) && source is { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct })
+        {
+            int member = frontend.Types.UnionMemberIndex((INamedTypeSymbol)target, source, location);
+            if (member < 0)
+            {
+                throw new UnsupportedConstructException(source.ToDisplayString() + " is not a member of " + target.ToDisplayString(), location);
+            }
+
+            return Emit(
+                frontend.Types.Map(target, location),
+                _f.UnionMake(frontend.Types.Map(target, location), member, Snapshot(LowerValue(conversion.Operand), SpanOf(conversion))),
+                SpanOf(conversion));
+        }
+
+        if (TypeMapper.IsUnion(target) && TypeMapper.IsUnion(source))
+        {
+            return LowerValue(conversion.Operand);
+        }
+
         if (source is null && TypeMapper.IsNullable(target) && conversion.Operand.ConstantValue is { HasValue: true, Value: null })
         {
             TypeId optional = frontend.Types.Map(target, location);
@@ -2182,6 +2201,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return TestTypeParameter(pattern, parameter, place, span);
         }
 
+        if (TypeMapper.IsUnion(pattern.InputType) && pattern is IDeclarationPatternOperation or ITypePatternOperation)
+        {
+            return TestUnion(pattern, place, span);
+        }
+
         if (_module.Types[IrTyper.OfPlace(_module, _body, place).Index].Kind == TypeKind.Optional
             && pattern is not (IDiscardPatternOperation or INegatedPatternOperation or IBinaryPatternOperation))
         {
@@ -2231,6 +2255,42 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             default:
                 throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported yet", pattern.Syntax.GetLocation());
         }
+    }
+
+    private OperandId TestUnion(IPatternOperation pattern, PlaceId place, SourceSpan span)
+    {
+        Location location = pattern.Syntax.GetLocation();
+        ITypeSymbol matched = (pattern switch
+        {
+            IDeclarationPatternOperation declaration => declaration.MatchedType,
+            ITypePatternOperation type => type.MatchedType,
+            _ => null,
+        }) ?? throw new UnsupportedConstructException("the pattern " + pattern.Kind + " is not supported on a union", location);
+        int member = frontend.Types.UnionMemberIndex((INamedTypeSymbol)pattern.InputType, matched, location);
+        if (member < 0)
+        {
+            throw new UnsupportedConstructException(matched.ToDisplayString() + " is not a member of " + pattern.InputType.ToDisplayString(), location);
+        }
+
+        TypeId boolean = _builder.Primitive(TypeKind.Bool);
+        TypeId tagType = _builder.Primitive(TypeKind.U32);
+        OperandId tag = Emit(tagType, _f.Tag(place), span);
+        LocalId result = NewTemp(boolean);
+        _f.Assign(_f.LocalPlace(result), _f.Binop(BinOp.Eq, ArithMode.Default, tag, _f.Const(_builder.IntConstant(tagType, member))), span);
+        if (pattern is IDeclarationPatternOperation { DeclaredSymbol: ILocalSymbol declared })
+        {
+            LocalId bound = LocalOf(declared, span);
+            _f.Assign(_f.LocalPlace(bound), _f.Use(Zero(_body.Locals[bound.Index].Type, span)), span);
+            BlockId bind = _f.NewBlock();
+            BlockId join = _f.NewBlock();
+            _f.Branch(_f.Copy(_f.LocalPlace(result)), bind, join, span);
+            _f.SetBlock(bind);
+            _f.Assign(_f.LocalPlace(bound), _f.Use(_f.Copy(_f.Project(place, ProjectionKind.Payload, member))), span);
+            _f.Goto(join, span);
+            _f.SetBlock(join);
+        }
+
+        return _f.Copy(_f.LocalPlace(result));
     }
 
     private static IOperation WithoutObjectConversion(IOperation operation) =>

@@ -36,7 +36,7 @@ public sealed class CSharpFrontend : IBodyProvider
         Builder = builder;
         _diagnostics = diagnostics;
         Primitives = new PrimitiveImpls(this);
-        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls };
+        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls, ImplementersOf = ImplementersOf };
     }
 
     public ModuleBuilder Builder { get; }
@@ -395,6 +395,37 @@ public sealed class CSharpFrontend : IBodyProvider
         return found.OrderBy(m => m.GetDocumentationCommentId(), StringComparer.Ordinal);
     }
 
+    private IReadOnlyList<INamedTypeSymbol> ImplementersOf(INamedTypeSymbol contract)
+    {
+        var found = new List<INamedTypeSymbol>();
+        void Visit(INamespaceOrTypeSymbol container)
+        {
+            foreach (INamedTypeSymbol type in container.GetTypeMembers())
+            {
+                if (type.TypeKind == Microsoft.CodeAnalysis.TypeKind.Struct && type.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, contract)))
+                {
+                    found.Add(type);
+                }
+
+                Visit(type);
+            }
+
+            if (container is INamespaceSymbol space)
+            {
+                foreach (INamespaceSymbol nested in space.GetNamespaceMembers())
+                {
+                    Visit(nested);
+                }
+            }
+        }
+
+        Visit(_compilation.Assembly.GlobalNamespace);
+        return found
+            .OrderBy(type => type.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal)
+            .ThenBy(type => type.Locations[0].SourceSpan.Start)
+            .ToList();
+    }
+
     private readonly Queue<(INamedTypeSymbol Type, StructId Id)> _pendingImpls = new();
     private int _declaring;
 
@@ -425,6 +456,11 @@ public sealed class CSharpFrontend : IBodyProvider
             : TypeListId.None;
         foreach (INamedTypeSymbol contract in type.AllInterfaces)
         {
+            if (TypeMapper.IsUnion(contract))
+            {
+                continue;
+            }
+
             var methods = new List<ImplMethod>();
             foreach (IMethodSymbol member in contract.GetMembers().OfType<IMethodSymbol>())
             {
