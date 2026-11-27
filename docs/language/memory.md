@@ -12,6 +12,17 @@
 There is no other source. The language never allocates on its own: no construct, intrinsic or
 conversion allocates, and a function of the std that allocates takes an `IAllocator` parameter.
 
+Running out of memory is a `Result` where allocating is the purpose of the call, and a panic where
+it is a side effect of growing a collection or a buffer (D026). The panic goes through the
+program's `[PanicHandler]`, which on bare metal can reset or log and on wasm can tell the host
+before the trap. Code that must not panic reserves with `EnsureCapacity` and stays within it, and
+`AllocationPanics` turns the remaining risk into compile errors:
+
+| `AllocationPanics` | Effect |
+|---|---|
+| `Allow` | a call carrying `[AllocationPanic]` panics when memory runs out |
+| `Deny` | such a call is `CD2011`; the fallible forms remain: `EnsureCapacity`, `AddWithinCapacity` and the allocator itself |
+
 ## Allocators
 
 `IAllocator` is the std interface every allocator implements:

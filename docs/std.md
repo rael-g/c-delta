@@ -8,7 +8,11 @@ and fits CΔ's rules, the std projects it instead of reimplementing it (D147).
 
 - Every function that allocates takes an `IAllocator` (or a type parameter constrained to it).
 - Every function that can fail returns a `Result`; nothing in the std panics on bad input, only on
-  illegal behavior.
+  illegal behavior and on running out of memory during incidental growth (D026).
+- An operation whose purpose is to allocate returns a `Result` when memory runs out. An operation
+  that grows a collection or a buffer as a side effect panics instead and carries
+  `[AllocationPanic]`; `EnsureCapacity` reserves fallibly beforehand, and `AddWithinCapacity`
+  returns an error instead of growing.
 - Everything is in namespace `Std`, one static class or struct per concept.
 - Wrapping is an implementation detail: the public surface of the std speaks CΔ (spans, `Result`,
   allocators), never raw C types.
@@ -53,7 +57,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 |---|---|---|
 | `Std.Mem` | `Copy`, `Set`, `Eql`; extension members on `Span<T>` and `ReadOnlySpan<T>` with the meaning of C#'s span extensions: `IndexOf` and `LastIndexOf` of an element or a span (the element index, `-1` when absent), `StartsWith`, `EndsWith`; `Swap`, `Swap`, `IAllocator`, `AllocError`, `Create<T>`, `Destroy<T>`, `AllocSpan<T>`, `FreeSpan<T>`, `Dupe<T>` | `memcpy`, `memset`, `memcmp` through the C compiler's builtins |
 | `Std.Heap` | `PageAllocator`, `CAllocator` (`malloc`, `realloc`, `free`), `FixedBufferAllocator`, `ArenaAllocator`, `VirtualArenaAllocator` ([below](#virtual-arena)), `DebugAllocator` | the OS page API, libc |
-| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `Dictionary<TKey, TValue>` (a value indexer, `GetValueRef` for updates in place) and `HashSet<T>` (hashing chosen at comptime from the key type: primitives, `string`, enums, structs field by field), `Dictionary<TKey, TValue, THasher>` and `HashSet<T, THasher>` with an `IHasher<T>`, `Queue<T>`, `Stack<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer); every growing operation takes the allocator given at construction and returns a `Result` | itself |
+| `Std.Collections` | `List<T>` (growable array, `Items` is a `Span<T>`), `Dictionary<TKey, TValue>` (a value indexer, `GetValueRef` for updates in place) and `HashSet<T>` (hashing chosen at comptime from the key type: primitives, `string`, enums, structs field by field), `Dictionary<TKey, TValue, THasher>` and `HashSet<T, THasher>` with an `IHasher<T>`, `Queue<T>`, `Stack<T>`, `Pool<T>` (slots addressed by a `Handle<T>` of index and generation; a stale handle is an error value, not a dangling pointer); every growing operation takes the allocator given at construction and panics when memory runs out, `EnsureCapacity` returns a `Result`, and `Add` within the reserved capacity never allocates (D026) | itself |
 | `Std.Text` | `StringBuilder` (a struct over an allocator, with an interpolated string handler for `Append($"...")`, `ToString()` giving a `string` over its buffer); extension members on `string`: `StartsWith`, `EndsWith`, `Contains`, `Split`, `SplitOnce`, `Trim`, `EqualsIgnoreCase`, `EnumerateRunes()` (the enumerator of `Rune` the `Std.Linq` operators take); `FromUtf8` validation; `Concat(allocator, ...)`, `ToUpper(allocator)`, `ToLower(allocator)`; static extensions `int.Parse(string)` and the other numeric types returning `Result`; `Ascii`; formatting of integers and floats | itself, since formatting runs at comptime |
 | `Std.Fmt` | `IWriter`, interpolated string handlers that format into a writer or a buffer, the `{value:spec}` format specifiers | itself, with comptime `TypeInfo` for structs and enums |
 | `Std.Io` | `IReader`, `IWriter`, `BufferedReader<T>`, `BufferedWriter<T>`, standard streams | `read`, `write`; Win32 handles |

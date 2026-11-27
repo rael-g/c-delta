@@ -100,8 +100,14 @@ so code that only exists on one platform needs `#if` or a per-OS file.
 
 **D025. Panics do not unwind and run no `Defer`.**
 
-**D026. The language never allocates.** Every allocating std function takes an `IAllocator`;
-allocation failure is a `Result`.
+**D026. The language never allocates.** Every allocating std function takes an `IAllocator`.
+Where allocating is the purpose (an allocator's `Alloc`, `Create<T>`, `Dupe`, `EnsureCapacity`),
+failure is a `Result`; where it is incidental to another operation (`List.Add`, `Insert`,
+`StringBuilder.Append`, a growing `Dictionary`), failure panics, as an unhandled
+`OutOfMemoryException` ends a C# program. Memory rarely runs out where most code runs, so making
+every growth fallible is noise; code that must survive reserves first, after which `Add` does not
+allocate, and `AllocationPanics` set to `Deny`, the default on `freestanding`, makes every call
+that could panic a compile error.
 
 **D027. Imported C declarations keep their C names.** Idiomatic renaming is the job of projection
 backends, not of the import.

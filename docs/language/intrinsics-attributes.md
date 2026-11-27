@@ -58,6 +58,7 @@ The second table lists the C# names CΔ reuses.
 | `[Comptime]` | parameter | comptime-known argument | [comptime.md](comptime.md) |
 | `[ComptimeQuota(int branches)]` | method | raise the branch quota | [comptime.md](comptime.md) |
 | `[Safety(bool enabled)]` | method, struct, module | override safety checks | [memory.md](memory.md#build-modes-and-illegal-behavior) |
+| `[AllocationPanic]` | method | panics when the growth it causes runs out of memory; `CD2011` under `AllocationPanics=Deny` | [memory.md](memory.md#where-memory-comes-from) |
 | `[PanicHandler]` | static method | replace the panic handler | [errors.md](errors.md#the-panic-handler) |
 | `[Test]` | static method | a test, compiled only by `cdc test` | [modules-build.md](modules-build.md#tests) |
 | `[Section(string name)]` | static field, static method | place in a linker section | [c-interop.md](c-interop.md#exporting) |

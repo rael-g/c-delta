@@ -91,6 +91,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD2008 | a reference or pointer cannot be taken to a field that is not aligned | [../language/types.md](../language/types.md#layout) |
 | CD2009 | a lambda that captures a loop variable cannot be stored outside the loop | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
 | CD2010 | a `Task` must be held by a `using` declaration, so it is joined before its scope ends | [../language/concurrency.md](../language/concurrency.md#tasks) |
+| CD2011 | this call panics when memory runs out, and `AllocationPanics` is `Deny`; reserve with `EnsureCapacity` and use `AddWithinCapacity` | [../language/memory.md](../language/memory.md#where-memory-comes-from) |
 | CD3001 | `Try` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#try) |
 | CD3002 | the error set returned here lacks errors `Try` can propagate | [../language/errors.md](../language/errors.md#try) |
 | CD3003 | `ErrDefer` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#errdefer) |

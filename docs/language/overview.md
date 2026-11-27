@@ -26,7 +26,7 @@ static class Program
         Defer(() => squares.Deinit());
 
         for (int i = 0; i < 10; i++)
-            squares.Append(i * i).Try();
+            squares.Add(i * i);
 
         foreach (var square in squares.Items)
             Print($"{square}\n");

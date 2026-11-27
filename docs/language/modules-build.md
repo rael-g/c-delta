@@ -133,6 +133,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `LinkLibC` | `true`, `false` | `true` unless the target OS is `freestanding` |
 | `CToolchain` | `zig`, `clang`, `gcc`, `msvc`, `tcc`, `auto` | `auto` |
 | `EmitC` | `true` to keep the generated C next to the output | `false` |
+| `AllocationPanics` | `Allow`, `Deny`: whether calls that panic when incidental growth runs out of memory compile ([memory.md](memory.md#where-memory-comes-from)) | `Deny` on `freestanding`, otherwise `Allow` |
 | `Sanitize` | `None`, `Thread`, `Address`, `Undefined`: a sanitizer of the toolchain, in `Debug` only, where the toolchain has it | `None` |
 | `PackageName` | the C-visible name of the package (header name, library name) | the project name |
 | `ErrorReturnTrace` | `true`, `false` | `true` in safe modes |
