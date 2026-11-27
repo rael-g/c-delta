@@ -979,7 +979,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             TypeNode node = _module.Types[OperandType(argument).Index];
             if (node.Kind == TypeKind.Param)
             {
-                TypeId contract = frontend.Types.Map(method.ContainingType, method.Locations.FirstOrDefault() ?? Location.None);
+                TypeId contract = frontend.Types.InterfaceType(method.ContainingType, method.Locations.FirstOrDefault() ?? Location.None);
                 return _builder.ConstrainedRef(_module.Text(new StringId(node.A)), contract, method.Name);
             }
         }
@@ -1492,7 +1492,55 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerConstrainedCall(parameter, target, invocation.Instance, invocation.Arguments, span);
         }
 
+        if (target is { Name: "Of", ContainingType: { Name: "Dyn", Arity: 1, ContainingNamespace.Name: "CDelta" } })
+        {
+            return LowerDynOf(invocation, target, span);
+        }
+
+        if (target.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface && invocation.Instance?.Type is { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface })
+        {
+            return LowerDynCall(invocation, target, span);
+        }
+
         return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private OperandId LowerDynOf(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
+    {
+        Location location = invocation.Syntax.GetLocation();
+        OperandId self = LowerArgument(invocation.Arguments[0], span);
+        ITypeSymbol concrete = target.TypeArguments[0];
+        TypeId interfaceType = frontend.Types.InterfaceType((INamedTypeSymbol)target.ContainingType.TypeArguments[0], location);
+        TypeId dynType = _builder.DynOf(interfaceType);
+        if (concrete is ITypeParameterSymbol parameter)
+        {
+            return Emit(dynType, _f.DynMakeConstrained(_builder.ConstrainedRef(parameter.Name, interfaceType, string.Empty), self, dynType), span);
+        }
+
+        frontend.Primitives.Ensure(concrete);
+        TypeId type = frontend.Types.Map(concrete, location);
+        int impl = _module.Impls.FindIndex(candidate => candidate.Type == type && candidate.Interface == interfaceType);
+        if (impl < 0)
+        {
+            throw new UnsupportedConstructException("no impl of " + target.ContainingType.TypeArguments[0].ToDisplayString() + " was found for " + concrete.ToDisplayString(), location);
+        }
+
+        return Emit(dynType, _f.DynMakeImpl(impl, self, dynType), span);
+    }
+
+    private OperandId? LowerDynCall(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
+    {
+        OperandId dyn = Snapshot(LowerValue(invocation.Instance!), span);
+        var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
+        RvalueId call = _f.CallDyn(dyn, TypeMapper.ContractMethodIndex(target), arguments);
+        TypeId returnType = CallReturnType(target);
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
     }
 
     private ITypeParameterSymbol? ConstrainedParameter(IOperation? instance, IMethodSymbol target, SyntaxNode syntax)
@@ -1527,7 +1575,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         Location location = target.Locations.FirstOrDefault() ?? Location.None;
-        TypeId contract = frontend.Types.Map(target.ContainingType, location);
+        TypeId contract = frontend.Types.InterfaceType(target.ContainingType, location);
         int reference = _builder.ConstrainedRef(parameter.Name, contract, target.Name);
         RvalueId call = _f.CallConstrained(reference, arguments);
         TypeId returnType = CallReturnType(target);

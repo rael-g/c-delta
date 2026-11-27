@@ -114,7 +114,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         var methods = new List<InterfaceMethod>();
         foreach (IMethodSymbol method in type.GetMembers().OfType<IMethodSymbol>())
         {
-            if (method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator))
+            if (!IsContractMember(method))
             {
                 continue;
             }
@@ -133,6 +133,28 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
         builder.DefineInterfaceMethods(id, methods);
         return id;
+    }
+
+    public TypeId InterfaceType(INamedTypeSymbol contract, Location location) =>
+        builder.InterfaceType(InterfaceOf(contract, location), [.. contract.TypeArguments.Select(argument => Map(argument, location))]);
+
+    public static bool IsContractMember(IMethodSymbol member) =>
+        member.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator;
+
+    public static int ContractMethodIndex(IMethodSymbol method)
+    {
+        int index = 0;
+        foreach (IMethodSymbol member in method.ContainingType.OriginalDefinition.GetMembers().OfType<IMethodSymbol>().Where(IsContractMember))
+        {
+            if (SymbolEqualityComparer.Default.Equals(member, method.OriginalDefinition))
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        throw new InvalidOperationException("a method is not a member of its interface");
     }
 
     public StructId TupleOf(INamedTypeSymbol tuple, Location location)
@@ -378,7 +400,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } enumeration:
                 return builder.EnumType(EnumOf(enumeration, location));
             case INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract:
-                return builder.InterfaceType(InterfaceOf(contract, location), [.. contract.TypeArguments.Select(argument => Map(argument, location))]);
+                return builder.DynOf(InterfaceType(contract, location));
         }
 
         TypeKind? kind = type.SpecialType switch

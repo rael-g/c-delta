@@ -106,7 +106,7 @@ internal sealed class PrimitiveImpls(CSharpFrontend frontend)
                 }
             }
 
-            TypeId interfaceType = frontend.Types.Map(contract, Location.None);
+            TypeId interfaceType = frontend.Types.InterfaceType(contract, Location.None);
             string key = primitive.Name + ":" + IrPrinter.TypeText(module, interfaceType);
             frontend.Builder.DeclareImpl(key, self, interfaceType, methods);
         }

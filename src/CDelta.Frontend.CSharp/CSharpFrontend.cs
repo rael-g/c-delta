@@ -437,7 +437,7 @@ public sealed class CSharpFrontend : IBodyProvider
                 methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), typeArgs));
             }
 
-            TypeId interfaceType = _types.Map(contract, location);
+            TypeId interfaceType = _types.InterfaceType(contract, location);
             string key = type.GetDocumentationCommentId()![2..] + ":" + IrPrinter.TypeText(Module, interfaceType);
             Builder.DeclareImpl(key, concrete, interfaceType, methods);
         }
