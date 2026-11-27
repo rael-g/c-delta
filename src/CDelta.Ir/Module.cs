@@ -51,6 +51,12 @@ public sealed class Module(string name)
 
     public Dictionary<string, OpaqueId> OpaquesByKey { get; } = [];
 
+    public List<UnionDecl> Unions { get; } = [];
+
+    public List<TypeId> UnionMembers { get; } = [];
+
+    public Dictionary<string, UnionId> UnionsByKey { get; } = [];
+
     public List<CImportDecl> CImports { get; } = [];
 
     public List<InterfaceDecl> Interfaces { get; } = [];

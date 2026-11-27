@@ -46,4 +46,5 @@ public enum TypeKind
     Interface,
     ComptimeType,
     Dyn,
+    Union,
 }

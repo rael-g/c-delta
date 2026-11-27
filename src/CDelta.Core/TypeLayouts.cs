@@ -39,6 +39,8 @@ public sealed class TypeLayouts(Module module, Target target)
                 return OfStruct(new StructId(node.A));
             case TypeKind.Enum:
                 return Of(module.Enums[node.A].Underlying);
+            case TypeKind.Union:
+                return OfUnion(new UnionId(node.A));
             default:
                 return new TypeSizes(PrimitiveLayout.Size(node.Kind, target), PrimitiveLayout.Alignment(node.Kind, target));
         }
@@ -73,6 +75,31 @@ public sealed class TypeLayouts(Module module, Target target)
         module.Structs[id.Index] = declaration with { Size = result.Size, Alignment = result.Alignment };
         _inProgress.Remove(id.Index);
         return result;
+    }
+
+    public TypeSizes OfUnion(UnionId id)
+    {
+        UnionDecl declaration = module.Unions[id.Index];
+        if (declaration.Size != UnionDecl.NotComputed)
+        {
+            return new TypeSizes(declaration.Size, declaration.Alignment);
+        }
+
+        int payloadSize = 0;
+        int payloadAlignment = 1;
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            TypeSizes member = Of(module.UnionMembers[declaration.Members.Start + i]);
+            payloadSize = Math.Max(payloadSize, member.Size);
+            payloadAlignment = Math.Max(payloadAlignment, member.Alignment);
+        }
+
+        TypeKind tagKind = declaration.Members.Count <= byte.MaxValue + 1 ? TypeKind.U8 : declaration.Members.Count <= ushort.MaxValue + 1 ? TypeKind.U16 : TypeKind.U32;
+        int tagSize = PrimitiveLayout.Size(tagKind, target);
+        int alignment = Math.Max(tagSize, payloadAlignment);
+        int size = AlignUp(AlignUp(tagSize, payloadAlignment) + payloadSize, alignment);
+        module.Unions[id.Index] = declaration with { Tag = module.Type(new TypeNode(tagKind, TypeFlags.None, 0, 0)), Size = size, Alignment = alignment };
+        return new TypeSizes(size, alignment);
     }
 
     public static int AlignUp(int value, int alignment) => (value + alignment - 1) / alignment * alignment;

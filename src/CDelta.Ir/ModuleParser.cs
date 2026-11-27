@@ -87,6 +87,10 @@ internal sealed class ModuleParser
             {
                 DefineInterface(start, end);
             }
+            else if (kind == "union")
+            {
+                DefineUnion(start, end);
+            }
         }
 
         foreach ((int start, int end, List<string> attributes) in items)
@@ -200,6 +204,10 @@ internal sealed class ModuleParser
             {
                 DeclareInterfaceShell(start);
             }
+            else if (kind == "union")
+            {
+                DeclareUnionShell(start);
+            }
             else if (kind == "cimport")
             {
                 DeclareCImport(start, end);
@@ -222,6 +230,46 @@ internal sealed class ModuleParser
         }
 
         return typeParams;
+    }
+
+    private void DeclareUnionShell(int start)
+    {
+        var cursor = new IrCursor(_lines[start], start + 1);
+        cursor.ExpectWord("union");
+        string key = cursor.ReadReference();
+        UnionId id = _builder.DeclareUnion(key, key, SourceSpan.None);
+        TypeId tag = TypeId.None;
+        int size = UnionDecl.NotComputed;
+        int alignment = UnionDecl.NotComputed;
+        if (cursor.TryWord("tag"))
+        {
+            tag = _types.ParseType(cursor);
+            cursor.ExpectWord("size");
+            size = cursor.ReadInt();
+            cursor.ExpectWord("align");
+            alignment = cursor.ReadInt();
+        }
+
+        _module.Unions[id.Index] = _module.Unions[id.Index] with { Span = ParseSpan(cursor), Tag = tag, Size = size, Alignment = alignment };
+    }
+
+    private void DefineUnion(int start, int end)
+    {
+        var header = new IrCursor(_lines[start], start + 1);
+        header.ExpectWord("union");
+        UnionId id = _module.UnionsByKey[header.ReadReference()];
+        var members = new List<TypeId>();
+        for (int i = start + 1; i < end; i++)
+        {
+            var line = new IrCursor(_lines[i], i + 1);
+            members.Add(_types.ParseType(line));
+            if (line.TryChar('='))
+            {
+                line.ReadInt();
+            }
+        }
+
+        _builder.DefineUnionMembers(id, members);
     }
 
     private void DeclareInterfaceShell(int start)

@@ -389,6 +389,14 @@ internal sealed class BodyParser(
             case "call":
                 cursor.ReadWord();
                 return ParseCall(cursor);
+            case "union.make":
+                cursor.ReadWord();
+                TypeId unionType = types.ParseType(cursor);
+                int member = cursor.ReadInt();
+                return _f.UnionMake(unionType, member, ParseOperand(cursor));
+            case "tag":
+                cursor.ReadWord();
+                return _f.Tag(ParsePlace(cursor));
             case "dyn.make":
                 cursor.ReadWord();
                 return ParseDynMake(cursor);

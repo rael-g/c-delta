@@ -146,6 +146,14 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 }
 
                 return builder.InterfaceType(interfaceId, interfaceArgs);
+            case "union":
+                string unionKey = cursor.ReadReference();
+                if (!module.UnionsByKey.TryGetValue(unionKey, out UnionId unionId))
+                {
+                    throw cursor.Error("unknown union " + unionKey);
+                }
+
+                return builder.UnionType(unionId);
             case "dyn":
                 cursor.Expect('<');
                 TypeId contract = ParseType(cursor);

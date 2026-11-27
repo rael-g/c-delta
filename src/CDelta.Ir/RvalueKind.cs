@@ -24,4 +24,6 @@ public enum RvalueKind
     Errcode,
     Intrinsic,
     DynMake,
+    UnionMake,
+    Tag,
 }

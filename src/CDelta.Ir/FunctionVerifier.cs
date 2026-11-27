@@ -363,6 +363,17 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 return UnopType(body, r);
             case RvalueKind.DynMake:
                 return DynMakeType(body, r);
+            case RvalueKind.UnionMake:
+                return UnionMakeType(body, r);
+            case RvalueKind.Tag:
+                TypeId tagged = PlaceType(body, r.Place);
+                if (tagged.IsNone || KindOf(tagged) != TypeKind.Union)
+                {
+                    Fail("tag of something that is not a union");
+                    return TypeId.None;
+                }
+
+                return IrTyper.OfRvalue(module, body, rvalue);
             case RvalueKind.Cast:
                 OperandType(body, r.A);
                 if (stage == ModuleStage.Final && r.Mode == ArithMode.Default && IrNames.HasMode((CastKind)r.Op))
@@ -713,6 +724,25 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
         CheckArguments(body, r, found.Parameters, false);
         return found.Return;
+    }
+
+    private TypeId UnionMakeType(Body body, Rvalue r)
+    {
+        TypeId value = OperandType(body, r.A);
+        if (!ValidType(r.Type) || KindOf(r.Type) != TypeKind.Union)
+        {
+            Fail("union.make does not produce a union");
+            return TypeId.None;
+        }
+
+        UnionDecl union = module.Unions[module.Types[r.Type.Index].A];
+        if (r.Aux < 0 || r.Aux >= union.Members.Count || module.UnionMembers[union.Members.Start + r.Aux] != value)
+        {
+            Fail("union.make names a missing member or passes a value of another type");
+            return TypeId.None;
+        }
+
+        return r.Type;
     }
 
     private TypeId DynMakeType(Body body, Rvalue r)

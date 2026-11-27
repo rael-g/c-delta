@@ -112,6 +112,11 @@ public sealed class FunctionBuilder(Module module, Body body)
     public RvalueId DynMakeConstrained(int reference, OperandId self, TypeId dynType) =>
         AddRvalue(Blank(RvalueKind.DynMake) with { Callee = CalleeKind.Constrained, Aux = reference, A = self, Type = dynType });
 
+    public RvalueId UnionMake(TypeId unionType, int member, OperandId value) =>
+        AddRvalue(Blank(RvalueKind.UnionMake) with { Type = unionType, Aux = member, A = value });
+
+    public RvalueId Tag(PlaceId place) => AddRvalue(Blank(RvalueKind.Tag) with { Place = place });
+
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });
 

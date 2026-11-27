@@ -15,6 +15,11 @@ public static class LayoutPass
             layouts.OfStruct(new StructId(i));
         }
 
+        for (int i = 0; i < module.Unions.Count; i++)
+        {
+            layouts.OfUnion(new UnionId(i));
+        }
+
         for (int f = 0; f < module.Functions.Count; f++)
         {
             Body? body = module.Bodies[f];

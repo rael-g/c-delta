@@ -18,7 +18,7 @@ internal static class CompiledProgram
         TargetTable.TryGet(HostTarget, out Target target);
         var bag = new DiagnosticBag();
         Module? final = CorePipeline.Run(lowered, new DictionaryBodyProvider(lowered), new CoreOptions(mode, target), bag);
-        Assert.False(bag.HasError);
+        Assert.False(bag.HasError, string.Join("; ", bag.Items.Select(d => d.Code + " " + string.Join(" ", d.Notes.Select(n => n.Text)))));
         return final!;
     }
 

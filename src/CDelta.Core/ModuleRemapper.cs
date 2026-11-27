@@ -49,6 +49,8 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 return destination.Type(node with { A = Enum(new EnumId(node.A)).Index });
             case TypeKind.Opaque:
                 return destination.Type(node with { A = Opaque(new OpaqueId(node.A)).Index });
+            case TypeKind.Union:
+                return destination.Type(node with { A = Union(new UnionId(node.A)).Index });
             case TypeKind.Interface:
                 return new ModuleBuilder(destination).InterfaceType(InterfaceInstance(new InterfaceId(node.A), IrTypes.StructTypeArgs(source, node).Select(argument => Type(new TypeId(argument))).ToList()));
             case TypeKind.Dyn:
@@ -90,6 +92,27 @@ internal sealed class ModuleRemapper(Module source, Module destination)
             declaration.Exhaustive,
             members);
         _enums.Add(id.Index, created);
+        return created;
+    }
+
+    public UnionId Union(UnionId id)
+    {
+        UnionDecl declaration = source.Unions[id.Index];
+        string key = source.Text(declaration.Key);
+        if (destination.UnionsByKey.TryGetValue(key, out UnionId existing))
+        {
+            return existing;
+        }
+
+        var builder = new ModuleBuilder(destination);
+        UnionId created = builder.DeclareUnion(key, source.Text(declaration.Name), declaration.Span);
+        var members = new List<TypeId>();
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            members.Add(Type(source.UnionMembers[declaration.Members.Start + i]));
+        }
+
+        builder.DefineUnionMembers(created, members);
         return created;
     }
 

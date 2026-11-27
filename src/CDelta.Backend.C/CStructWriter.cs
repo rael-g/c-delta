@@ -72,6 +72,7 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 {
                     TypeKind.Optional => CTypes.OptionalDefinition(module, names, node),
                     TypeKind.Result => CTypes.ResultDefinition(module, names, node),
+                    TypeKind.Union => CTypes.UnionDefinition(module, names, node),
                     _ => CTypes.ArrayDefinition(module, names, node),
                 };
                 if (defined.Add(definition))
@@ -157,11 +158,24 @@ internal sealed partial class CStructWriter(Module module, CNames names)
                 }
 
                 break;
+            case TypeKind.Union:
+                if (visitedTypes.Add(type.Index))
+                {
+                    UnionDecl union = module.Unions[node.A];
+                    for (int i = 0; i < union.Members.Count; i++)
+                    {
+                        VisitType(module.UnionMembers[union.Members.Start + i], visitedStructs, visitedTypes, order);
+                    }
+
+                    order.Add((type.Index, -1));
+                }
+
+                break;
         }
     }
 
     private static bool IsAggregateType(TypeNode node) =>
-        node.Kind is TypeKind.Array or TypeKind.Optional or TypeKind.Result;
+        node.Kind is TypeKind.Array or TypeKind.Optional or TypeKind.Result or TypeKind.Union;
 
     private bool IsVoid(TypeId type) => module.Types[type.Index].Kind == TypeKind.Void;
 

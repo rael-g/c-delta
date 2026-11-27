@@ -308,7 +308,7 @@ internal sealed partial class CFunctionWriter(
             }
             else if (projection.Kind == ProjectionKind.Payload)
             {
-                text += ".value";
+                text += module.Types[current.Index].Kind == TypeKind.Union ? ".payload.m" + projection.Value : ".value";
             }
             else
             {
@@ -488,6 +488,12 @@ internal sealed partial class CFunctionWriter(
                 break;
             case RvalueKind.Intrinsic:
                 WriteIntrinsic(rvalue, destination);
+                break;
+            case RvalueKind.UnionMake:
+                Statement(destination + " = (" + cType + "){ .tag = " + rvalue.Aux + ", .payload = { .m" + rvalue.Aux + " = " + OperandText(rvalue.A) + " } };");
+                break;
+            case RvalueKind.Tag:
+                Statement(destination + " = (uint32_t)" + Place(rvalue.Place) + ".tag;");
                 break;
             case RvalueKind.DynMake:
                 Statement(destination + " = (cd_dyn){ (void*)" + OperandText(rvalue.A) + ", " + CBackend.TableName(rvalue.Aux) + " };");

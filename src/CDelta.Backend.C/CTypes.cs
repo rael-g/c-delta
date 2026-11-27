@@ -27,6 +27,8 @@ internal static class CTypes
                 return "uint16_t";
             case TypeKind.Dyn:
                 return "cd_dyn";
+            case TypeKind.Union:
+                return names.Union(new UnionId(node.A));
             case TypeKind.Struct:
                 return names.Struct(new StructId(node.A));
             case TypeKind.Enum:
@@ -46,6 +48,19 @@ internal static class CTypes
 
     public static string ArrayDefinition(Module module, CNames names, TypeNode node) =>
         "typedef struct { " + Spell(module, names, new TypeId(node.A)) + " e[" + node.B + "]; } " + ArrayName(module, names, node) + ";\n";
+
+    public static string UnionDefinition(Module module, CNames names, TypeNode node)
+    {
+        UnionDecl declaration = module.Unions[node.A];
+        var members = new System.Text.StringBuilder();
+        for (int i = 0; i < declaration.Members.Count; i++)
+        {
+            members.Append(Spell(module, names, module.UnionMembers[declaration.Members.Start + i])).Append(" m").Append(i).Append("; ");
+        }
+
+        return "typedef struct { " + Primitive(module.Types[declaration.Tag.Index].Kind) + " tag; union { " + members + "} payload; } "
+            + names.Union(new UnionId(node.A)) + ";\n";
+    }
 
     public static string OptionalName(Module module, CNames names, TypeNode node) =>
         "cd_T_optional_" + CNames.MangleSpelling(Spell(module, names, new TypeId(node.A)));

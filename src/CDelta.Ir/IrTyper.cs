@@ -61,6 +61,12 @@ public static class IrTyper
             case ProjectionKind.Index:
                 return node.Kind is TypeKind.Array or TypeKind.Slice ? new TypeId(node.A) : TypeId.None;
             case ProjectionKind.Payload:
+                if (node.Kind == TypeKind.Union)
+                {
+                    UnionDecl union = module.Unions[node.A];
+                    return projection.Value >= 0 && projection.Value < union.Members.Count ? module.UnionMembers[union.Members.Start + projection.Value] : TypeId.None;
+                }
+
                 return node.Kind is TypeKind.Optional or TypeKind.Result && projection.Value == 0 ? new TypeId(node.A) : TypeId.None;
             default:
                 return TypeId.None;
@@ -113,7 +119,10 @@ public static class IrTyper
             case RvalueKind.Cast:
             case RvalueKind.Aggregate:
             case RvalueKind.DynMake:
+            case RvalueKind.UnionMake:
                 return r.Type;
+            case RvalueKind.Tag:
+                return module.Type(new TypeNode(TypeKind.U32, TypeFlags.None, 0, 0));
             case RvalueKind.Addr:
                 TypeId target = OfPlace(module, body, r.Place);
                 return target.IsNone

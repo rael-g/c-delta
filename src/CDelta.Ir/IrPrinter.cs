@@ -61,6 +61,12 @@ public static partial class IrPrinter
             PrintStruct(module, declaration, text);
         }
 
+        foreach (UnionDecl union in module.Unions.OrderBy(candidate => module.Text(candidate.Key), StringComparer.Ordinal))
+        {
+            text.Append('\n');
+            PrintUnion(module, union, text);
+        }
+
         for (int i = 0; i < module.Interfaces.Count; i++)
         {
             text.Append('\n');
@@ -146,6 +152,8 @@ public static partial class IrPrinter
                 int[] interfaceArgs = IrTypes.StructTypeArgs(module, node);
                 return "interface " + Reference(module.Text(module.Interfaces[node.A].Key))
                     + (interfaceArgs.Length == 0 ? string.Empty : "<" + string.Join(", ", interfaceArgs.Select(arg => TypeText(module, new TypeId(arg)))) + ">");
+            case TypeKind.Union:
+                return "union " + Reference(module.Text(module.Unions[node.A].Key));
             case TypeKind.Dyn:
                 return "dyn<" + TypeText(module, new TypeId(node.A)) + ">";
             case TypeKind.Param:
@@ -451,6 +459,29 @@ public static partial class IrPrinter
     }
 
     private static string Span(SourceSpan span) => "@" + (span.File.Index + 1) + ":" + span.Line + ":" + span.Column;
+
+    private static void PrintUnion(Module module, UnionDecl union, StringBuilder text)
+    {
+        text.Append("union ").Append(Reference(module.Text(union.Key)));
+        if (union.Size != UnionDecl.NotComputed)
+        {
+            text.Append(" tag ").Append(TypeText(module, union.Tag)).Append(" size ").Append(union.Size).Append(" align ").Append(union.Alignment);
+        }
+
+        text.Append(' ').Append(Span(union.Span)).Append(" {\n");
+        for (int i = 0; i < union.Members.Count; i++)
+        {
+            text.Append(Indent).Append(TypeText(module, module.UnionMembers[union.Members.Start + i]));
+            if (union.Size != UnionDecl.NotComputed)
+            {
+                text.Append(" = ").Append(i);
+            }
+
+            text.Append('\n');
+        }
+
+        text.Append("}\n");
+    }
 
     private static void PrintInterface(Module module, InterfaceDecl declaration, StringBuilder text)
     {
@@ -987,6 +1018,14 @@ public static partial class IrPrinter
 
                 text.Append(' ');
                 PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.UnionMake:
+                text.Append("union.make ").Append(TypeText(module, rvalue.Type)).Append(' ').Append(rvalue.Aux).Append(' ');
+                PrintOperand(module, body, rvalue.A, text);
+                break;
+            case RvalueKind.Tag:
+                text.Append("tag ");
+                PrintPlace(module, body, rvalue.Place, text);
                 break;
             case RvalueKind.SizeOf:
                 text.Append("sizeof ").Append(TypeText(module, rvalue.Type));

@@ -12,6 +12,7 @@ internal sealed class CNames
     private readonly string[] _structNames;
     private readonly string[] _globalNames;
     private readonly string[] _enumNames;
+    private readonly string[] _unionNames;
     private readonly HashSet<string> _taken = [];
 
     public CNames(Module module)
@@ -23,6 +24,14 @@ internal sealed class CNames
             string name = TypePrefix + Mangle(module.Text(declaration.Name));
             _enumNames[i] = IsImported(module, declaration.Origin) ? module.Text(declaration.Origin.CName) : name + "__" + CHash.Hash8(module.Text(declaration.Key));
             _taken.Add(_enumNames[i]);
+        }
+
+        _unionNames = new string[module.Unions.Count];
+        for (int i = 0; i < module.Unions.Count; i++)
+        {
+            UnionDecl declaration = module.Unions[i];
+            _unionNames[i] = TypePrefix + "union_" + Mangle(module.Text(declaration.Name)) + "__" + CHash.Hash8(module.Text(declaration.Key));
+            _taken.Add(_unionNames[i]);
         }
 
         _globalNames = new string[module.Globals.Count];
@@ -91,6 +100,8 @@ internal sealed class CNames
     public string Struct(StructId id) => _structNames[id.Index];
 
     public string Enum(EnumId id) => _enumNames[id.Index];
+
+    public string Union(UnionId id) => _unionNames[id.Index];
 
     public string Global(GlobalId id) => _globalNames[id.Index];
 

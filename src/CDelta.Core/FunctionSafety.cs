@@ -225,7 +225,7 @@ internal sealed class FunctionSafety(Module module, Body body, Target target, bo
                 CheckIndex(place, i, current, projection, span);
             }
 
-            if (projection.Kind == ProjectionKind.Payload && isRead)
+            if (projection.Kind == ProjectionKind.Payload && isRead && module.Types[current.Index].Kind != TypeKind.Union)
             {
                 OperandId present = Emit(boolean, _f.HasPayload(PrefixPlace(place, i)), span);
                 if (module.Types[current.Index].Kind == TypeKind.Result)

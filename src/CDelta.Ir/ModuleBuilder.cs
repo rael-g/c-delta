@@ -186,6 +186,23 @@ public sealed class ModuleBuilder(Module module)
         Module.Interfaces[id.Index] = Module.Interfaces[id.Index] with { Methods = new IdRange(start, methods.Count) };
     }
 
+    public UnionId DeclareUnion(string key, string name, SourceSpan span)
+    {
+        var id = new UnionId(Module.Unions.Count);
+        Module.Unions.Add(new UnionDecl(Module.Intern(key), Module.Intern(name), span, IdRange.Empty, TypeId.None, UnionDecl.NotComputed, UnionDecl.NotComputed));
+        Module.UnionsByKey.Add(key, id);
+        return id;
+    }
+
+    public void DefineUnionMembers(UnionId id, IReadOnlyList<TypeId> members)
+    {
+        int start = Module.UnionMembers.Count;
+        Module.UnionMembers.AddRange(members);
+        Module.Unions[id.Index] = Module.Unions[id.Index] with { Members = new IdRange(start, members.Count) };
+    }
+
+    public TypeId UnionType(UnionId id) => Module.Type(new TypeNode(TypeKind.Union, TypeFlags.None, id.Index, 0));
+
     public TypeId DynOf(TypeId interfaceType) => Module.Type(new TypeNode(TypeKind.Dyn, TypeFlags.None, interfaceType.Index, 0));
 
     public TypeId InterfaceType(InterfaceId id, IReadOnlyList<TypeId>? typeArgs = null) =>
