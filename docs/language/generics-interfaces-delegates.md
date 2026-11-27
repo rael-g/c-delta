@@ -32,7 +32,8 @@ call through a constraint is resolved statically.
   that declares the operators and those properties may implement them, so one `Lerp<T>` serves
   `float` and a `Vector2`.
 - Inside an instantiation, `typeof(T) == typeof(int)` and `value is int i` on a `T` are folded at
-  compile time, so generic code can specialize per type with no cost.
+  compile time, so generic code can specialize per type with no cost. The type tested is a
+  concrete type; testing a `T` against an interface or a `[Union]` is `CD1000`.
 - Instantiation depth is limited to 64 nested generic instantiations (`CD5005`), which catches
   unbounded recursion like `F<T>` calling `F<List<T>>`.
 - Static fields of generic types exist once per instantiation, as in C#.

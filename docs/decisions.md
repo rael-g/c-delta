@@ -69,7 +69,11 @@ noreturn flow analysis of C# for free.
 promoted.
 
 **D019. Generics are always monomorphized and type-checked once, by C# rules.** Duck-typed
-generics would break D001.
+generics would break D001. A type test on a type parameter needs no comptime interpreter:
+`typeof(X)` is a constant of type `comptime.type` that instantiation substitutes like any type,
+`==` and `!=` on two of them are a `binop` that constant folding resolves, and `value is int i` on
+a `T` is a `branch` on that `binop` whose taken side binds `i` with `cast bitcast`, the other side
+removed before any stage checks it.
 
 **D020. Interfaces have three uses: constraint (static dispatch), `Dyn<I>.Of(ref x)` (fat
 pointer), and `[Union]` (tagged union by value).** The implicit struct to interface conversion

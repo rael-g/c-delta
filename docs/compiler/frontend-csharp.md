@@ -233,7 +233,7 @@ Each pattern lowers to a sequence of tests and binds:
 | `and`, `or`, `not` | branches |
 | declaration, `var` | assignment to the declared local |
 | type on a `[Union]` value | `tag` comparison, then a copy of `payload(member)` |
-| type on a type parameter | folded during instantiation |
+| type on a type parameter, against a concrete type `X` | `branch` on `binop eq` of `type T` and `type X`; the taken side binds with `cast bitcast` to `X`, and instantiation folds the branch. Against an interface or a `[Union]`, `CD1000` |
 | property (on fields), positional (tuples) | recursion on each field |
 | list (on spans) | `len` test, then element patterns |
 | discard | nothing |
@@ -274,7 +274,8 @@ with literal parts as `bytes` constants.
 | `Comptime(() => { ... })` | a synthetic function returning `void`, used through `comptime(function)` in a statement |
 | `[Comptime]` parameter | a comptime parameter of the function |
 | static field initializer | the global's comptime initializer function |
-| `Builtin.*`, `TypeInfo.Of<T>()`, `typeof`, `Embed`, `CompileError` | intrinsics evaluated by the core |
+| `Builtin.*`, `TypeInfo.Of<T>()`, `Embed`, `CompileError` | intrinsics evaluated by the core |
+| `typeof(X)` | the constant `type X` ([ir.md](ir.md#places-operands-and-values)) |
 
 ## Spans
 

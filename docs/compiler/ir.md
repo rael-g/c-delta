@@ -122,6 +122,8 @@ Pointer operations:
 | `p[i]` | the pointer `p + i` into a temp, then the place `(*%t)` |
 | `p->f` | the place `(*%p).field(n)` |
 | `sizeof(T)`, `Unsafe.SizeOf<T>()` | `sizeof T`, of type `i32` |
+| `typeof(X)` | the constant `const comptime.type type X` |
+| `typeof(A) == typeof(B)`, `!=` | `binop eq` or `ne` on the two type constants |
 
 Pointer operations have no mode and no safety check: an offset outside the object is illegal
 behavior that is not detected.
@@ -246,7 +248,11 @@ Rvalue   := Operand
   template, and the C types of the instance's type arguments.
 - Constants: integers (128 bits of two's complement with a type, the widest IR integer), floats (bit pattern), `bool`, `null`,
   bytes (static data, with or without NUL), aggregates, pointers to globals with an offset,
-  function references, error codes, `undef`.
+  function references, error codes, `undef`, and types: `type X`, of type `comptime.type`, whose
+  `X` instantiation substitutes like any type.
+- `binop eq` and `ne` on two `comptime.type` operands compare the types; once both are concrete,
+  instantiation folds them to a `bool` constant. A `cast bitcast` from a `param T` value is
+  verified only in `Instantiated`, after the branches folded away are gone.
 
 Errors and results:
 
@@ -458,6 +464,7 @@ operand     = "copy" place | "const" constant | "fnref" ref [targs] | "undef" ty
 constant    = type value
 value       = int | "bits" hex | "true" | "false" | "null" | "undef" | "bytes" string
             | "{" [value {"," value}] "}" | "&" ref ["+" int] | "fn" ref [targs] | "error" ident
+            | "type" type
 rvalue      = operand
             | "binop" op [mode] operand "," operand
             | "unop" op [mode] operand
