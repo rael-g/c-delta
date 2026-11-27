@@ -280,6 +280,11 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   `async` and `await` as the iterator transform, where an async frame is a struct of known size
   that never moves once started, so recursive async is an error and starting a task takes an
   allocator.
+- **The package monorepo** (D164): a community repository of packages for common C libraries, each
+  a `CDeltaFetch` recipe and an annotation manifest, or a manifest alone for a library of the
+  system. Facts are corrected by pull request, the repository builds every package for the tier 1
+  targets in CI, and publishes it to NuGet, where `dotnet add package` and the C# projection reach
+  it as well.
 - **A web package** (D173), outside the std: a projection of facil.io, accepting its own event
   loop, threads and allocator, with a thin minimal API on top with ASP.NET's names (`WebApp`,
   `MapGet`, `MapPost`, `HttpContext`, `Results`). Route templates are `[Comptime]` and compiled

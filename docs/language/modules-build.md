@@ -71,6 +71,9 @@ hash; the hash is its lock, and content that does not match is `CD0010`.
   compile), `IncludeDirs`, `Defines`, and `Import` (the headers of a generated `[Import]` class
   named after the item). A longer recipe lives in a `.props` file named by `Recipe`, holding the
   same items.
+- A package may carry an annotation manifest (D170), with or without a `CDeltaFetch` recipe; a
+  package with only a manifest annotates a library already on the system, such as the C library
+  or GTK.
 - `cdc fetch <url> --save` adds the item with the hash it computed. The same name and hash reached
   twice is one dependency; the same name with two hashes is `CD0001`.
 

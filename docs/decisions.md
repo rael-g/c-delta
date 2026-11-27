@@ -426,7 +426,11 @@ fetches the right one by hash, so no single toolchain is a dependency of CΔ.
 packages with versions, a package type and lock files; `CDeltaFetch` carries anything else, as
 `zig fetch` and CMake's `FetchContent` do: an archive or a git commit fixed by its hash, built
 as a CΔ package or by a recipe for C. A C library becomes a one-line dependency without being
-republished.
+republished. A package may also carry an annotation manifest (D170) with the facts of a C
+library, beside a `CDeltaFetch` recipe that builds it or alone, for a library of the system; one
+publication then makes the library idiomatic in every projection. The packages of common
+libraries come from one community monorepo, where anyone corrects a fact by a pull request and
+the repository publishes each package to NuGet, so facts outlive the author who wrote them.
 
 **D165. A CΔ library is a plain C library to C consumers.** Binary outputs come with CMake and
 `pkg-config` files; the C source output comes with a `CMakeLists.txt`, so a C project uses a CΔ

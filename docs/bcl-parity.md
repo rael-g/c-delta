@@ -123,4 +123,4 @@ An area this document lacks is a gap to add here, not a limit.
 | AWS SDK | | open | aws-c-*, whose allocator is per context |
 | configuration (`Microsoft.Extensions.Configuration`) | | open | CΔ over `Std.Json`, the environment and the arguments |
 | dependency injection | explicit passing | language | |
-| NuGet | NuGet and fetched C libraries (D164) | package | |
+| NuGet | NuGet, fetched C libraries, and the package monorepo of recipes and manifests (D164) | package | [roadmap.md](roadmap.md#later) |
