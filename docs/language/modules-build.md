@@ -34,7 +34,7 @@ between packages.
 There is no CΔ ABI: the only binary contract is the C ABI of `[Export]` (D162). A library shipped
 as a compiled static or shared library is consumed through its generated header, by CΔ with
 `[Import]` like any C library, and its idiomatic surface (spans, `Result`) is recovered by the CΔ
-projection backend ([../kabic-migration.md](../kabic-migration.md#what-cδ-gains)). Rebuilding
+projection ([../kabic-migration.md](../kabic-migration.md#what-cδ-gains)). Rebuilding
 unchanged dependencies costs little because their generated C, and therefore their cached
 objects, do not change ([../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md)).
 

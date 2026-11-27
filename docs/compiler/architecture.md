@@ -14,7 +14,7 @@
                      |   Delta IR (generic)    |   IR decls |
                      +------------+------------+            |
                                   |                +--------v---------+
-                         +--------v--------+       | Backend.CSharp   |
+                         +--------v--------+       | Projection.CSharp|
                          | Core            |       | import stubs ->  |
                          | instantiation,  |       | Frontend.CSharp  |
                          | comptime, safety|       +------------------+
@@ -24,8 +24,8 @@
                      +------------+-------------+
                      |                          |
              +-------v--------+        +--------v---------+
-             | Backend.C      |        | projection       |
-             | C11 + header   |        | backends (later) |
+             | Backend.C      |        | projections      |
+             | C11 + header   |        | (later)          |
              +-------+--------+        +------------------+
                      |
              +-------v--------+
@@ -55,14 +55,16 @@ These are invariants, checked by project references (a forbidden reference does 
 
 1. `CDelta.Ir` depends on nothing but `CDelta.Diagnostics`.
 2. A frontend depends on `CDelta.Ir`, `CDelta.Diagnostics` and its own parser. It never references
-   the core, a backend or another frontend.
+   the core, a backend, a projection or another frontend.
 3. `CDelta.Core` depends on `CDelta.Ir` and `CDelta.Diagnostics`. It knows no source language and
    no target language.
 4. A backend depends on `CDelta.Ir` and `CDelta.Diagnostics`. It never references a frontend or
    the core: everything it needs (layouts, instantiations, constants) is in the IR it receives.
+   A projection depends on the same and on `CDelta.Projection`, and reads only the declaration
+   layer of the IR.
 5. `CDelta.Toolchain` knows how to run C compilers and linkers; it knows nothing about the IR.
 6. `CDelta.Driver` is the only project that references all of them.
-7. Nothing in a frontend or backend names a concept of another language. A word that belongs to
+7. Nothing in a frontend, backend or projection names a concept of another language. A word that belongs to
    C# (a Roslyn symbol) does not enter the IR; it is translated at the frontend boundary.
 
 ## Projects
@@ -76,9 +78,9 @@ These are invariants, checked by project references (a forbidden reference does 
 | `src/CDelta.Frontend.CSharp` | `net10.0` | Roslyn compilation, corelib symbols, lowering to IR |
 | `src/CDelta.Frontend.C` | `net10.0` | libclang reading of headers into IR declarations |
 | `src/CDelta.Backend.C` | `net10.0` | IR to C11 and the export header |
-| `src/CDelta.Backend.CSharp` | `net10.0` | IR declarations to C# source: import stubs now; the CΔ projection, then the C# projection (D179) |
-| `src/CDelta.Projection` (M8) | `net10.0` | shared analyses of IR declarations for projection backends |
-| `src/CDelta.Backend.Zig` (M8) | `net10.0` | IR declarations to idiomatic Zig bindings |
+| `src/CDelta.Projection.CSharp` | `net10.0` | IR declarations to C# source: import stubs now; the CΔ projection, then the C# projection (D179) |
+| `src/CDelta.Projection` (M8) | `net10.0` | shared analyses of IR declarations for projections |
+| `src/CDelta.Projection.Zig` (M8) | `net10.0` | IR declarations to idiomatic Zig bindings |
 | `src/CDelta.Toolchain` | `net10.0` | C toolchain discovery and invocation, target triples |
 | `src/CDelta.Driver` | `net10.0` | project model, pipeline, caches |
 | `src/CDelta.Cli` | `net10.0` | the `cdc` command |
@@ -98,7 +100,7 @@ The projects split into two groups ([../decisions.md](../decisions.md), D116 to 
 | Group | Projects | Language |
 |---|---|---|
 | Host | `Frontend.CSharp`, `Frontend.CSharp.Rules`, `Build.Tasks`, the host part of `Cli` | C# on .NET, permanently |
-| Portable | `Diagnostics`, `Ir`, `Core`, `Frontend.C`, `Backend.C`, `Backend.CSharp`, `Projection`, `Backend.Zig`, `Toolchain`, `Driver` | C# until M7, then CΔ ([../roadmap.md](../roadmap.md#m10-self-hosting)) |
+| Portable | `Diagnostics`, `Ir`, `Core`, `Frontend.C`, `Backend.C`, `Projection`, `Projection.CSharp`, `Projection.Zig`, `Toolchain`, `Driver` | C# until M7, then CΔ ([../roadmap.md](../roadmap.md#m10-self-hosting)) |
 
 Code in a portable project follows these rules, which a test of the solution checks where it can:
 
@@ -154,7 +156,7 @@ of that stage is reported together.
 | 2 | Toolchain | Toolchain | target | C compiler, sysroot and include paths for the target |
 | 3 | Scan imports | Frontend.CSharp | sources (syntax only) | the `[Import]` declarations |
 | 4 | Read C | Frontend.C | imports, include paths, target | IR declaration module per import set |
-| 5 | Stubs | Backend.CSharp | IR declarations | generated C# files, added to the package's sources |
+| 5 | Stubs | Projection.CSharp | IR declarations | generated C# files, added to the package's sources |
 | 6 | Bind | Frontend.CSharp | sources, corelib, dependency compilations | one Roslyn `CSharpCompilation` per package; Roslyn diagnostics |
 | 7 | Check subset | Frontend.CSharp.Rules | compilations | CΔ diagnostics `CD1xxx`, `CD2xxx`, `CD3xxx`, `CD5xxx` |
 | 8 | Lower | Frontend.CSharp | reachable symbols, on demand | generic IR functions and types |

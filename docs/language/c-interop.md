@@ -174,6 +174,6 @@ Every build that has exports writes `<PackageName>.h` next to the output:
 
 ### Bindings for other languages
 
-The exported surface is a Delta IR module of declarations. Projection backends turn it into
+The exported surface is a Delta IR module of declarations. Projections turn it into
 idiomatic bindings for other languages, starting with C# and Zig, which is the role kabic has
 today ([../kabic-migration.md](../kabic-migration.md)).

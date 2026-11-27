@@ -16,8 +16,9 @@ the syntax and semantics of C#, and interoperability with C. Then record the dec
 - A CΔ program is valid C#. Never add syntax; remove, or use an intrinsic or attribute.
 - No silent divergence from C#: a kept construct behaves as in C# or does not compile (D156).
 - Before adding an intrinsic, look for a C# name that already has the meaning.
-- Frontends, core and backends are separate projects. A backend references only `CDelta.Ir` and
-  `CDelta.Diagnostics`. A frontend never references the core or a backend.
+- Frontends, core, backends and projections are separate projects. A backend references only
+  `CDelta.Ir` and `CDelta.Diagnostics`; a projection also `CDelta.Projection`. A frontend never
+  references the core, a backend or a projection.
 - Nothing of C# enters the IR. Roslyn symbols are translated at the frontend boundary.
 - The subset checker is an allowlist.
 - Lazy by design: when a library or tool solves a problem (Roslyn, libclang, the C compiler,

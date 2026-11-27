@@ -43,7 +43,7 @@ when all of these hold:
 A library that fails a criterion is not part of the std. A program that accepts its defects uses
 it directly with `[Import]`, which is already zero cost.
 
-A projected module is the projection backend's output over the library's headers (errno and
+A projected module is the projection's output over the library's headers (errno and
 status codes to `Result`, pointer and length pairs to spans, allocation hooks to `IAllocator`),
 plus a thin hand-written layer where the semantics need it. Its public surface speaks CΔ only.
 

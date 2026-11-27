@@ -1,6 +1,6 @@
 # Delta IR
 
-Delta IR is the only thing the core sees and the only thing a backend receives. It must carry a
+Delta IR is the only thing the core sees and the only thing a backend or a projection receives. It must carry a
 whole CΔ program, the declarations of any C header, and later other source languages, so it is
 defined by what systems languages share, not by C# or by C.
 
@@ -103,7 +103,7 @@ parameter with a mode other than `value` has a pointer type in the IR: `ref T` a
 `ptr<T>`, `ref readonly T` and `in T` are `ptr<T> const`, never nullable or many. The body reads
 and writes through it with a deref place (`(*%0)`), and a caller passes `addr` of the argument's
 place. The mode is kept beside the type for diagnostics, for `out` definite assignment, and for
-projection backends; the C backend ignores it.
+projections; the C backend ignores it.
 
 - `this` of an instance method is the first parameter, named `this`, with mode `ref` and type
   `ptr<S>`, or mode `ref.readonly` and type `ptr<S> const` for a `readonly` method or a member of a
@@ -327,7 +327,7 @@ Attribute  name (namespaced: cs.Obsolete, cdelta.Export, ann.out, proj.cs.name),
 ```
 
 The IR never interprets an attribute it does not own; the namespace says who does. This is how
-annotations travel from any frontend to the projection backends without new IR constructs
+annotations travel from any frontend to the projections without new IR constructs
 ([annotations](#annotations)).
 
 ## Text format
@@ -508,7 +508,7 @@ An annotation is an IR attribute in the `ann.` namespace that states a fact abou
 which its source language does not express: a pointer written back, a pointer and a count forming
 one sequence, an owner, a borrowed or optional value, an error convention (D170). The vocabulary is
 defined on IR concepts, never on the syntax of a language, so annotations of any frontend reach
-every projection backend and plugin. It is designed in M8 by the clean room of [../kabic-migration.md](../kabic-migration.md#the-clean-room).
+every projection and plugin. It is designed in M8 by the clean room of [../kabic-migration.md](../kabic-migration.md#the-clean-room).
 
 Annotations come from three sources:
 
@@ -526,7 +526,7 @@ The IR has two layers with different promises (D168):
 
 | Layer | What | Promise |
 |---|---|---|
-| declarations | types, globals, function signatures, impls, attributes, annotations, error names | what projection backends and plugins consume; from 1.0 it changes only by addition, and every external format of it carries a format version that `cdc` keeps reading |
+| declarations | types, globals, function signatures, impls, attributes, annotations, error names | what projections and plugins consume; from 1.0 it changes only by addition, and every external format of it carries a format version that `cdc` keeps reading |
 | bodies | locals, blocks, statements, terminators, the stages | internal; no promise until a frontend outside the compiler exists, which is then a decision |
 
 The external formats are the plugin protocol of [../kabic-migration.md](../kabic-migration.md#the-command)

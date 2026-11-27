@@ -76,11 +76,11 @@ Function-like macros are never imported automatically; `[CMacro]` declares them 
 Doc comments are read with their tags: a tag states a fact about a declaration that C cannot
 express (a pointer written back, a pointer and a count forming one sequence, a borrowed or
 optional value). Tags become annotations of the IR ([ir.md](ir.md#annotations)). The CΔ import
-ignores them; projection backends use them.
+ignores them; projections use them.
 
 ## Import stubs
 
-`CDelta.Backend.CSharp` turns the IR declarations of an import into the C# source Roslyn compiles:
+`CDelta.Projection.CSharp` turns the IR declarations of an import into the C# source Roslyn compiles:
 
 ```csharp
 static unsafe partial class Sqlite
