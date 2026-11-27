@@ -280,11 +280,15 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   `async` and `await` as the iterator transform, where an async frame is a struct of known size
   that never moves once started, so recursive async is an error and starting a task takes an
   allocator.
-- **A web package**, outside the std: a minimal API with ASP.NET's names (`WebApp`, `MapGet`,
-  `MapPost`, `HttpContext`, `Results`) over `IIo` and `Std.Net`, parsing HTTP with picohttpparser
-  or llhttp. Route templates are `[Comptime]` and compiled into a table, a route parameter without
-  a handler parameter is a compile error, parameters and JSON bodies are bound through `TypeInfo`,
-  and each request has an arena freed when it ends.
+- **A web package** (D173), outside the std: a projection of facil.io, accepting its own event
+  loop, threads and allocator, with a thin minimal API on top with ASP.NET's names (`WebApp`,
+  `MapGet`, `MapPost`, `HttpContext`, `Results`). Route templates are `[Comptime]` and compiled
+  into a table, a route parameter without a handler parameter is a compile error, parameters and
+  JSON bodies are bound through `TypeInfo`, and each request has an arena freed when it ends.
+- **A desktop UI package** (D173), outside the std: a projection of GTK4 and libadwaita, read
+  with the facts of their GIR files (ownership, array lengths, nullability, errors) as
+  annotations, with signals as delegates and GObject subclassing through the C API. Mobile is
+  studied separately.
 - **A data package**, outside the std, in two layers. The base has ADO.NET's abstractions and
   names: `IDbConnection`, `IDbCommand`, `IDbDataReader` (`Read`, `FieldCount`, `GetName`,
   `GetInt64`, `GetString` with text valid until the next row, `IsDBNull`), `IDbTransaction` as a
@@ -296,4 +300,5 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   `QueryFirst<T>`, `QuerySingle<T>`, `Execute` and `ExecuteScalar<T>`; parameters from an
   interpolated string handler, each hole a bound parameter and never text; the fields of `T` a
   comptime table, matched to the columns of a statement once at its first execution; results to an
-  allocator, or row by row. Drivers over SQLite and libpq, whose non-blocking socket joins `IIo`.
+  allocator, or row by row. The drivers are projections of SQLite and libpq (D173), whose
+  non-blocking socket joins `IIo`; the abstractions and the micro ORM are the thin layer on top.

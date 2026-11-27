@@ -471,7 +471,10 @@ way the result is ordinary IR declarations, so every backend and plugin serves t
 **D173. CΔ's ecosystem is every library reachable through the C ABI.** A new language needs
 years to grow an ecosystem; CΔ inherits all of them by wrapping instead of rewriting. Its own
 work concentrates on what wrapping cannot give: annotations and projections that make a foreign
-library feel native.
+library feel native. A large framework that fails the std's criteria (its own event loop,
+allocator or global state) is not rebuilt to meet them: it is projected as it is, in a package
+outside the std, and its rules are accepted at its boundary. CΔ adds on top only a thin layer
+where comptime gives what the library lacks, such as routes or bindings checked when compiling.
 
 **D174. The std has a virtual arena.** Reserving address space and committing it as it is used
 gives a buffer that grows without moving and a scope freed in one store, with no new language
