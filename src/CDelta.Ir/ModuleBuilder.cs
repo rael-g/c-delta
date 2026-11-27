@@ -203,6 +203,21 @@ public sealed class ModuleBuilder(Module module)
 
     public TypeId UnionType(UnionId id) => Module.Type(new TypeNode(TypeKind.Union, TypeFlags.None, id.Index, 0));
 
+    public TypeId ClosureType(SigId sig) => Module.Type(new TypeNode(TypeKind.Closure, TypeFlags.None, sig.Index, 0));
+
+    public TypeId ClosureTypeOf(FunctionId function)
+    {
+        FunctionDecl declaration = Module.Functions[function.Index];
+        var parameters = new List<SigParam>();
+        for (int i = 1; i < declaration.Params.Count; i++)
+        {
+            ParamDecl parameter = Module.Params[declaration.Params.Start + i];
+            parameters.Add(new SigParam(parameter.Type, parameter.Mode));
+        }
+
+        return ClosureType(Signature(CallConv.Default, parameters, declaration.Return, false, declaration.ReturnMode));
+    }
+
     public TypeId DynOf(TypeId interfaceType) => Module.Type(new TypeNode(TypeKind.Dyn, TypeFlags.None, interfaceType.Index, 0));
 
     public TypeId InterfaceType(InterfaceId id, IReadOnlyList<TypeId>? typeArgs = null) =>

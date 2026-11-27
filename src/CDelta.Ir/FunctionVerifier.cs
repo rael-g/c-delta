@@ -365,6 +365,8 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
                 return DynMakeType(body, r);
             case RvalueKind.UnionMake:
                 return UnionMakeType(body, r);
+            case RvalueKind.ClosureMake:
+                return ClosureMakeType(body, r);
             case RvalueKind.Tag:
                 TypeId tagged = PlaceType(body, r.Place);
                 if (tagged.IsNone || KindOf(tagged) != TypeKind.Union)
@@ -726,6 +728,45 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         return found.Return;
     }
 
+    private TypeId ClosureCallType(Body body, Rvalue r)
+    {
+        TypeId closure = OperandType(body, new OperandId(r.CalleeId));
+        if (closure.IsNone || KindOf(closure) != TypeKind.Closure)
+        {
+            Fail("a closure call through a value that is not a closure");
+            return TypeId.None;
+        }
+
+        SigNode sig = module.Sigs[module.Types[closure.Index].A];
+        var parameters = new List<TypeId>();
+        foreach (int item in module.TypeLists[sig.Params.Index])
+        {
+            parameters.Add(SigParam.Decode(item).Type);
+        }
+
+        CheckArguments(body, r, parameters, false);
+        return sig.Return;
+    }
+
+    private TypeId ClosureMakeType(Body body, Rvalue r)
+    {
+        TypeId context = OperandType(body, r.A);
+        if (r.CalleeId < 0 || r.CalleeId >= module.Functions.Count)
+        {
+            Fail("closure.make names a missing function");
+            return TypeId.None;
+        }
+
+        FunctionDecl function = module.Functions[r.CalleeId];
+        if (function.Params.Count == 0 || context.IsNone || module.Params[function.Params.Start].Type != context)
+        {
+            Fail("closure.make needs a function whose first parameter has the type of the context");
+            return TypeId.None;
+        }
+
+        return r.Type;
+    }
+
     private TypeId UnionCallType(Body body, Rvalue r)
     {
         TypeId pointer = OperandType(body, new OperandId(r.CalleeId));
@@ -901,6 +942,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         if (r.Callee == CalleeKind.Union)
         {
             return UnionCallType(body, r);
+        }
+
+        if (r.Callee == CalleeKind.Closure)
+        {
+            return ClosureCallType(body, r);
         }
 
         TypeId calleeType = OperandType(body, new OperandId(r.CalleeId));
@@ -1148,7 +1194,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
         if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate or RvalueKind.Intrinsic)
         {
-            if (r.Kind == RvalueKind.Call && r.Callee is CalleeKind.Indirect or CalleeKind.Dyn or CalleeKind.Union)
+            if (r.Kind == RvalueKind.Call && r.Callee is CalleeKind.Indirect or CalleeKind.Dyn or CalleeKind.Union or CalleeKind.Closure)
             {
                 ReadOperand(body, new OperandId(r.CalleeId), state, report);
             }

@@ -61,6 +61,11 @@ internal static class CConstants
                     return "{ .self = 0, .table = 0 }";
                 }
 
+                if (node.Kind == TypeKind.Closure)
+                {
+                    return "{ .fn = 0, .ctx = 0 }";
+                }
+
                 if (node.Kind == TypeKind.Union)
                 {
                     return "{ 0 }";

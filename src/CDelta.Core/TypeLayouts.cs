@@ -18,6 +18,9 @@ public sealed class TypeLayouts(Module module, Target target)
             case TypeKind.Ptr:
             case TypeKind.Fn:
                 return new TypeSizes(target.PointerSize, target.PointerSize);
+            case TypeKind.Closure:
+            case TypeKind.Dyn:
+                return new TypeSizes(target.PointerSize * 2, target.PointerSize);
             case TypeKind.Slice:
                 int pointerSize = target.PointerSize;
                 return new TypeSizes(AlignUp(pointerSize + SliceLengthSize, pointerSize), pointerSize);

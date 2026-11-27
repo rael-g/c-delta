@@ -108,6 +108,8 @@ internal sealed class TypeParser(Module module, ModuleBuilder builder)
                 return builder.ArrayOf(item, length);
             case "fn":
                 return builder.FunctionPointer(ParseSig(cursor));
+            case "closure":
+                return builder.ClosureType(ParseSig(cursor));
             case "struct":
                 string structKey = cursor.ReadReference();
                 if (!module.StructsByKey.TryGetValue(structKey, out StructId structId))

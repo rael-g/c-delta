@@ -27,6 +27,8 @@ internal static class CTypes
                 return "uint16_t";
             case TypeKind.Dyn:
                 return "cd_dyn";
+            case TypeKind.Closure:
+                return "cd_closure";
             case TypeKind.Union:
                 return names.Union(new UnionId(node.A));
             case TypeKind.Struct:

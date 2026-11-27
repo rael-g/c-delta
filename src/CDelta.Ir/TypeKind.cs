@@ -47,4 +47,5 @@ public enum TypeKind
     ComptimeType,
     Dyn,
     Union,
+    Closure,
 }

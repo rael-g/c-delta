@@ -26,4 +26,5 @@ public enum RvalueKind
     DynMake,
     UnionMake,
     Tag,
+    ClosureMake,
 }

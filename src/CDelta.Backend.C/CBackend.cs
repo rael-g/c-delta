@@ -149,9 +149,21 @@ public static class CBackend
             text.Append('\n').Append(slices);
         }
 
-        if (module.Types.Any(node => node.Kind == TypeKind.Dyn))
+        bool usesDyn = module.Types.Any(node => node.Kind == TypeKind.Dyn);
+        bool usesClosure = module.Types.Any(node => node.Kind == TypeKind.Closure);
+        if (usesDyn || usesClosure)
         {
-            text.Append('\n').Append(CPrelude.DynType);
+            text.Append('\n').Append(CPrelude.FnType);
+        }
+
+        if (usesDyn)
+        {
+            text.Append(CPrelude.DynType);
+        }
+
+        if (usesClosure)
+        {
+            text.Append(CPrelude.ClosureType);
         }
 
         if (state.UsesTextEql)

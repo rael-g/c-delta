@@ -119,6 +119,7 @@ public static class IrTyper
             case RvalueKind.Cast:
             case RvalueKind.Aggregate:
             case RvalueKind.DynMake:
+            case RvalueKind.ClosureMake:
             case RvalueKind.UnionMake:
                 return r.Type;
             case RvalueKind.Tag:
@@ -191,6 +192,12 @@ public static class IrTyper
                     return dynType.IsNone || module.Types[dynType.Index].Kind != TypeKind.Dyn
                         ? TypeId.None
                         : IrTypes.InterfaceMethodSignature(module, new TypeId(module.Types[dynType.Index].A), r.Aux)?.Return ?? TypeId.None;
+                }
+
+                if (r.Callee == CalleeKind.Closure)
+                {
+                    TypeId closureType = OfOperand(module, body, new OperandId(r.CalleeId));
+                    return closureType.IsNone || module.Types[closureType.Index].Kind != TypeKind.Closure ? TypeId.None : module.Sigs[module.Types[closureType.Index].A].Return;
                 }
 
                 if (r.Callee == CalleeKind.Union)

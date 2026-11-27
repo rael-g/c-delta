@@ -169,7 +169,7 @@ internal sealed partial class CFunctionWriter(
             MarkPlaceRead(_body.Places[rvalue.Place.Index], read);
         }
 
-        if (rvalue.Kind == RvalueKind.Call && rvalue.Callee is CalleeKind.Indirect or CalleeKind.Dyn)
+        if (rvalue.Kind == RvalueKind.Call && rvalue.Callee is CalleeKind.Indirect or CalleeKind.Dyn or CalleeKind.Closure)
         {
             MarkOperandReads(new OperandId(rvalue.CalleeId), read);
         }
@@ -409,8 +409,30 @@ internal sealed partial class CFunctionWriter(
         return text.Append(')').ToString();
     }
 
+    private string ClosureCallText(Rvalue rvalue)
+    {
+        OperandId closure = new(rvalue.CalleeId);
+        TypeNode type = module.Types[IrTyper.OfOperand(module, _body, closure).Index];
+        SigNode sig = module.Sigs[type.A];
+        string pointerType = CTypes.Spell(module, names, sig.Return) + " (*)(void*"
+            + string.Concat(module.TypeLists[sig.Params.Index].Select(item => ", " + CTypes.Spell(module, names, SigParam.Decode(item).Type))) + ")";
+        string value = OperandText(closure);
+        var text = new StringBuilder("((" + pointerType + ")" + value + ".fn)(" + value + ".ctx");
+        for (int i = 0; i < rvalue.Args.Count; i++)
+        {
+            text.Append(", ").Append(OperandText(_body.Args[rvalue.Args.Start + i]));
+        }
+
+        return text.Append(')').ToString();
+    }
+
     private string CallText(Rvalue rvalue)
     {
+        if (rvalue.Callee == CalleeKind.Closure)
+        {
+            return ClosureCallText(rvalue);
+        }
+
         if (rvalue.Callee == CalleeKind.Dyn)
         {
             return DynCallText(rvalue);
@@ -496,6 +518,9 @@ internal sealed partial class CFunctionWriter(
                 break;
             case RvalueKind.Intrinsic:
                 WriteIntrinsic(rvalue, destination);
+                break;
+            case RvalueKind.ClosureMake:
+                Statement(destination + " = (cd_closure){ (cd_fn)" + names.Function(new FunctionId(rvalue.CalleeId)) + ", (void*)" + OperandText(rvalue.A) + " };");
                 break;
             case RvalueKind.UnionMake:
                 Statement(destination + " = (" + cType + "){ .tag = " + rvalue.Aux + ", .payload = { .m" + rvalue.Aux + " = " + OperandText(rvalue.A) + " } };");

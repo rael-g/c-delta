@@ -120,6 +120,12 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public RvalueId Tag(PlaceId place) => AddRvalue(Blank(RvalueKind.Tag) with { Place = place });
 
+    public RvalueId ClosureMake(FunctionId function, OperandId context) =>
+        AddRvalue(Blank(RvalueKind.ClosureMake) with { CalleeId = function.Index, A = context, Type = new ModuleBuilder(module).ClosureTypeOf(function) });
+
+    public RvalueId CallClosure(OperandId closure, IReadOnlyList<OperandId> args) =>
+        AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Closure, CalleeId = closure.Index, Args = AddArgs(args) });
+
     public RvalueId CallIndirect(OperandId callee, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Indirect, CalleeId = callee.Index, Args = AddArgs(args) });
 

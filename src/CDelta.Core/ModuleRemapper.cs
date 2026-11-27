@@ -35,6 +35,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
                 int[] names = source.TypeLists[node.A].Select(index => destination.Intern(source.Strings[index]).Index).ToArray();
                 return destination.Type(node with { A = destination.TypeList(names).Index });
             case TypeKind.Fn:
+            case TypeKind.Closure:
                 return destination.Type(node with { A = Sig(new SigId(node.A)).Index });
             case TypeKind.Struct:
                 int[] sourceArgs = IrTypes.StructTypeArgs(source, node);

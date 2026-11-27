@@ -152,6 +152,8 @@ public static partial class IrPrinter
                 int[] interfaceArgs = IrTypes.StructTypeArgs(module, node);
                 return "interface " + Reference(module.Text(module.Interfaces[node.A].Key))
                     + (interfaceArgs.Length == 0 ? string.Empty : "<" + string.Join(", ", interfaceArgs.Select(arg => TypeText(module, new TypeId(arg)))) + ">");
+            case TypeKind.Closure:
+                return "closure" + SigText(module, new SigId(node.A));
             case TypeKind.Union:
                 return "union " + Reference(module.Text(module.Unions[node.A].Key));
             case TypeKind.Dyn:
@@ -1019,6 +1021,10 @@ public static partial class IrPrinter
                 text.Append(' ');
                 PrintOperand(module, body, rvalue.A, text);
                 break;
+            case RvalueKind.ClosureMake:
+                text.Append("closure.make ").Append(Reference(module.Text(module.Functions[rvalue.CalleeId].Key))).Append(' ');
+                PrintOperand(module, body, rvalue.A, text);
+                break;
             case RvalueKind.UnionMake:
                 text.Append("union.make ").Append(TypeText(module, rvalue.Type)).Append(' ').Append(rvalue.Aux).Append(' ');
                 PrintOperand(module, body, rvalue.A, text);
@@ -1058,6 +1064,11 @@ public static partial class IrPrinter
                     {
                         text.Append('<').Append(string.Join(", ", constrainedArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
                     }
+                }
+                else if (rvalue.Callee == CalleeKind.Closure)
+                {
+                    text.Append("closure ");
+                    PrintOperand(module, body, new OperandId(rvalue.CalleeId), text);
                 }
                 else if (rvalue.Callee is CalleeKind.Dyn or CalleeKind.Union)
                 {

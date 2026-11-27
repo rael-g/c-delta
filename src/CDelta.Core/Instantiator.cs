@@ -239,6 +239,11 @@ public sealed partial class Instantiator
                 copy = copy with { Aux = _remap.String(new StringId(rvalue.Aux)).Index };
             }
 
+            if (rvalue.Kind == RvalueKind.ClosureMake)
+            {
+                copy = copy with { CalleeId = Reach(new FunctionId(rvalue.CalleeId), []).Index };
+            }
+
             if (rvalue.Kind == RvalueKind.DynMake)
             {
                 copy = copy with { Callee = CalleeKind.Direct, Aux = ReachImpl(rvalue) };

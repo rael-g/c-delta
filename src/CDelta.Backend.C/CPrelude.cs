@@ -26,10 +26,11 @@ internal static class CPrelude
 
         """;
 
-    public const string DynType = """
-        typedef void (*cd_fn)(void);
-        typedef struct { void* self; const cd_fn* table; } cd_dyn;
-        """;
+    public const string FnType = "typedef void (*cd_fn)(void);\n";
+
+    public const string DynType = "typedef struct { void* self; const cd_fn* table; } cd_dyn;\n";
+
+    public const string ClosureType = "typedef struct { cd_fn fn; void* ctx; } cd_closure;\n";
 
     public const string TextEql = """
         static inline bool cd_text_eql(cd_T_slice_const_uint8_t a, cd_T_slice_const_uint8_t b)

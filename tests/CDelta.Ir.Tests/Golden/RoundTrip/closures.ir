@@ -1,0 +1,39 @@
+module Closures stage lowered
+
+source 1 "$ROOT/Closures.cs" "Closures.cs"
+
+struct Gen.Frame layout c origin source(csharp) @1:1:1 {
+  bias: i32
+}
+
+fn Gen.AddBias(ctx: ptr<struct Gen.Frame>, x: i32) -> i32 origin source(csharp) @1:2:1 {
+  local %0 ctx: ptr<struct Gen.Frame> param
+  local %1 x: i32 param
+  local %2 r: i32 temp
+bb0:
+  %2 = binop add default copy (*%0).field(0), copy %1  @1:2:3
+  return copy %2  @1:2:3
+}
+
+fn Gen.Apply(f: closure(i32) -> i32, v: i32) -> i32 origin source(csharp) @1:3:1 {
+  local %0 f: closure(i32) -> i32 param
+  local %1 v: i32 param
+  local %2 r: i32 temp
+bb0:
+  %2 = call closure copy %0(copy %1)  @1:3:3
+  return copy %2  @1:3:3
+}
+
+#[cdelta.EntryPoint]
+fn Gen.Main() -> i32 origin source(csharp) @1:4:1 {
+  local %0 frame: struct Gen.Frame temp
+  local %1 p: ptr<struct Gen.Frame> temp
+  local %2 c: closure(i32) -> i32 temp
+  local %3 r: i32 temp
+bb0:
+  %0 = aggregate struct Gen.Frame(const i32 40)  @1:4:3
+  %1 = addr.mut %0  @1:4:3
+  %2 = closure.make Gen.AddBias copy %1  @1:4:3
+  %3 = call direct Gen.Apply(copy %2, const i32 2)  @1:4:3
+  return copy %3  @1:4:3
+}

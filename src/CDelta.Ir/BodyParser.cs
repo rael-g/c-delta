@@ -397,6 +397,15 @@ internal sealed class BodyParser(
             case "tag":
                 cursor.ReadWord();
                 return _f.Tag(ParsePlace(cursor));
+            case "closure.make":
+                cursor.ReadWord();
+                string closureKey = cursor.ReadReference();
+                if (!module.FunctionsByKey.TryGetValue(closureKey, out FunctionId closureFunction))
+                {
+                    throw cursor.Error("unknown function " + closureKey);
+                }
+
+                return _f.ClosureMake(closureFunction, ParseOperand(cursor));
             case "dyn.make":
                 cursor.ReadWord();
                 return ParseDynMake(cursor);
@@ -456,10 +465,10 @@ internal sealed class BodyParser(
                 cursor.Expect('>');
             }
         }
-        else if (kind is "dyn" or "union")
+        else if (kind is "dyn" or "union" or "closure")
         {
             indirect = ParseOperand(cursor);
-            constrainedRef = cursor.ReadInt();
+            constrainedRef = kind == "closure" ? 0 : cursor.ReadInt();
         }
         else if (kind == "constrained")
         {
@@ -508,6 +517,11 @@ internal sealed class BodyParser(
         if (kind == "union")
         {
             return _f.CallUnion(indirect, constrainedRef, arguments);
+        }
+
+        if (kind == "closure")
+        {
+            return _f.CallClosure(indirect, arguments);
         }
 
         return kind == "direct" ? _f.CallDirect(callee, arguments, typeArgs) : _f.CallIndirect(indirect, arguments);

@@ -7,4 +7,5 @@ public enum CalleeKind
     Constrained,
     Dyn,
     Union,
+    Closure,
 }
