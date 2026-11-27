@@ -20,6 +20,7 @@ One `CSharpCompilation` per package, created by the driver in dependency order.
 | References | the corelib, and `ToMetadataReference()` of each dependency's compilation; never the BCL |
 | Specific diagnostic options | the promotions and suppressions of [../language/subset.md](../language/subset.md) |
 | Syntax trees | the package's sources, the generated import stubs, and the SDK's global usings file |
+| Generators | the incremental generators of the package's `Analyzer` items, run by `CSharpGeneratorDriver` with its `AdditionalFiles` and analyzer config options before any check; their trees join the compilation |
 
 The global usings file contains:
 
@@ -104,8 +105,9 @@ the corelib's assembly identity against the compiler's (`CD0008`).
   `[Union]` switch that CΔ proves exhaustive);
 - the allowlists of `SyntaxKind` and `OperationKind`; anything outside them is `CD1000`.
 
-The compiler runs the same analyzer and suppressor through `CompilationWithAnalyzers`, so the
-diagnostics of `cdc` and of the IDE are the same by construction. Every `CD1xxx`, `CD2xxx`,
+The compiler runs the same analyzer and suppressor through `CompilationWithAnalyzers`, together
+with the analyzers of the package's `Analyzer` items, over the compilation that includes generated
+trees, so the diagnostics of `cdc` and of the IDE are the same by construction. Every `CD1xxx`, `CD2xxx`,
 `CD3xxx` and `CD5xxx` code is produced here, except those that need instantiation (`CD5005`) or
 comptime; those come from the core. Each rule is a small class with its code, its registration and
 its tests.

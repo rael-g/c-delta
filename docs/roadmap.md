@@ -176,11 +176,15 @@ Accepted when: `comptime` conformance passes; differential tests pass.
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET
   SDK; the `tcc` provider for `Debug` builds (D175).
+- Source generators and analyzers of `Analyzer` items run by `cdc` as by the IDE (D180,
+  [language/modules-build.md](language/modules-build.md#generated-sources)); the NativeAOT spike
+  keeps them, since they are assemblies loaded at build time.
 - Debugging (D159): the formatters of [compiler/backend-c.md](compiler/backend-c.md#debug-information)
   and a launch configuration written by `cdc init`.
 
 Accepted when: `sdk`, `ide` and `cross` end to end cases pass; the std's tests pass in all modes;
-a sample project opens in VS Code with completion and CΔ diagnostics; a one-line change to a
+a sample project opens in VS Code with completion and CΔ diagnostics; a sample with a source
+generator builds and shows the generated members in both; a one-line change to a
 sample of a few thousand lines rebuilds and runs in Debug in under one second on the CI machine;
 the `debug` end to end case inspects a `string`, a `Result` and a `[Union]` value in GDB and
 LLDB.
