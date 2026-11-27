@@ -83,6 +83,7 @@ public static class IrTyper
             OperandKind.Copy => OfPlace(module, body, new PlaceId(o.A)),
             OperandKind.Const => OfConstant(module, new ConstId(o.A)),
             OperandKind.Undef => new TypeId(o.A),
+            OperandKind.FnRef => new ModuleBuilder(module).FunctionTypeOf(new FunctionId(o.A)),
             _ => TypeId.None,
         };
     }

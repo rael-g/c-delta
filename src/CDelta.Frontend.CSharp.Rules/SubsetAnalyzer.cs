@@ -38,6 +38,7 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer
         new ConstraintRule(),
         new TypeParameterTestRule(),
         new UnionRule(),
+        new DelegateRules(),
         new StringConcatenationRule(),
         new DirectiveRule(),
         new DeconstructRule(),

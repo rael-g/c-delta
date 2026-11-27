@@ -749,10 +749,14 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return Emit(none, _f.OptionalNone(new TypeId(_module.Types[none.Index].A)), SpanOf(operation));
             case IDefaultValueOperation:
                 return Zero(frontend.Types.Map(operation.Type!, location), SpanOf(operation));
+            case IAddressOfOperation { Reference: IMethodReferenceOperation { Method: { IsStatic: true } referenced } }:
+                return _f.FnRef(frontend.Declare(referenced));
             case IAddressOfOperation address:
                 return LowerAddressOf(address);
             case ITypeOfOperation typeOf:
                 return _f.Const(_builder.TypeConstant(frontend.Types.Map(typeOf.TypeOperand, location)));
+            case IFunctionPointerInvocationOperation pointerCall:
+                return LowerFunctionPointerCall(pointerCall)!.Value;
             case IDelegateCreationOperation creation:
                 return LowerDelegateCreation(creation);
             case ISizeOfOperation sizeOf:
@@ -1575,6 +1579,22 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private OperandId? LowerFunctionPointerCall(IFunctionPointerInvocationOperation invocation)
+    {
+        SourceSpan span = SpanOf(invocation);
+        OperandId pointer = Snapshot(LowerValue(invocation.Target), span);
+        var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
+        RvalueId call = _f.CallIndirect(pointer, arguments);
+        TypeId returnType = frontend.Types.Map(invocation.Type!, invocation.Syntax.GetLocation());
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
     }
 
     private OperandId? LowerLocalFunctionCall(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)

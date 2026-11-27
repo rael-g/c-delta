@@ -149,6 +149,20 @@ public static class CBackend
             text.Append('\n').Append(slices);
         }
 
+        var functionPointers = new StringBuilder();
+        for (int i = 0; i < module.Types.Count; i++)
+        {
+            if (module.Types[i].Kind == TypeKind.Fn)
+            {
+                functionPointers.Append(CTypes.FunctionPointerDefinition(module, names, new TypeId(i)));
+            }
+        }
+
+        if (functionPointers.Length > 0)
+        {
+            text.Append('\n').Append(functionPointers);
+        }
+
         bool usesDyn = module.Types.Any(node => node.Kind == TypeKind.Dyn);
         bool usesClosure = module.Types.Any(node => node.Kind == TypeKind.Closure);
         if (usesDyn || usesClosure)

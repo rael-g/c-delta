@@ -29,6 +29,8 @@ internal static class CTypes
                 return "cd_dyn";
             case TypeKind.Closure:
                 return "cd_closure";
+            case TypeKind.Fn:
+                return "cd_T_fn_" + type.Index;
             case TypeKind.Union:
                 return names.Union(new UnionId(node.A));
             case TypeKind.Struct:
@@ -43,6 +45,13 @@ internal static class CTypes
             default:
                 return Primitive(node.Kind);
         }
+    }
+
+    public static string FunctionPointerDefinition(Module module, CNames names, TypeId type)
+    {
+        SigNode sig = module.Sigs[module.Types[type.Index].A];
+        string parameters = string.Join(", ", module.TypeLists[sig.Params.Index].Select(item => Spell(module, names, SigParam.Decode(item).Type)));
+        return "typedef " + Spell(module, names, sig.Return) + " (*" + Spell(module, names, type) + ")(" + (parameters.Length == 0 ? "void" : parameters) + ");\n";
     }
 
     public static string ArrayName(Module module, CNames names, TypeNode node) =>

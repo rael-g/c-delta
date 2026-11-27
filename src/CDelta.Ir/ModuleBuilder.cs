@@ -205,6 +205,19 @@ public sealed class ModuleBuilder(Module module)
 
     public TypeId ClosureType(SigId sig) => Module.Type(new TypeNode(TypeKind.Closure, TypeFlags.None, sig.Index, 0));
 
+    public TypeId FunctionTypeOf(FunctionId function)
+    {
+        FunctionDecl declaration = Module.Functions[function.Index];
+        var parameters = new List<SigParam>();
+        for (int i = 0; i < declaration.Params.Count; i++)
+        {
+            ParamDecl parameter = Module.Params[declaration.Params.Start + i];
+            parameters.Add(new SigParam(parameter.Type, parameter.Mode));
+        }
+
+        return FunctionPointer(Signature(declaration.Conv, parameters, declaration.Return, declaration.Variadic, declaration.ReturnMode));
+    }
+
     public TypeId ClosureTypeOf(FunctionId function)
     {
         FunctionDecl declaration = Module.Functions[function.Index];

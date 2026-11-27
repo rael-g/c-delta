@@ -337,8 +337,13 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
                 return module.Constants[o.A].Type;
             case OperandKind.FnRef:
-                Fail("function references are not supported at this milestone");
-                return TypeId.None;
+                if (o.A < 0 || o.A >= module.Functions.Count)
+                {
+                    Fail("a function reference does not resolve");
+                    return TypeId.None;
+                }
+
+                return new ModuleBuilder(module).FunctionTypeOf(new FunctionId(o.A));
             default:
                 return ValidType(new TypeId(o.A)) ? new TypeId(o.A) : TypeId.None;
         }

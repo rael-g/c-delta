@@ -151,6 +151,26 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         return builder.Signature(CallConv.Default, parameters, ReferenceType(Map(invoke.ReturnType, location), invoke.RefKind), false, ModeOf(invoke.RefKind));
     }
 
+    public static CallConv ConventionOf(IMethodSymbol signature)
+    {
+        foreach (INamedTypeSymbol convention in signature.UnmanagedCallingConventionTypes)
+        {
+            switch (convention.Name)
+            {
+                case "CallConvCdecl":
+                    return CallConv.Cdecl;
+                case "CallConvStdcall":
+                    return CallConv.Stdcall;
+                case "CallConvFastcall":
+                    return CallConv.Fastcall;
+                case "CallConvThiscall":
+                    return CallConv.Thiscall;
+            }
+        }
+
+        return CallConv.Default;
+    }
+
     public static bool IsUnion(ITypeSymbol? type) =>
         type is INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface } contract
         && contract.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == "CDelta.UnionAttribute");
@@ -408,6 +428,15 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         {
             case ITypeParameterSymbol parameter:
                 return builder.ParamType(parameter.Name);
+            case IFunctionPointerTypeSymbol function:
+                var parameters = function.Signature.Parameters
+                    .Select(parameter => new SigParam(ParameterType(parameter, location), ModeOf(parameter.RefKind)))
+                    .ToList();
+                return builder.FunctionPointer(builder.Signature(
+                    ConventionOf(function.Signature),
+                    parameters,
+                    ReferenceType(Map(function.Signature.ReturnType, location), function.Signature.RefKind),
+                    false));
             case IPointerTypeSymbol pointer:
                 TypeId element = pointer.PointedAtType.SpecialType == SpecialType.System_Void
                     ? builder.Primitive(TypeKind.Void)

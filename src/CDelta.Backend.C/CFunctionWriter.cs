@@ -337,6 +337,7 @@ internal sealed partial class CFunctionWriter(
         {
             OperandKind.Copy => Place(new PlaceId(operand.A)),
             OperandKind.Const => CConstants.Spell(module, names, new ConstId(operand.A)),
+            OperandKind.FnRef => names.Function(new FunctionId(operand.A)),
             _ => throw new NotSupportedException("the operand kind " + operand.Kind + " is not supported at this stage"),
         };
     }

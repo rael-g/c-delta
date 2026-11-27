@@ -268,6 +268,14 @@ internal sealed class BodyParser(
                 return _f.Copy(ParsePlace(cursor));
             case "const":
                 return _f.Const(types.ParseConstant(cursor));
+            case "fnref":
+                string referenced = cursor.ReadReference();
+                if (!module.FunctionsByKey.TryGetValue(referenced, out FunctionId target))
+                {
+                    throw cursor.Error("unknown function " + referenced);
+                }
+
+                return _f.FnRef(target);
             case "undef":
                 return _f.Undef(types.ParseType(cursor));
             default:

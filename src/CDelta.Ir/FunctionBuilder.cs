@@ -34,6 +34,8 @@ public sealed class FunctionBuilder(Module module, Body body)
 
     public OperandId Const(ConstId constant) => AddOperand(new Operand(OperandKind.Const, constant.Index));
 
+    public OperandId FnRef(FunctionId function) => AddOperand(new Operand(OperandKind.FnRef, function.Index));
+
     public OperandId Undef(TypeId type) => AddOperand(new Operand(OperandKind.Undef, type.Index));
 
     public RvalueId Use(OperandId operand) => AddRvalue(Blank(RvalueKind.Use) with { A = operand });
