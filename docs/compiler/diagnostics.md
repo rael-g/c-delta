@@ -58,10 +58,10 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD1009 | static constructors are not part of CΔ; initialize statics with comptime | [../language/subset.md](../language/subset.md#members) |
 | CD1010 | `try` is not part of CΔ; return a `Result` | [../language/errors.md](../language/errors.md) |
 | CD1011 | `throw` only accepts `Panic(...)` or `Unreachable()` | [../language/errors.md](../language/errors.md#panics) |
-| CD1012 | `async` and `await` are not part of CΔ | [../language/subset.md](../language/subset.md#statements) |
+| CD1012 | `async` and `await` are not part of CΔ; a function that waits takes an `IIo`, and `Task.Run` starts concurrent work | [../language/concurrency.md](../language/concurrency.md) |
 | CD1013 | iterators are not part of CΔ | [../language/subset.md](../language/subset.md#statements) |
 | CD1014 | query expressions are not part of CΔ | [../language/subset.md](../language/subset.md#expressions) |
-| CD1015 | `lock` is not part of CΔ; use `Std.Thread.Mutex` | [../language/subset.md](../language/subset.md#statements) |
+| CD1015 | `lock` is not part of CΔ; hold a `Std.Threading.Mutex` with `using var scope = mutex.EnterScope()` | [../language/concurrency.md](../language/concurrency.md#threads-and-shared-memory) |
 | CD1016 | `dynamic` is not part of CΔ | [../language/subset.md](../language/subset.md#types) |
 | CD1017 | `object` and boxing are not part of CΔ | [../language/subset.md](../language/subset.md#types) |
 | CD1018 | anonymous types are not part of CΔ; use a tuple | [../language/subset.md](../language/subset.md#types) |
@@ -90,6 +90,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD2007 | this string literal is not valid UTF-16 and cannot be encoded as UTF-8 | [../language/types.md](../language/types.md#text) |
 | CD2008 | a reference or pointer cannot be taken to a field that is not aligned | [../language/types.md](../language/types.md#layout) |
 | CD2009 | a lambda that captures a loop variable cannot be stored outside the loop | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#lambdas-and-closures) |
+| CD2010 | a `Task` must be held by a `using` declaration, so it is joined before its scope ends | [../language/concurrency.md](../language/concurrency.md#tasks) |
 | CD3001 | `Try` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#try) |
 | CD3002 | the error set returned here lacks errors `Try` can propagate | [../language/errors.md](../language/errors.md#try) |
 | CD3003 | `ErrDefer` needs the function to return a `Result` | [../language/errors.md](../language/errors.md#errdefer) |

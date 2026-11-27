@@ -504,6 +504,29 @@ any generic with each expansion checked by the C compiler, and a template spells
 take types or are not shaped like a call. Macros that declare need nothing, since the header is
 read after preprocessing.
 
+**D190. Tasks are structured: a `Task` lives in a `using` declaration and joins at scope exit.**
+A capturing lambda keeps its variables in its caller's frame, so a task running it must end
+before the frame does. `using` cancels and waits on every exit, the error returns of `Try`
+included, and `CD2002` already keeps a value holding the lambda from leaving the frame, so tasks
+capture freely with no collector. A task that is not waited takes a `static` lambda and a copied
+state. Its slot is the one allocation, taken at spawn from the `IIo`'s allocator.
+
+**D191. The concurrency std has the .NET names and the whole set.** Threads, atomics, locks,
+tasks, data parallelism, channels and concurrent collections are what a C# programmer reaches
+for; with the same names and roles, only the `IIo` parameter and `Result` are new. The
+primitives sit on the OS; schedulers, deques, channels and queues are CΔ, since they are small
+algorithms a library would only wrap.
+
+**D192. Evented stacks are reservations of address space.** A fixed stack sized for the worst
+call wastes memory and a small one overflows; reserving 1 MiB and committing on touch gives each
+coroutine the memory it uses, and reuses the mechanism of the virtual arena (D176). The stacks
+come from one reservation, since a mapping per stack would meet the kernel's limit of mappings;
+guard pages, which split it, are on by default and can be turned off for scale.
+
+**D193. C# programmers are taught the absence of `async` where they meet it.** `CD1012` and
+`CD1015` name what to write instead, and [language/concurrency.md](language/concurrency.md) maps
+each `async` idiom to its form, so the first error is also the guide.
+
 ## Repository
 
 **D201. Documents and code are in English.**

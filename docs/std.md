@@ -37,7 +37,7 @@ when all of these hold:
 | it allocates nothing, or through hooks given per object or context, so each maps to an `IAllocator` | every function that allocates takes an allocator; a process-wide allocator hook does not qualify |
 | no hidden mutable global state, or the projection can confine it completely | locale, static buffers and global initialization change behavior at a distance |
 | errors come back as return values, never through `abort`, `exit` or `longjmp` | they become `Result` |
-| reentrant per context | `Std.Thread` makes no global lock |
+| reentrant per context | `Std.Threading` makes no global lock |
 | it builds as C99 or C11 from a list of files on every tier 1 target, without its own build system | the std is built by `cdc`, from pinned sources |
 
 A library that fails a criterion is not part of the std. A program that accepts its defects uses
@@ -62,7 +62,7 @@ plus a thin hand-written layer where the semantics need it. Its public surface s
 | `Std.Linq` | lazy queries over spans and enumerators, each operator a struct holding its source and delegate: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Zip`, `Concat`; terminals `Count`, `Any`, `All`, `Sum`, `Min`, `Max`, `Aggregate`, `First` and `Last` as optionals; those that need memory take an allocator: `ToList(allocator)`, `OrderBy` and `GroupBy`. Method syntax only; query expressions stay removed (`CD1014`) | itself |
 | `Std.Time` | monotonic and wall clocks, `Sleep`, `Stopwatch`, `TimeSpan`, `DateTime` (UTC; time zones are later) | `clock_gettime`; Win32 |
 | `Std.Random` | `Random`, a struct with an explicit seed; `Random.Shared`, one per thread, seeded from the OS | itself; the OS for seeding |
-| `Std.Thread` | `Thread`, `Mutex`, `Condition`, `Once`, `Atomic<T>` | C11 `<threads.h>` or pthreads; Win32 |
+| `Std.Threading` | `Thread`, `ThreadLocal<T>`, `Atomic<T>`, `SpinWait`, `Mutex`, `RwLock`, `SpinLock`, `Condition`, `Semaphore`, `Barrier`, `CountdownEvent`, `ResetEvent`, `Once`, `Lazy<T>`, `CancellationTokenSource`, `CancellationToken` ([below](#concurrency)) | pthreads, Win32; futex, `WaitOnAddress`, `__ulock` |
 | `Std.Math` | the functions of `<math.h>`, checked and wrapping integer helpers with explicit overflow results | libm and compiler builtins |
 | `Std.Debug` | `Print` to standard error, `Assert`, stack traces where the platform gives them | `Std.Io`, libc `backtrace` where available |
 | `Std.Testing` | `Expect`, `ExpectEqual`, `ExpectError`, `Allocator` | `Std.Debug` |
@@ -131,6 +131,25 @@ it is used, so a reservation of gigabytes costs nothing.
 It exists where `PageAllocator` does, except `wasm32-wasi-musl`, which has no address space to
 reserve. `Mark` and `Release` with `Defer` give memory freed at the end of a scope; one arena per
 growing buffer gives a buffer that grows without copying.
+
+## Concurrency
+
+The model is in [language/concurrency.md](language/concurrency.md). Its modules follow D152 in
+order: the primitives, then the `IIo` backends that need no compiler work, then `EventedIo`.
+
+| Module | Contents | Built on |
+|---|---|---|
+| `Std.Threading` | the primitives of the table above; `Mutex.EnterScope()` and the other locks give a scope struct released by `Dispose` | pthreads and Win32 threads; futex on Linux, `WaitOnAddress` on Windows, `__ulock` on macOS for waiting |
+| `Std.Io` | `IIo`, `BlockingIo`, `ThreadedIo`, then `EventedIo`; the file, network and time operations of the std take an `IIo` | the OS; io_uring on Linux, IOCP on Windows, kqueue on macOS and FreeBSD for `EventedIo` |
+| `Std.Threading.Tasks` | `Task<T>`, `Task.Run`, `RunConcurrent`, `Spawn`, `Wait`, `WhenAll`, `WhenAny`, `Parallel.For`, `Parallel.ForEach`, `Parallel.Invoke`, `ThreadPool` (work stealing, the number of workers given at construction), `Timer` | itself |
+| `Std.Threading.Channels` | `Channel<T>` bounded and unbounded, `Channel.Select` | itself |
+| `Std.Collections.Concurrent` | `ConcurrentQueue<T>` (many producers and consumers), `ConcurrentStack<T>`, `ConcurrentDictionary<TKey, TValue>`, `ObjectPool<T>` | itself |
+
+The work-stealing deques, channels and lock-free queues are written in CΔ: they are small, known
+algorithms that a C library would only wrap. The context switch of `EventedIo` is minicoro, which
+takes an allocator per coroutine; its stacks come from reservations of address space as
+[language/concurrency.md](language/concurrency.md#evented-stacks) describes. libuv does not
+qualify, because its allocator hook is global to the process.
 
 ## Later
 

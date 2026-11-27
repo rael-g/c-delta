@@ -132,8 +132,8 @@ including the std, cannot declare them.
 | `try`, `catch`, `finally` | Removed. `CD1010` |
 | `throw` | Restricted: only `throw Panic(...)` and `throw Unreachable()`. `CD1011` |
 | `yield` | Removed until iterators are implemented (D151). `CD1013` |
-| `lock` | Removed. `CD1015` |
-| `await`, `async` | Removed; a direction is recorded (D152). `CD1012` |
+| `lock` | Removed: `using var scope = mutex.EnterScope();` ([concurrency.md](concurrency.md#threads-and-shared-memory)). `CD1015` |
+| `await`, `async` | Removed: a function that waits takes an `IIo` ([concurrency.md](concurrency.md)). `CD1012` |
 | Labeled statements | Kept |
 
 ## Expressions

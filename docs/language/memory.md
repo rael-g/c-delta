@@ -134,8 +134,8 @@ A function or block can override the mode's checks:
 
 ## Threads and atomics
 
-Threads come from the std (`Std.Thread`, over C11 threads or the OS API). Shared memory follows
-the C11 memory model.
+Threads come from the std (`Std.Threading`, over the OS API), and tasks, channels and the `IIo`
+model from [concurrency.md](concurrency.md). Shared memory follows the C11 memory model.
 
 - `volatile` fields keep their C# meaning and map to C `volatile`.
 - `Interlocked` and `Volatile` (corelib, the C# names) map to C11 `<stdatomic.h>` operations with

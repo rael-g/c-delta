@@ -273,7 +273,7 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   fields, each `yield` a state, and the state lives in the caller's frame with no allocation. The
   result may only be iterated with `foreach` or held in a `var` local; converting it to the
   interface type is an error, except through `Dyn<IEnumerable<T>>`.
-- **Concurrency** (D152), in three steps: `Std.Io`, an interface passed like `IAllocator` with
+- **Concurrency** (D152, D190 to D192, [language/concurrency.md](language/concurrency.md)), in three steps: `Std.Io`, an interface passed like `IAllocator` with
   `Async` returning a future struct and `Await`, over a thread pool; an evented backend over the
   OS's readiness or completion API with fixed-size stacks from an allocator and a context switch
   per target; and only if a program still needs it, `async` and `await` as the iterator
