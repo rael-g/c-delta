@@ -8,6 +8,8 @@ internal sealed class ModuleRemapper(Module source, Module destination)
     private readonly Dictionary<int, EnumId> _enums = [];
     private readonly Dictionary<string, StructId> _structInstances = [];
 
+    public Dictionary<StructId, (StructId Source, IReadOnlyList<TypeId> Arguments)> Instances { get; } = [];
+
     public Dictionary<int, TypeId>? Bindings { get; set; }
 
     public StringId String(StringId id) => id.IsNone ? id : destination.Intern(source.Text(id));
@@ -116,6 +118,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
         destination.Structs.Add(declaration);
         destination.StructsByKey.Add(name, created);
         _structInstances.Add(instanceKey, created);
+        Instances.Add(created, (id, typeArguments));
 
         var bindings = new Dictionary<int, TypeId>();
         for (int i = 0; i < declaration.TypeParams.Count; i++)

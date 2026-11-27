@@ -418,13 +418,11 @@ public sealed class CSharpFrontend : IBodyProvider
 
     private void DeclareImpls(INamedTypeSymbol type, StructId id)
     {
-        if (type.IsGenericType)
-        {
-            return;
-        }
-
         Location location = type.Locations.FirstOrDefault() ?? Location.None;
-        TypeId concrete = Builder.StructType(id);
+        TypeId concrete = _types.Map(type, location);
+        TypeListId typeArgs = type.IsGenericType
+            ? Module.TypeList([.. type.TypeArguments.Select(argument => _types.Map(argument, location).Index)])
+            : TypeListId.None;
         foreach (INamedTypeSymbol contract in type.AllInterfaces)
         {
             var methods = new List<ImplMethod>();
@@ -436,7 +434,7 @@ public sealed class CSharpFrontend : IBodyProvider
                     continue;
                 }
 
-                methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), TypeListId.None));
+                methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), typeArgs));
             }
 
             TypeId interfaceType = _types.Map(contract, location);

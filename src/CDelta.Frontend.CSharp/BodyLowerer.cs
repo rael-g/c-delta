@@ -2303,7 +2303,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 var fields = new List<ConstId>();
                 for (int i = 0; i < declaration.Fields.Count; i++)
                 {
-                    fields.Add(ZeroConstant(_module.Fields[declaration.Fields.Start + i].Type));
+                    fields.Add(ZeroConstant(IrSubstitution.FieldType(_module, node, i)));
                 }
 
                 return _builder.AggregateConstant(type, fields);

@@ -19,6 +19,7 @@ public sealed class Instantiator
     private readonly Queue<Instance> _pending = new();
     private int _depth;
     private Dictionary<string, ImplDecl>? _impls;
+    private readonly List<ImplDecl> _genericImpls = [];
 
     private readonly record struct Instance(FunctionId Source, FunctionId Destination, Dictionary<int, TypeId> Bindings, int Depth);
 
@@ -258,9 +259,11 @@ public sealed class Instantiator
     {
         ConstrainedRef reference = _source.ConstrainedRefs[rvalue.CalleeId];
         TypeId concrete = _remap.Bindings![reference.Param.Index];
-        string key = ImplKey(concrete, _source.Types[reference.Interface.Index]);
+        TypeNode interfaceNode = _source.Types[reference.Interface.Index];
+        string key = ImplKey(concrete, interfaceNode);
         _impls ??= IndexImpls();
-        if (!_impls.TryGetValue(key, out ImplDecl impl))
+        var bindings = new Dictionary<int, TypeId>();
+        if (!_impls.TryGetValue(key, out ImplDecl impl) && !TryMatchGeneric(concrete, interfaceNode, out impl, out bindings))
         {
             throw new InvalidOperationException("no impl of " + key + " was found");
         }
@@ -276,7 +279,7 @@ public sealed class Instantiator
 
             var arguments = new List<TypeId>();
             Dictionary<int, TypeId>? saved = _remap.Bindings;
-            _remap.Bindings = null;
+            _remap.Bindings = bindings;
             if (!item.TypeArgs.IsNone)
             {
                 arguments.AddRange(_source.TypeLists[item.TypeArgs.Index].Select(argument => _remap.Type(new TypeId(argument))));
@@ -297,11 +300,90 @@ public sealed class Instantiator
         _remap.Bindings = null;
         foreach (ImplDecl impl in _source.Impls)
         {
+            if (HasParam(impl.Type))
+            {
+                _genericImpls.Add(impl);
+                continue;
+            }
+
             impls[ImplKey(_remap.Type(impl.Type), _source.Types[impl.Interface.Index])] = impl;
         }
 
         _remap.Bindings = saved;
         return impls;
+    }
+
+    private bool HasParam(TypeId type)
+    {
+        TypeNode node = _source.Types[type.Index];
+        return node.Kind switch
+        {
+            TypeKind.Param => true,
+            TypeKind.Struct or TypeKind.Interface => IrTypes.StructTypeArgs(_source, node).Any(argument => HasParam(new TypeId(argument))),
+            _ => false,
+        };
+    }
+
+    private bool TryMatchGeneric(TypeId concrete, TypeNode interfaceNode, out ImplDecl found, out Dictionary<int, TypeId> bindings)
+    {
+        found = default;
+        bindings = [];
+        TypeNode destination = _destination.Types[concrete.Index];
+        if (destination.Kind != TypeKind.Struct || !_remap.Instances.TryGetValue(new StructId(destination.A), out (StructId Source, IReadOnlyList<TypeId> Arguments) origin))
+        {
+            return false;
+        }
+
+        string wanted = ImplKey(concrete, interfaceNode);
+        foreach (ImplDecl impl in _genericImpls)
+        {
+            TypeNode implNode = _source.Types[impl.Type.Index];
+            TypeNode implInterface = _source.Types[impl.Interface.Index];
+            if (implNode.Kind != TypeKind.Struct || implNode.A != origin.Source.Index || implInterface.A != interfaceNode.A)
+            {
+                continue;
+            }
+
+            var candidate = new Dictionary<int, TypeId>();
+            int[] implArguments = IrTypes.StructTypeArgs(_source, implNode);
+            if (!implArguments.Select((argument, index) => Unify(new TypeId(argument), origin.Arguments[index], candidate)).All(matched => matched))
+            {
+                continue;
+            }
+
+            Dictionary<int, TypeId>? saved = _remap.Bindings;
+            _remap.Bindings = candidate;
+            string actual = ImplKey(concrete, implInterface);
+            _remap.Bindings = saved;
+            if (actual == wanted)
+            {
+                found = impl;
+                bindings = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Unify(TypeId pattern, TypeId concrete, Dictionary<int, TypeId> bindings)
+    {
+        TypeNode node = _source.Types[pattern.Index];
+        if (node.Kind == TypeKind.Param)
+        {
+            return bindings.TryGetValue(node.A, out TypeId existing) ? existing == concrete : bindings.TryAdd(node.A, concrete);
+        }
+
+        if (HasParam(pattern))
+        {
+            return false;
+        }
+
+        Dictionary<int, TypeId>? saved = _remap.Bindings;
+        _remap.Bindings = null;
+        bool same = _remap.Type(pattern) == concrete;
+        _remap.Bindings = saved;
+        return same;
     }
 
     private string ImplKey(TypeId type, TypeNode interfaceNode)
