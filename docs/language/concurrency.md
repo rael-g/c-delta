@@ -94,12 +94,17 @@ reused from a pool, and `Trim` returns the pages a deep call left behind.
 | `StackSize` | the reservation per stack | 1 MiB, or 64 KiB on 32-bit targets |
 | `MaxTasks` | the number of stacks the reservation holds | 65536 |
 | `GuardPages` | a page without access below each stack, so an overflow becomes a panic with its message | `true` |
+| `Scheduling` | `Stealing`: idle threads take coroutines from busy ones, which balances uneven work; `PerCore`: one thread per core, each keeping its coroutines, memory and queue, which shares nothing and keeps caches warm, for servers whose connections are alike | `Stealing` |
 
 Each guard page splits the reservation into separate mappings, and Linux limits the mappings of a
 process (`vm.max_map_count`, 65530 by default), so guarded stacks stop near 30000 tasks unless the
 limit is raised, as servers commonly do. Without guard pages the reservation is one mapping and
 scales to the address space, and an overflow is no longer detected: it is the option for a
 program that needs the scale and accepts that.
+
+On Linux, `EventedIo` submits io_uring operations in batches, one system call for all the
+operations ready since the last one, and registers the buffers of its reads and writes with the
+kernel, so the data of a socket or a file is not copied between mappings on each operation.
 
 ## From C# `async`
 

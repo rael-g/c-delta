@@ -349,7 +349,9 @@ waited takes a `static` lambda and a copied state; a task's slot, taken at spawn
 the `IIo` parameter and `Result` new; the primitives sit on the OS, and schedulers, deques,
 channels and queues are CΔ. Evented stacks are carved from one reservation of address space and
 committed on touch, as the virtual arena does (D174); guard pages are on by default and can be
-turned off for scale, since each one splits the mapping the kernel counts. `CD1012` and `CD1015`
+turned off for scale, since each one splits the mapping the kernel counts. Scheduling steals by
+default and is per core for servers, and io_uring is used in batches with registered buffers, which
+is where servers in C gain their speed, not in the language. `CD1012` and `CD1015`
 name what to write instead of `async` and `lock`.
 
 **D153. A struct may implement getter-only static abstract properties.** Generic math names
