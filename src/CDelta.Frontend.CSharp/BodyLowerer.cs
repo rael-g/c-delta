@@ -40,6 +40,12 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     private ControlFlowGraph _cfg = null!;
     private SemanticModel _model = null!;
     private int _lambdaCount;
+    private FrameInfo? _ownFrame;
+    private FrameInfo? _outerFrame;
+    private LocalId _frameLocal = LocalId.None;
+    private LocalId _ctxLocal = LocalId.None;
+    private bool _prologueDone;
+    private readonly List<ISymbol> _frameSymbols = [];
 
     public Body Lower()
     {
@@ -56,9 +62,13 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         };
         _f = new FunctionBuilder(_module, _body);
         SourceSpan methodSpan = frontend.SpanOf(location);
-        if (method.MethodKind == MethodKind.AnonymousFunction)
+        if (method.MethodKind is MethodKind.AnonymousFunction or MethodKind.LocalFunction)
         {
-            _f.NewLocal("ctx", frontend.Closures.ContextType(), LocalKind.Param, methodSpan);
+            TypeId contextType = frontend.Closures.TryOuter(method, out FrameInfo outer)
+                ? _builder.Pointer(outer.Type, TypeFlags.None)
+                : frontend.Closures.ContextType();
+            _outerFrame = frontend.Closures.TryOuter(method, out outer) ? outer : null;
+            _ctxLocal = _f.NewLocal("ctx", contextType, LocalKind.Param, methodSpan);
         }
         else if (!method.IsStatic)
         {
@@ -70,6 +80,12 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         foreach (IParameterSymbol parameter in CSharpFrontend.IsTopLevelEntry(method) ? [] : method.Parameters)
         {
             _locals[parameter] = _f.NewLocal(parameter.Name, frontend.Types.ParameterType(parameter, location), LocalKind.Param, methodSpan);
+        }
+
+        DeclareFrame(syntax, methodSpan);
+        foreach (IMethodSymbol localFunction in _cfg.LocalFunctions)
+        {
+            RegisterLocalFunction(localFunction, location);
         }
 
         CollectRegionLocals(_cfg.Root);
@@ -154,10 +170,16 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     {
         _f.SetBlock(_blocks[block.Ordinal]);
         _currentOrdinal = block.Ordinal;
+        if (!_prologueDone)
+        {
+            _prologueDone = true;
+            WriteFramePrologue(frontend.SpanOf(method.Locations[0]));
+        }
+
         SourceSpan blockSpan = frontend.SpanOf(method.Locations[0]);
         if (_regionLocals.TryGetValue(block.Ordinal, out List<ILocalSymbol>? entering))
         {
-            foreach (ILocalSymbol local in entering)
+            foreach (ILocalSymbol local in entering.Where(candidate => CapturedPlace(candidate) is null))
             {
                 _f.Live(LocalOf(local, blockSpan), blockSpan);
             }
@@ -353,7 +375,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                     InlineFinally(finallyRegion, span);
                     break;
                 case ControlFlowRegionKind.LocalLifetime:
-                    foreach (ILocalSymbol local in region.Locals)
+                    foreach (ILocalSymbol local in region.Locals.Where(candidate => CapturedPlace(candidate) is null))
                     {
                         _f.Dead(LocalOf(local, span), span);
                     }
@@ -554,6 +576,8 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             case IExpressionStatementOperation statement:
                 LowerExpression(statement.Operation);
                 break;
+            case ILocalFunctionOperation:
+                break;
             case IVariableDeclarationGroupOperation group:
                 foreach (IVariableDeclarationOperation declaration in group.Declarations)
                 {
@@ -578,12 +602,13 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         foreach (IVariableDeclaratorOperation declarator in declaration.Declarators)
         {
             SourceSpan span = SpanOf(declarator);
-            LocalId local = LocalOf(declarator.Symbol, span);
+            PlaceId? captured = CapturedPlace(declarator.Symbol);
+            LocalId local = captured is null ? LocalOf(declarator.Symbol, span) : LocalId.None;
             IOperation? initializer = declarator.Initializer?.Value ?? declaration.Initializer?.Value;
             if (initializer is not null)
             {
                 OperandId value = LowerValue(initializer);
-                _f.Assign(_f.LocalPlace(local), _f.Use(value), span);
+                _f.Assign(captured ?? _f.LocalPlace(local), _f.Use(value), span);
             }
         }
     }
@@ -1347,6 +1372,10 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
     {
         switch (target)
         {
+            case ILocalReferenceOperation local when CapturedPlace(local.Local) is { } capturedLocal:
+                return capturedLocal;
+            case IParameterReferenceOperation parameter when CapturedPlace(parameter.Parameter) is { } capturedParameter:
+                return capturedParameter;
             case ILocalReferenceOperation local:
                 return ValuePlace(LocalOf(local.Local, SpanOf(target)), local.Local.RefKind);
             case IParameterReferenceOperation parameter:
@@ -1520,6 +1549,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerConstrainedCall(parameter, target, invocation.Instance, invocation.Arguments, span);
         }
 
+        if (target.MethodKind == MethodKind.LocalFunction)
+        {
+            return LowerLocalFunctionCall(invocation, target, span);
+        }
+
         if (target.MethodKind == MethodKind.DelegateInvoke)
         {
             return LowerDelegateInvoke(invocation, target, span);
@@ -1541,6 +1575,24 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return LowerDirectCall(target, invocation.Instance, invocation.Arguments, span);
+    }
+
+    private OperandId? LowerLocalFunctionCall(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
+    {
+        Location location = invocation.Syntax.GetLocation();
+        RegisterLocalFunction(target, location);
+        FunctionId function = frontend.Closures.Lambda(target, string.Empty, location, null!);
+        var arguments = new List<OperandId> { ContextFor(target, span, location) };
+        arguments.AddRange(invocation.Arguments.Select(argument => LowerArgument(argument, span)));
+        RvalueId call = _f.CallDirect(function, arguments);
+        TypeId returnType = CallReturnType(target);
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
     }
 
     private OperandId? LowerDelegateInvoke(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
@@ -1567,10 +1619,13 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         switch (creation.Target)
         {
             case IFlowAnonymousFunctionOperation flow:
-                function = LambdaFunction(flow, location);
-                break;
-            case IMethodReferenceOperation { Method: { IsStatic: true } method }:
-                function = frontend.Closures.Thunk(method, location);
+                function = LambdaFunction(flow, location, out FrameInfo? captured);
+                return Emit(closureType, _f.ClosureMake(function, captured is null ? _f.Const(_builder.NullConstant(frontend.Closures.ContextType())) : ContextFor(flow.Symbol, span, location)), span);
+            case IMethodReferenceOperation { Method.MethodKind: MethodKind.LocalFunction } local:
+                RegisterLocalFunction(local.Method, location);
+                return Emit(closureType, _f.ClosureMake(frontend.Closures.Lambda(local.Method, string.Empty, location, null!), ContextFor(local.Method, span, location)), span);
+            case IMethodReferenceOperation { Method: { IsStatic: true } staticMethod }:
+                function = frontend.Closures.Thunk(staticMethod, location);
                 break;
             default:
                 throw new UnsupportedConstructException("this delegate conversion is not supported yet", location);
@@ -1580,23 +1635,159 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         return Emit(closureType, _f.ClosureMake(function, context), span);
     }
 
-    private FunctionId LambdaFunction(IFlowAnonymousFunctionOperation flow, Location location)
+    private FunctionId LambdaFunction(IFlowAnonymousFunctionOperation flow, Location location, out FrameInfo? frame)
     {
         IMethodSymbol lambda = flow.Symbol;
-        SyntaxNode syntax = flow.Syntax;
         if (method.IsGenericMethod || method.ContainingType.IsGenericType)
         {
             throw new UnsupportedConstructException("a lambda inside a generic method is not supported yet", location);
         }
 
-        DataFlowAnalysis analysis = _model.AnalyzeDataFlow(syntax)!;
-        if (analysis.Captured.Any(symbol => symbol is ILocalSymbol or IParameterSymbol))
+        frame = CapturedFrame(flow.Syntax, location);
+        string key = frontend.KeyOf(method) + "/lambda" + _lambdaCount++;
+        return frontend.Closures.Lambda(lambda, key, location, _cfg.GetAnonymousFunctionControlFlowGraph(flow), frame);
+    }
+
+    private bool IsInlinedLambda(SyntaxNode node) =>
+        node is AnonymousFunctionExpressionSyntax
+        && node.Parent?.Parent?.Parent is InvocationExpressionSyntax invocation
+        && _model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { ContainingType: { Name: "Intrinsics", ContainingNamespace.Name: "CDelta" } };
+
+    private IEnumerable<ISymbol> CapturedBy(SyntaxNode nested)
+    {
+        DataFlowAnalysis analysis = _model.AnalyzeDataFlow(nested)!;
+        return analysis.ReadInside.Concat(analysis.WrittenInside)
+            .Where(symbol => symbol is ILocalSymbol or IParameterSymbol && SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, method)
+                && !symbol.DeclaringSyntaxReferences.Any(reference => nested.Span.Contains(reference.Span)));
+    }
+
+    private FrameInfo? CapturedFrame(SyntaxNode syntax, Location location)
+    {
+        ISymbol[] referenced = [.. _model.AnalyzeDataFlow(syntax)!.ReadInside.Concat(_model.AnalyzeDataFlow(syntax)!.WrittenInside)];
+        bool own = _ownFrame is not null && referenced.Any(symbol => _ownFrame.Index.ContainsKey(symbol));
+        bool outer = _outerFrame is not null && referenced.Any(symbol => _outerFrame.Index.ContainsKey(symbol));
+        if (outer)
         {
-            throw new UnsupportedConstructException("a lambda that captures variables is not supported yet", location);
+            throw new UnsupportedConstructException("a lambda that captures a variable of an outer function is not supported yet", location);
         }
 
-        string key = frontend.KeyOf(method) + "/lambda" + _lambdaCount++;
-        return frontend.Closures.Lambda(lambda, key, location, _cfg.GetAnonymousFunctionControlFlowGraph(flow));
+        return own ? _ownFrame : null;
+    }
+
+    private void RegisterLocalFunction(IMethodSymbol localFunction, Location location)
+    {
+        if (method.IsGenericMethod || method.ContainingType.IsGenericType)
+        {
+            throw new UnsupportedConstructException("a local function inside a generic method is not supported yet", location);
+        }
+
+        if (frontend.Closures.TryGraph(localFunction, out _))
+        {
+            return;
+        }
+
+        FrameInfo? frame = CapturedFrame(localFunction.DeclaringSyntaxReferences[0].GetSyntax(), location);
+        string key = frontend.KeyOf(method) + "/" + localFunction.Name;
+        frontend.Closures.Lambda(localFunction, key, location, _cfg.GetLocalFunctionControlFlowGraph(localFunction), frame);
+    }
+
+    private OperandId ContextFor(IMethodSymbol nested, SourceSpan span, Location location)
+    {
+        if (!frontend.Closures.TryOuter(nested, out FrameInfo frame))
+        {
+            return _f.Const(_builder.NullConstant(frontend.Closures.ContextType()));
+        }
+
+        if (ReferenceEquals(_ownFrame, frame))
+        {
+            TypeId pointer = _builder.Pointer(frame.Type, TypeFlags.None);
+            return Emit(pointer, _f.Addr(_f.LocalPlace(_frameLocal), true), span);
+        }
+
+        if (ReferenceEquals(_outerFrame, frame))
+        {
+            return _f.Copy(_f.LocalPlace(_ctxLocal));
+        }
+
+        throw new UnsupportedConstructException("a nested function is reached from outside the function that owns its captured variables", location);
+    }
+
+    private PlaceId? CapturedPlace(ISymbol symbol)
+    {
+        if (_ownFrame is not null && _ownFrame.Index.TryGetValue(symbol, out int own))
+        {
+            return _f.Project(_f.LocalPlace(_frameLocal), ProjectionKind.Field, own);
+        }
+
+        if (_outerFrame is not null && _outerFrame.Index.TryGetValue(symbol, out int outer))
+        {
+            return _f.Project(_f.DerefPlace(_ctxLocal), ProjectionKind.Field, outer);
+        }
+
+        return null;
+    }
+
+    private void DeclareFrame(SyntaxNode syntax, SourceSpan span)
+    {
+        SyntaxNode? body = syntax switch
+        {
+            BaseMethodDeclarationSyntax declaration => (SyntaxNode?)declaration.Body ?? declaration.ExpressionBody?.Expression,
+            AnonymousFunctionExpressionSyntax lambda => lambda.Body,
+            LocalFunctionStatementSyntax local => (SyntaxNode?)local.Body ?? local.ExpressionBody?.Expression,
+            _ => null,
+        };
+        if (body is null)
+        {
+            return;
+        }
+
+        foreach (SyntaxNode nested in body.DescendantNodes().Where(node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax && !IsInlinedLambda(node)))
+        {
+            foreach (ISymbol symbol in CapturedBy(nested))
+            {
+                if (!_frameSymbols.Contains(symbol, SymbolEqualityComparer.Default))
+                {
+                    _frameSymbols.Add(symbol);
+                }
+            }
+        }
+
+        if (_frameSymbols.Count == 0)
+        {
+            return;
+        }
+
+        Location location = method.Locations[0];
+        var fields = new List<FieldDecl>();
+        var index = new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default);
+        foreach (ISymbol symbol in _frameSymbols)
+        {
+            ITypeSymbol type = symbol is ILocalSymbol local ? local.Type : ((IParameterSymbol)symbol).Type;
+            index[symbol] = fields.Count;
+            fields.Add(new FieldDecl(_module.Intern(symbol.Name), frontend.Types.Map(type, location), IdRange.Empty, FieldDecl.NoBits, FieldDecl.NoOffset, FieldDecl.NoBitOffset));
+        }
+
+        string key = frontend.KeyOf(method) + "/frame";
+        StructId frameStruct = _builder.DeclareStruct(key, key, span, Origin.FromSource(_module.Intern("csharp")), fields, StructLayoutKind.C, 0, 0, []);
+        _ownFrame = new FrameInfo(_builder.StructType(frameStruct), index);
+        _frameLocal = _f.NewLocal("frame", _ownFrame.Type, LocalKind.User, span);
+    }
+
+    private void WriteFramePrologue(SourceSpan span)
+    {
+        if (_ownFrame is null)
+        {
+            return;
+        }
+
+        _f.Assign(_f.LocalPlace(_frameLocal), _f.Use(Zero(_ownFrame.Type, span)), span);
+        foreach (ISymbol symbol in _frameSymbols)
+        {
+            if (symbol is IParameterSymbol parameter)
+            {
+                _f.Assign(CapturedPlace(parameter)!.Value, _f.Use(_f.Copy(_f.LocalPlace(_locals[parameter]))), span);
+            }
+        }
     }
 
     private OperandId LowerDynOf(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)

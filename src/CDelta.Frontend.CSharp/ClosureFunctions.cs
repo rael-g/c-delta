@@ -5,8 +5,16 @@ using TypeKind = CDelta.Ir.TypeKind;
 
 namespace CDelta.Frontend.CSharp;
 
+internal sealed record FrameInfo(TypeId Type, Dictionary<ISymbol, int> Index);
+
 internal sealed class ClosureFunctions(CSharpFrontend frontend)
 {
+    private readonly Dictionary<IMethodSymbol, FrameInfo> _outer = new(SymbolEqualityComparer.Default);
+
+    public bool TryOuter(IMethodSymbol function, out FrameInfo frame) => _outer.TryGetValue(function, out frame!);
+
+    public void SetOuter(IMethodSymbol function, FrameInfo frame) => _outer[function] = frame;
+
     private readonly Dictionary<IMethodSymbol, FunctionId> _lambdas = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<IMethodSymbol, FunctionId> _thunks = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<FunctionId, IMethodSymbol> _thunkTargets = [];
@@ -24,15 +32,20 @@ internal sealed class ClosureFunctions(CSharpFrontend frontend)
 
     public bool TryGraph(IMethodSymbol lambda, out ControlFlowGraph graph) => _graphs.TryGetValue(lambda, out graph!);
 
-    public FunctionId Lambda(IMethodSymbol lambda, string key, Location location, ControlFlowGraph graph)
+    public FunctionId Lambda(IMethodSymbol lambda, string key, Location location, ControlFlowGraph graph, FrameInfo? frame = null)
     {
         _graphs.TryAdd(lambda, graph);
+        if (frame is not null)
+        {
+            _outer[lambda] = frame;
+        }
+
         if (_lambdas.TryGetValue(lambda, out FunctionId existing))
         {
             return existing;
         }
 
-        FunctionId id = Declare(lambda, key, location);
+        FunctionId id = Declare(lambda, key, location, frame is null ? ContextType() : frontend.Builder.Pointer(frame.Type, TypeFlags.None));
         _keys.Add(lambda, key);
         _lambdas.Add(lambda, id);
         frontend.RegisterSymbol(lambda, id);
@@ -47,7 +60,7 @@ internal sealed class ClosureFunctions(CSharpFrontend frontend)
             return existing;
         }
 
-        FunctionId id = Declare(target, target.GetDocumentationCommentId()![2..] + "/thunk", location);
+        FunctionId id = Declare(target, target.GetDocumentationCommentId()![2..] + "/thunk", location, ContextType());
         _thunks.Add(target, id);
         _thunkTargets.Add(id, target);
         frontend.ReserveSymbol();
@@ -90,10 +103,10 @@ internal sealed class ClosureFunctions(CSharpFrontend frontend)
         return body;
     }
 
-    private FunctionId Declare(IMethodSymbol method, string key, Location location)
+    private FunctionId Declare(IMethodSymbol method, string key, Location location, TypeId context)
     {
         Module module = frontend.Module;
-        var parameters = new List<ParamDecl> { new(module.Intern("ctx"), ContextType(), ParamMode.Value) };
+        var parameters = new List<ParamDecl> { new(module.Intern("ctx"), context, ParamMode.Value) };
         foreach (IParameterSymbol parameter in method.Parameters)
         {
             parameters.Add(new ParamDecl(module.Intern(parameter.Name), frontend.Types.ParameterType(parameter, location), TypeMapper.ModeOf(parameter.RefKind)));
