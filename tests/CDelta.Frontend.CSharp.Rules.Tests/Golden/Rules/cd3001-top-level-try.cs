@@ -3,5 +3,5 @@ static Result Fail()
     return default;
 }
 
-Try(Fail());
+Fail().Try();
 return 0;

@@ -4,8 +4,8 @@ static class P
 
     static Result Run()
     {
-        Defer(() => Try(Close()));
-        ErrDefer(() => Try(Close()));
+        Defer(() => Close().Try());
+        ErrDefer(() => Close().Try());
         return default;
     }
 }

@@ -7,16 +7,16 @@ static class P
 
     static Result<int, Small> Narrow()
     {
-        return Try(Source());
+        return Source().Try();
     }
 
     static Result<int, Big> Wide(Result<int, Small> r)
     {
-        return Try(r);
+        return r.Try();
     }
 
     static Result<int> Any()
     {
-        return Try(Source());
+        return Source().Try();
     }
 }

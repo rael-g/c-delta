@@ -13,9 +13,9 @@ static class Program
     static Result<int, StepError> Run(int a, int b)
     {
         Defer(() => Log = Log * 10 + 1);
-        int x = Try(Step(a));
+        int x = Step(a).Try();
         ErrDefer(() => Log = Log * 10 + 2);
-        int y = Try(Step(b));
+        int y = Step(b).Try();
         return x + y;
     }
 

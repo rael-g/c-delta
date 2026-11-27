@@ -4,11 +4,11 @@ static class P
 
     static int Plain()
     {
-        return Try(Source());
+        return Source().Try();
     }
 
     static Result<int> Fine()
     {
-        return Try(Source());
+        return Source().Try();
     }
 }

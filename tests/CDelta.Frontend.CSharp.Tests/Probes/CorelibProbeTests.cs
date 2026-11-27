@@ -75,7 +75,7 @@ public sealed class CorelibProbeTests
             static Result<int, E> H()
             {
                 Defer(() => G());
-                var v = Try(F());
+                var v = F().Try();
                 return v;
             }
         }

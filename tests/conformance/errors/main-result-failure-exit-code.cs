@@ -6,7 +6,7 @@ static class Program
 
     static Result Main()
     {
-        int value = Try(Load());
+        int value = Load().Try();
         return default;
     }
 }
