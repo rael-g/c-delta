@@ -304,3 +304,13 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   reaches every database that ships an ODBC driver, and SQLite and libpq natively, for speed and
   because libpq's non-blocking socket joins `IIo` where ODBC's asynchrony does not. The
   abstractions and the micro ORM are the thin layer on top.
+- **A migrator** in the data package: SQL scripts applied in order, each in its own transaction,
+  and recorded with its checksum in a table, refusing to continue when an applied script was
+  edited. The scripts of a `migrations/` directory are embedded in the program, listed by the
+  asset generator (D023) and read with `Embed`, so their order and checksums are computed and
+  checked when compiling and a malformed or duplicated name is a compile error. A script holds many
+  statements, run by the provider as one batch where the engine allows it (SQLite and libpq do),
+  so semicolons in triggers and literals need no splitting. Files use the `-- migrate:up` and
+  `-- migrate:down` sections that external migration tools also read, and a failure is a `Result`
+  naming the script and the statement. The migrations table is created through the provider, so
+  its dialect stays with the driver.
