@@ -300,5 +300,7 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   `QueryFirst<T>`, `QuerySingle<T>`, `Execute` and `ExecuteScalar<T>`; parameters from an
   interpolated string handler, each hole a bound parameter and never text; the fields of `T` a
   comptime table, matched to the columns of a statement once at its first execution; results to an
-  allocator, or row by row. The drivers are projections of SQLite and libpq (D173), whose
-  non-blocking socket joins `IIo`; the abstractions and the micro ORM are the thin layer on top.
+  allocator, or row by row. The providers are projections (D173): ODBC, whose driver manager
+  reaches every database that ships an ODBC driver, and SQLite and libpq natively, for speed and
+  because libpq's non-blocking socket joins `IIo` where ODBC's asynchrony does not. The
+  abstractions and the micro ORM are the thin layer on top.
