@@ -768,7 +768,9 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         if (value is null)
         {
-            return _f.Const(_builder.NullConstant(typeId));
+            return _module.Types[typeId.Index].Kind is TypeKind.Dyn or TypeKind.Union
+                ? _f.Const(ZeroConstant(typeId))
+                : _f.Const(_builder.NullConstant(typeId));
         }
 
         if (value is bool flag)
@@ -2480,6 +2482,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
                 parts.Add(_builder.IntConstant(_builder.Primitive(TypeKind.U16), 0));
                 return _builder.AggregateConstant(type, parts);
+            case TypeKind.Dyn:
+                TypeId voidPointer = _builder.Pointer(_builder.Primitive(TypeKind.Void), TypeFlags.Nullable | TypeFlags.Many);
+                return _builder.AggregateConstant(type, [_builder.NullConstant(voidPointer), _builder.NullConstant(voidPointer)]);
+            case TypeKind.Union:
+                return _builder.AggregateConstant(type, []);
             case TypeKind.Array:
                 var elements = new List<ConstId>();
                 for (int i = 0; i < node.B; i++)

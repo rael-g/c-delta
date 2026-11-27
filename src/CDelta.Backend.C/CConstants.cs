@@ -56,6 +56,16 @@ internal static class CConstants
                         + Initializer(module, names, new ConstId(items[1])) + " }";
                 }
 
+                if (node.Kind == TypeKind.Dyn)
+                {
+                    return "{ .self = 0, .table = 0 }";
+                }
+
+                if (node.Kind == TypeKind.Union)
+                {
+                    return "{ 0 }";
+                }
+
                 if (node.Kind == TypeKind.Result)
                 {
                     return items.Length == 1

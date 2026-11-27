@@ -28,6 +28,8 @@ static class P
 {
     static int Total(IShape shape) => shape.Area() + shape.Scale(2);
 
+    static int Ignore(IShape first, IShape second) => 0;
+
     static IShape Erase<T>(ref T value) where T : IShape => Dyn<IShape>.Of(ref value);
 
     public static int Main()
@@ -39,6 +41,9 @@ static class P
         rect.Height = 3;
         IShape direct = Dyn<IShape>.Of(ref square);
         IShape erased = Erase(ref rect);
-        return Total(direct) + Total(erased) + 9;
+        IShape none = default;
+        IShape empty = null;
+        int nothing = Ignore(none, empty);
+        return Total(direct) + Total(erased) + 9 + nothing;
     }
 }
