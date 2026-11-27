@@ -40,7 +40,6 @@ static class P
     {
         Circle => 1,
         Rect => 2,
-        _ => 0,
     };
 
     public static int Main()

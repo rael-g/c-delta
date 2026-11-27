@@ -62,8 +62,72 @@ internal sealed class SwitchExhaustivenessRule : SubsetRule
             OperationKind.SwitchExpression);
     }
 
+    public static bool CoversUnion(Compilation compilation, ITypeSymbol union, IEnumerable<IPatternOperation> patterns)
+    {
+        var matched = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var pending = new Stack<IPatternOperation>(patterns);
+        while (pending.Count > 0)
+        {
+            switch (pending.Pop())
+            {
+                case IDeclarationPatternOperation { MatchedType: { } declared }:
+                    matched.Add(declared);
+                    break;
+                case ITypePatternOperation { MatchedType: { } named }:
+                    matched.Add(named);
+                    break;
+                case IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } or:
+                    pending.Push(or.LeftPattern);
+                    pending.Push(or.RightPattern);
+                    break;
+            }
+        }
+
+        return Implementers(compilation, union).All(matched.Contains);
+    }
+
+    public static List<INamedTypeSymbol> Implementers(Compilation compilation, ITypeSymbol union)
+    {
+        var found = new List<INamedTypeSymbol>();
+        var pending = new Stack<INamespaceOrTypeSymbol>();
+        pending.Push(compilation.Assembly.GlobalNamespace);
+        while (pending.Count > 0)
+        {
+            INamespaceOrTypeSymbol container = pending.Pop();
+            foreach (INamedTypeSymbol type in container.GetTypeMembers())
+            {
+                if (type.TypeKind == TypeKind.Struct && type.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, union.OriginalDefinition)))
+                {
+                    found.Add(type);
+                }
+
+                pending.Push(type);
+            }
+
+            if (container is INamespaceSymbol space)
+            {
+                foreach (INamespaceSymbol nested in space.GetNamespaceMembers())
+                {
+                    pending.Push(nested);
+                }
+            }
+        }
+
+        return found;
+    }
+
     private void Check(OperationAnalysisContext context, IOperation value, List<IPatternOperation> patterns, HashSet<object> covered, bool hasDefault, IOperation switchOperation)
     {
+        if (value.Type is { TypeKind: TypeKind.Interface } contract && Syntax.HasAttribute(contract, "CDelta.UnionAttribute"))
+        {
+            if (!hasDefault && !patterns.Any(IsCatchAll) && !CoversUnion(context.Compilation, contract, patterns))
+            {
+                Report(context, switchOperation);
+            }
+
+            return;
+        }
+
         if (value.Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
         {
             return;

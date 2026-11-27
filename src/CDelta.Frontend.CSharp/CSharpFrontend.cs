@@ -73,7 +73,7 @@ public sealed class CSharpFrontend : IBodyProvider
             ? compilation.GetDiagnostics()
             : compilation.WithAnalyzers(analyzers).GetAllDiagnosticsAsync().GetAwaiter().GetResult();
         return all
-            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .Where(d => d.Severity == DiagnosticSeverity.Error && !d.IsSuppressed)
             .OrderBy(d => d.Location.GetLineSpan().Path, StringComparer.Ordinal)
             .ThenBy(d => d.Location.SourceSpan.Start)
             .ThenBy(d => d.Id, StringComparer.Ordinal)
