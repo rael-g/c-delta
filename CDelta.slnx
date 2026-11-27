@@ -5,6 +5,7 @@
     <Project Path="src/CDelta.Build.Tasks/CDelta.Build.Tasks.csproj" />
     <Project Path="src/CDelta.Cli/CDelta.Cli.csproj" />
     <Project Path="src/CDelta.Core/CDelta.Core.csproj" />
+    <Project Path="src/CDelta.Diagnostics.Generator/CDelta.Diagnostics.Generator.csproj" />
     <Project Path="src/CDelta.Diagnostics/CDelta.Diagnostics.csproj" />
     <Project Path="src/CDelta.Driver/CDelta.Driver.csproj" />
     <Project Path="src/CDelta.Frontend.C/CDelta.Frontend.C.csproj" />
