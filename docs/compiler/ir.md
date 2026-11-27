@@ -508,6 +508,10 @@ castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum"
 - The deref base takes a local only: a pointer held anywhere else is first copied into a temp.
 - `dyn` and `union` callees name the method by its index in the interface, methods inherited
   through `extends` included; `union.make` names the member by its index in the union.
+- The methods of an interface are indexed bases first: each base in `extends` order, with its own
+  bases before it, depth first; a base reached twice keeps only its first position; then the
+  interface's own methods in declaration order. A dispatch table follows the same order, so the
+  table of an interface begins with the table of its first base.
 - A `source` line gives the full path, then the display path: the path relative to its package
   root with `/` separators (with `..` segments for a file outside the root), prefixed with `<PackageName>/` for packages other than the one being
   built. Panic messages and traces use the display path; `#line` uses the full path. Golden tests

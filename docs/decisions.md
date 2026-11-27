@@ -83,7 +83,10 @@ an `Impl` like any implementer, so default methods and constraints take the same
 on a union value is its own callee, `union(Operand, method)`, never a `dyn`: a table read at run
 time and a `switch` on the tag are different operations. Its operand points at the union, so a
 method that mutates its struct mutates the member held in the union, as a mutation through a C#
-interface changes the object it holds.
+interface changes the object it holds. The methods of an interface are indexed bases first: each
+base in `extends` order with its own bases before it, depth first, a base reached twice kept only
+at its first position, then the interface's own methods. The table of an interface then begins
+with the table of its first base, the layout a C programmer writes by hand.
 
 **D021. Delegates are values of two pointers (function and context), never multicast.**
 Capturing lambdas capture variables by reference into a stack frame struct; escaping the frame is

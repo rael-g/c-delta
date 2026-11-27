@@ -77,7 +77,8 @@ An interpreter over IR, inside the core, used for comptime regions, static initi
   of that member's `Impl` with `this` pointing at the payload
   ([ir.md](ir.md#impls-and-dispatch)).
 - Each `Impl` used by `dyn.make` gets a table global: one function pointer per interface method,
-  in interface declaration order, with thunks adapting `this` to `void*`.
+  in the index order of [ir.md](ir.md#grammar) (bases first), with thunks adapting `this` to
+  `void*`.
 
 ## 4. Error codes
 
