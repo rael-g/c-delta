@@ -48,5 +48,7 @@ more specific one wins and the other is a bug to fix.
 ## Libraries and the future
 
 25. [std.md](std.md): the standard library.
-26. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and backends of CΔ.
-27. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
+26. [bcl-parity.md](bcl-parity.md): every area of the BCL and of the C# ecosystem, and where CΔ
+    answers it.
+27. [kabic-migration.md](kabic-migration.md): how kabic becomes a frontend and projections of CΔ.
+28. [roadmap.md](roadmap.md): milestones and their acceptance criteria.
