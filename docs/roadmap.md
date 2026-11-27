@@ -158,6 +158,9 @@ layout assertions of every imported struct pass.
 
 - The interpreter, static initializers, `Comptime(...)`, `[Comptime]` parameters, folding and
   pruning, `TypeInfo`, `Builtin`, `Embed`, `CompileError`, quotas.
+- Method reflection and `MethodInfo.As<TDelegate>()` (D182).
+- Unrolled loops over comptime-only values and `TypeInfo` arguments
+  ([language/comptime.md](language/comptime.md#walking-a-type)).
 - Every `CD4xxx` rule.
 
 Accepted when: `comptime` conformance passes; differential tests pass.

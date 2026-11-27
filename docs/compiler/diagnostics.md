@@ -110,6 +110,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD4008 | `Embed` path not found or outside the package | [../language/comptime.md](../language/comptime.md) |
 | CD4009 | a comptime result points into a comptime stack frame | [../language/comptime.md](../language/comptime.md#results-of-comptime) |
 | CD4010 | this operation is not available at comptime | [../language/comptime.md](../language/comptime.md#what-comptime-code-can-do) |
+| CD4011 | the method's signature does not match the delegate it is bound to | [../language/comptime.md](../language/comptime.md#comptime-only-values) |
 | CD5001 | a struct converts to an interface only through `Dyn<I>.Of(ref x)`, or to a `[Union]` interface | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#2-as-a-value-dynamic-dispatch) |
 | CD5002 | a `[Union]` member must be a non-generic, non-ref struct of the same package | [../language/generics-interfaces-delegates.md](../language/generics-interfaces-delegates.md#3-as-a-tagged-union-union) |
 | CD5003 | variance is not part of CΔ | [../language/subset.md](../language/subset.md#types) |

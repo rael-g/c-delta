@@ -93,17 +93,94 @@ public readonly struct TypeInfo
     public readonly ReadOnlySpan<FieldInfo> Fields;
     public readonly ReadOnlySpan<EnumMemberInfo> Members;
     public readonly ReadOnlySpan<AttributeInfo> Attributes;
+    public readonly ReadOnlySpan<MethodInfo> Methods;
+    public readonly ReadOnlySpan<TypeInfo> TypeArguments;
     public TypeInfo Element();
 }
 ```
 
 `FieldInfo` has the name, the offset, the `TypeInfo` of the field and its attributes.
 `AttributeInfo` exposes the attribute type and its constructor arguments and named arguments as
-comptime values. The full API is in the corelib.
+comptime values. `TypeArguments` are those of a constructed generic type, so the `T` of an
+attribute `On<T>` is read from its type; the `Name` of a constructed type is that of its
+definition, `OnAttribute`. The full API is in the corelib.
+
+`Methods` lists the methods declared in the type, static and instance, of every visibility.
+Constructors, local functions, operators and generic methods are not listed.
+
+```csharp
+public readonly struct MethodInfo
+{
+    public readonly ReadOnlySpan<byte> Name;
+    public readonly bool IsStatic;
+    public readonly TypeInfo ReturnType;
+    public readonly ReadOnlySpan<ParameterInfo> Parameters;
+    public readonly ReadOnlySpan<AttributeInfo> Attributes;
+    public TDelegate As<TDelegate>();
+}
+```
+
+`ParameterInfo` has the name, the `TypeInfo`, the passing (`Value`, `Ref`, `In`, `RefReadonly`,
+`Out`), whether it is `[Comptime]`, and the attributes. `MethodInfo` and `ParameterInfo` are
+comptime-only values.
+
+`As<TDelegate>()` binds the method to a delegate type and yields a delegate value with no
+context, a constant that may be stored at run time. The signatures must agree, or it is `CD4011`:
+
+- the return types and the parameters are the same, in order, with the same passing;
+- an instance method of a struct `T` takes its receiver as the delegate's first parameter, `ref T`,
+  or `in T` for a `readonly` method;
+- a `void*` parameter of the delegate accepts any parameter passed by reference, the receiver
+  included; the compiler emits a thunk that converts the pointer;
+- a method with a `[Comptime]` parameter does not bind.
+
+```csharp
+delegate void Behaviour<T>(ref T node);
+delegate void Handler(void* node, void* evt);
+
+static Behaviours Collect<T>()
+{
+    var behaviours = new Behaviours(Builtin.ComptimeAllocator);
+    foreach (var method in TypeInfo.Of<T>().Methods)
+    {
+        if (method.Name == "Update"u8) behaviours.Update = method.As<Behaviour<T>>();
+        foreach (var attribute in method.Attributes)
+            if (attribute.Type.Name == "OnAttribute"u8)
+                behaviours.Add(EventId(attribute.Type.TypeArguments[0]), method.As<Handler>());
+    }
+    return behaviours;
+}
+```
 
 Type checking is C#'s: comptime reflection reads descriptions of types, it does not create
 expressions whose type depends on a comptime value. Accessing field `i` of a struct generically is
 done by offset and `TypeInfo` (as the std formatter does), not by name.
+
+## Walking a type
+
+A `for` or `foreach` loop whose number of iterations is comptime-known and whose body reads a
+comptime-only value is unrolled: each iteration is compiled on its own, with the loop variable a
+constant in it. `break` and `continue` keep their meaning. Any other loop that reads a
+comptime-only value in code that runs at run time is `CD4005`.
+
+A `TypeInfo` can be the argument of a `[Comptime]` parameter; the function is instantiated once
+per type it describes. Together with unrolling, this is how code walks a struct field by field:
+
+```csharp
+static Result WriteStruct<W>(ref W writer, [Comptime] TypeInfo type, ref byte value) where W : IWriter
+{
+    foreach (var field in type.Fields)
+    {
+        Try(writer.Write(field.Name));
+        Try(writer.Write(" = "u8));
+        Try(WriteValue(ref writer, field.Type, ref Unsafe.Add(ref value, field.Offset)));
+    }
+    return Ok();
+}
+```
+
+`WriteValue` branches on `type.Kind` and `type.Size`, and reads the value with `Unsafe.As` once a
+branch knows its type; every branch not taken is folded away.
 
 ## Errors at comptime
 

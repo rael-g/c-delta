@@ -452,6 +452,17 @@ nothing to build. `cdc` runs the project's generators as the IDE does, and their
 source checked like any other. A generator writes declarations; what can be computed is computed
 by comptime from `TypeInfo`.
 
+**D181. A loop over a comptime-only value is unrolled.** Walking the fields of a type in code that
+runs at run time needs each field's description as a constant, which a run-time index cannot
+give. Unrolling a loop whose count is comptime-known is the folding of conditions extended to
+loops, and needs no new syntax.
+
+**D182. Comptime reflection sees methods and binds them to delegates.** Finding behaviours by
+name or attribute is what generators were left doing after D180. Binding a method through
+`As<TDelegate>()` gives an expression whose type is a type argument, so C# type checking still
+holds; the compiler only checks that the signatures agree, and a `void*` parameter adapted by a
+thunk lets a table dispatch over methods whose types it does not know.
+
 ## Repository
 
 **D201. Documents and code are in English.**

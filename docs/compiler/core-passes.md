@@ -64,7 +64,8 @@ An interpreter over IR, inside the core, used for comptime regions, static initi
   from it. Comptime heap blocks become new internal globals; pointers into a frame are `CD4009`;
   comptime-only values are `CD4005`.
 - **Reflection.** `TypeInfo.Of<T>()` is answered from IR type declarations and layouts; attribute
-  arguments from IR attributes.
+  arguments from IR attributes. `MethodInfo.As<TDelegate>()` yields a delegate constant over the
+  method, or over a thunk when a `void*` parameter stands for a parameter passed by reference.
 - **Embed.** `Embed(path)` reads the file once per build, relative to the source file of the call,
   refusing paths outside the package root (`CD4008`).
 
