@@ -179,6 +179,7 @@ Accepted when: `comptime` conformance passes; differential tests pass.
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET
   SDK; the `tcc` provider for `Debug` builds (D175).
+- `CDelta.Sdk.Generators` with the typed build options (D186).
 - Source generators and analyzers of `Analyzer` items run by `cdc` as by the IDE (D180,
   [language/modules-build.md](language/modules-build.md#generated-sources)); the NativeAOT spike
   keeps them, since they are assemblies loaded at build time.

@@ -177,7 +177,7 @@ produces it.
   disabled and `Nullable` disabled, so Roslyn sees no BCL.
 - References the corelib and the std reference assemblies shipped in the SDK.
 - Adds the global usings file of [frontend-csharp.md](frontend-csharp.md#roslyn-compilation).
-- Adds the subset analyzer and suppressor.
+- Adds the subset analyzer and suppressor, and the generators of `CDelta.Sdk.Generators` (D186).
 - Sets `LangVersion` from `CDeltaEdition`, `AllowUnsafeBlocks`, the promoted warnings in `WarningsAsErrors` and the
   suppressed ones in `NoWarn`.
 - Sets `DefineConstants` to the build symbols of the target and mode, so the IDE evaluates `#if`

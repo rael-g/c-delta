@@ -156,3 +156,7 @@ above:
 `Std.Build` for build steps in CΔ and SIMD vectors are CΔ. A module enters the std when a real
 program needs it, in the order of the table unless a program asks otherwise; a library is
 replaced only by a decision.
+
+Asset files as declarations (D187): a generator of `CDelta.Sdk.Generators` that turns the files a
+project marks as assets into a static class with a member per file, its path or its `Embed`
+contents, under a name derived from the file name.

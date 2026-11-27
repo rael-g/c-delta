@@ -153,7 +153,18 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `NativeLibrary` | `Linkage` (`Static`, `Dynamic`), `PkgConfig` | libraries to link; with `PkgConfig="name"`, flags and paths come from `pkg-config` |
 | `CDeltaFetch` | `Url`, `Hash`, and for a C library `Sources`, `IncludeDirs`, `Defines`, `Import`, `Recipe` | a dependency fetched by URL, [below](#fetched-dependencies) |
 | `NativeLibraryDir` | | library search directories |
-| `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)` |
+| `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)`, and a field of `BuildOptions` |
+
+The SDK's generator (D186) declares `internal static class BuildOptions` in the global namespace,
+with one `public static readonly` field per `BuildOption` whose name is a C# identifier, of the
+option's `Type`, initialized with `Builtin.Option<T>(name)`:
+
+```csharp
+internal static class BuildOptions
+{
+    public static readonly bool EnableLogging = Builtin.Option<bool>("EnableLogging");
+}
+```
 
 ## Targets
 

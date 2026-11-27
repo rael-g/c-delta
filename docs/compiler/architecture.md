@@ -72,6 +72,7 @@ These are invariants, checked by project references (a forbidden reference does 
 | Project | Target framework | Role |
 |---|---|---|
 | `src/CDelta.Diagnostics` | `netstandard2.0` | diagnostic codes, severities, source spans, the registry |
+| `src/CDelta.Diagnostics.Generator` | `netstandard2.0` | source generator of the codes and the registry from [diagnostics.md](diagnostics.md#registry) (D185) |
 | `src/CDelta.Ir` | `net10.0` | Delta IR model, builder, verifier, printer, parser |
 | `src/CDelta.Core` | `net10.0` | passes over IR, comptime interpreter, target descriptions |
 | `src/CDelta.Frontend.CSharp.Rules` | `netstandard2.0` | subset checker, Roslyn analyzer and diagnostic suppressor; loaded by the IDE |
@@ -85,6 +86,7 @@ These are invariants, checked by project references (a forbidden reference does 
 | `src/CDelta.Driver` | `net10.0` | project model, pipeline, caches |
 | `src/CDelta.Cli` | `net10.0` | the `cdc` command |
 | `src/CDelta.Build.Tasks` | `netstandard2.0` | MSBuild tasks that run `cdc` out of process |
+| `src/CDelta.Sdk.Generators` | `netstandard2.0` | source generators the SDK adds to every project: typed build options (D186) |
 | `sdk/CDelta.Sdk` | | MSBuild SDK: props, targets, packaging of corelib, std, analyzer |
 | `lib/corelib` | none: it defines `System.Object` itself | the corelib reference assembly |
 | `lib/std` | CΔ | the standard library |
@@ -99,7 +101,7 @@ The projects split into two groups ([../decisions.md](../decisions.md), D116 to 
 
 | Group | Projects | Language |
 |---|---|---|
-| Host | `Frontend.CSharp`, `Frontend.CSharp.Rules`, `Build.Tasks`, the host part of `Cli` | C# on .NET, permanently |
+| Host | `Frontend.CSharp`, `Frontend.CSharp.Rules`, `Diagnostics.Generator`, `Sdk.Generators`, `Build.Tasks`, the host part of `Cli` | C# on .NET, permanently |
 | Portable | `Diagnostics`, `Ir`, `Core`, `Frontend.C`, `Backend.C`, `Projection`, `Projection.CSharp`, `Projection.Zig`, `Toolchain`, `Driver` | C# until M7, then CΔ ([../roadmap.md](../roadmap.md#m10-self-hosting)) |
 
 Code in a portable project follows these rules, which a test of the solution checks where it can:
