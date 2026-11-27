@@ -273,9 +273,23 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   fields, each `yield` a state, and the state lives in the caller's frame with no allocation. The
   result may only be iterated with `foreach` or held in a `var` local; converting it to the
   interface type is an error, except through `Dyn<IEnumerable<T>>`.
-- **Concurrency** (D152, [language/concurrency.md](language/concurrency.md)), in three steps: `Std.Io`, an interface passed like `IAllocator` with
-  `Async` returning a future struct and `Await`, over a thread pool; an evented backend over the
-  OS's readiness or completion API with fixed-size stacks from an allocator and a context switch
-  per target; and only if a program still needs it, `async` and `await` as the iterator
-  transform, where an async frame is a struct of known size that never moves once started, so
-  recursive async is an error and starting a task takes an allocator.
+- **Concurrency** (D152, [language/concurrency.md](language/concurrency.md)), in three steps:
+  `IIo` with `BlockingIo` and `ThreadedIo`, structured `Task<T>` and the rest of the concurrency
+  std, no compiler work; `EventedIo` over io_uring, IOCP and kqueue, with coroutine stacks carved
+  from one reservation and stealing or per-core scheduling; and only if a program still needs it,
+  `async` and `await` as the iterator transform, where an async frame is a struct of known size
+  that never moves once started, so recursive async is an error and starting a task takes an
+  allocator.
+- **A web package**, outside the std: a minimal API with ASP.NET's names (`WebApp`, `MapGet`,
+  `MapPost`, `HttpContext`, `Results`) over `IIo` and `Std.Net`, parsing HTTP with picohttpparser
+  or llhttp. Route templates are `[Comptime]` and compiled into a table, a route parameter without
+  a handler parameter is a compile error, parameters and JSON bodies are bound through `TypeInfo`,
+  and each request has an arena freed when it ends.
+- **A data package**, outside the std, in the manner of a micro ORM: SQL written by hand and rows
+  mapped to structs. `Query<T>`, `QueryFirst<T>`, `QuerySingle<T>`, `Execute` and
+  `ExecuteScalar<T>` on a connection; parameters come from an interpolated string handler, so
+  each hole becomes a bound parameter and never text. The fields of `T` are a comptime table, and
+  the first execution of a statement matches its columns to fields once. Results go to an
+  allocator, or are iterated row by row with text valid until the next row; a transaction is a
+  `using` that rolls back unless committed. Drivers over SQLite and libpq, whose non-blocking
+  socket joins `IIo`.
