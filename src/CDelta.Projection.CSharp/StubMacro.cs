@@ -1,4 +1,4 @@
-namespace CDelta.Backend.CSharp;
+namespace CDelta.Projection.CSharp;
 
 public enum StubMacroKind
 {

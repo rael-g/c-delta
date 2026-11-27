@@ -12,7 +12,7 @@
     <ProjectReference Include="..\CDelta.Frontend.CSharp.Rules\CDelta.Frontend.CSharp.Rules.csproj" />
     <ProjectReference Include="..\CDelta.Frontend.C\CDelta.Frontend.C.csproj" />
     <ProjectReference Include="..\CDelta.Backend.C\CDelta.Backend.C.csproj" />
-    <ProjectReference Include="..\CDelta.Backend.CSharp\CDelta.Backend.CSharp.csproj" />
+    <ProjectReference Include="..\CDelta.Projection.CSharp\CDelta.Projection.CSharp.csproj" />
     <ProjectReference Include="..\CDelta.Toolchain\CDelta.Toolchain.csproj" />
   </ItemGroup>
 

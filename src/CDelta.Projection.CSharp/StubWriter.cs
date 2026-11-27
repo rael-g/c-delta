@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using CDelta.Ir;
 
-namespace CDelta.Backend.CSharp;
+namespace CDelta.Projection.CSharp;
 
 public static class StubWriter
 {

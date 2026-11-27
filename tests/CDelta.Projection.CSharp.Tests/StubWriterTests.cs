@@ -1,9 +1,9 @@
-using CDelta.Backend.CSharp;
+using CDelta.Projection.CSharp;
 using CDelta.Diagnostics;
 using CDelta.Frontend.C;
 using CDelta.Tests;
 
-namespace CDelta.Backend.CSharp.Tests;
+namespace CDelta.Projection.CSharp.Tests;
 
 public sealed class StubWriterTests
 {
@@ -19,7 +19,7 @@ public sealed class StubWriterTests
         GoldenFile.AssertMatches(Golden("sample-only.cs"), Stub(["sample_open", "SAMPLE_OK"]));
     }
 
-    private static string Golden(string name) => Path.Combine(GoldenFile.AreaPath("CDelta.Backend.CSharp.Tests", "Stubs"), name);
+    private static string Golden(string name) => Path.Combine(GoldenFile.AreaPath("CDelta.Projection.CSharp.Tests", "Stubs"), name);
 
     private static string Stub(string[] only)
     {

@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CDelta.Backend.CSharp\CDelta.Backend.CSharp.csproj" />
+    <ProjectReference Include="..\..\src\CDelta.Projection.CSharp\CDelta.Projection.CSharp.csproj" />
     <ProjectReference Include="..\..\src\CDelta.Frontend.C\CDelta.Frontend.C.csproj" />
     <Compile Include="..\Shared\GoldenFile.cs" Link="GoldenFile.cs" />
     <Content Include="..\CDelta.Frontend.C.Tests\Headers\sample.h" Link="Headers\sample.h" CopyToOutputDirectory="PreserveNewest" />
