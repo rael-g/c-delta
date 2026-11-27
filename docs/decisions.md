@@ -76,10 +76,20 @@ Capturing lambdas capture variables by reference into a stack frame struct; esca
 the programmer's responsibility except for the direct escapes `CD2002` rejects.
 
 **D022. Comptime is CΔ code interpreted over IR with target semantics.** Static initializers always
-run at comptime; there is no static initialization at run time.
+run at comptime; there is no static initialization at run time. The std relies on it for what .NET leaves to run time: a format specifier, literal in every
+interpolation, is checked against its type when compiling, and Unicode tables are computed from
+the Unicode data files read with `Embed`, so no generated file is kept and no table is built at
+startup.
 
-**D023. Comptime does not create types or declarations.** Roslyn must see every declaration
-before comptime runs. Generics and build-time source generation cover the need.
+**D023. Comptime does not create types or declarations; Roslyn source generators do.** Roslyn
+must see every declaration before comptime runs. A tool outside the compiler sees no semantic
+model and no IDE; an incremental generator sees both and already runs in the IDE, because a CΔ
+project is a C# project. `cdc` runs a project's generators as the IDE does, and their output is
+CΔ checked like any other source. A generator writes declarations and comptime computes what can
+be computed from `TypeInfo`. The repository and the SDK use them where a name must exist:
+`CDelta.Diagnostics` from the registry of `diagnostics.md`, so the normative table is the only
+place a code is added; typed fields for build options, so their names are checked by C#; and
+later, a member per asset file.
 
 **D024. `#if` is kept for build symbols only.** Roslyn type-checks every branch of a comptime `if`,
 so code that only exists on one platform needs `#if` or a per-OS file.
@@ -98,7 +108,12 @@ cannot introduce declarations that Roslyn must see.
 **D029. Imports are per target.** The C frontend reads headers for the build target, as the C
 compiler will.
 
-**D030. C function-like macros are not imported automatically; `[CMacro]` declares them.**
+**D030. C function-like macros are not imported automatically; `[CMacro]` declares them, in
+every form.** A macro has no type, so its signature is written by hand, but no shape is out of
+reach: a `ref` parameter is the lvalue the macro writes, a `void` one is a statement, a generic
+one is instantiated like any generic with each expansion checked by the C compiler, and a
+template spells the macros that take types or are not shaped like a call. Macros that declare
+need nothing, since the header is read after preprocessing.
 
 **D031. Exported signatures use only C types.**
 
@@ -121,8 +136,13 @@ Roslyn's; the frontend lowers Roslyn's `ControlFlowGraph`.
 
 **D102. Delta IR is a typed CFG over named locals, not SSA.**
 
-**D103. Frontend, core and backends are separate projects, with dependencies enforced by
-references.** Backends see only IR.
+**D103. Frontends, core, backends and projections are separate projects, with dependencies
+enforced by references.** Backends and projections see only IR. A backend receives the final IR,
+bodies included, and compiles the whole program to a target; a projection reads only the
+declaration layer (D168) and writes declarations in another language so that code there reaches
+a surface: the import stubs, the CΔ and C# projections, Zig and plugins. Their inputs, guarantees
+and users differ, so they are named apart: `CDelta.Projection.CSharp` and `CDelta.Projection.Zig`,
+over the shared `CDelta.Projection`.
 
 **D104. The first backend generates C11, and the C compiler does all optimization and code
 generation.**
@@ -134,15 +154,23 @@ conflict with libc's (D129).
 **D106. Every computed layout is asserted in the generated C.**
 
 **D107. libclang reads C, through ClangSharp until the port of D119.** It also answers sizes, offsets and constant
-values; nothing of C is reimplemented.
+values; nothing of C is reimplemented. ClangSharp is only the binding of `Frontend.C`: the raw
+layer of the C# projection is written from the IR, as the import stubs are, since a second reader
+of the header could disagree with the IR and would not see its annotations. What .NET adds is
+`LibraryImport` with the library name, accessors for bit-fields, and a C shim built with the
+package that exports the `static inline` functions and call-like macros P/Invoke cannot reach.
 
 **D108. The platform's C compiler builds for the host; `zig cc` is the provider of cross
 compilation**, because it carries the C libraries of every target in one download. A user who
 never cross-compiles never needs Zig, and only one provider knows about it, so it can be replaced
-by clang with sysroots or by toolchain packs.
+by clang with sysroots or by toolchain packs. `Debug` builds of the host on `x86_64` Linux compile with tcc, first in
+`auto`: compiling the generated C is the largest share of a rebuild, tcc does it an order of
+magnitude faster, and it optimizes nothing, so `ReleaseSafe` keeps the optimizing compilers.
 
 **D109. The project file is an MSBuild SDK-style `.csproj` using `CDelta.Sdk`.** IDEs open it, NuGet
-distributes packages, MSBuild orders builds.
+distributes packages, MSBuild orders builds. The target is the property `CDeltaTarget`: MSBuild reserves `Target`, the names .NET
+already uses (`RuntimeIdentifier`, `PlatformTarget`) carry other meanings, and the `CDelta`
+prefix, as in `CDeltaEdition`, marks a property no other SDK defines.
 
 **D110. Compilation is whole-program from sources.** Packages ship sources plus a reference
 assembly for the IDE.
@@ -288,7 +316,10 @@ comptime, on freestanding targets or generically stay CΔ.
 `ReadOnlySpan<byte>` and free functions; Roslyn accepts a struct `System.String`, so CΔ keeps C#'s
 own name, literals, `==`, `switch` and `foreach` with no class, no GC and no hidden allocation.
 Bytes are reached through `Bytes` and `Slice`, never through C#'s `Length` and indexers (D156); characters are `Rune`, and
-`char` remains only for constants.
+`char` remains only for constants. Positions and counts in text live in `s.Bytes`, never on
+`string`: C# counts UTF-16 units and CΔ UTF-8 ones, so any accented letter would make the same
+member give another number. Members that expose no unit (`StartsWith`, `Split`, `Trim`, `==`)
+behave as in C#, and `EnumerateRunes()` keeps its BCL name and result.
 
 **D149. Std types take the BCL's names when they keep its meaning.** `Dictionary`, `HashSet`,
 `Queue`, `Stack`, `StringBuilder`, `Random`, `Stopwatch` are structs over explicit allocators, but
@@ -303,13 +334,23 @@ the assignment does not compile.
 without allocation; the result stays a concrete value because an interface value would need
 boxing.
 
-**D152. Concurrency starts as a library: an `Io` interface passed like an allocator.** Code
-written against it runs blocking, on threads or evented, as its caller chooses, so functions are
-not colored. In order: `Std.Io` with a thread pool backend, no compiler work; an evented backend
-over fixed-size stacks taken from an allocator (a fixed stack needs no garbage collector, a
-growing one does); and only if still needed, `async` and `await` as the iterator transform, with
-struct task types, frames as values that never move once started, and allocation only at spawn.
-No runtime, no hidden allocation.
+**D152. Concurrency is a library: an `IIo` interface passed like an allocator.** Code written
+against it runs blocking, on threads or evented, as its caller chooses, so functions are not
+colored. In order: `Std.Io` with a thread pool backend, no compiler work; an evented backend over
+fixed-size stacks (a fixed stack needs no garbage collector, a growing one does); and only if
+still needed, `async` and `await` as the iterator transform, with struct task types, frames as
+values that never move once started, and allocation only at spawn. No runtime, no hidden
+allocation. Tasks are structured: a `Task` lives in a `using` declaration, which cancels and
+waits on every exit, the error returns of `Try` included, and `CD2002` keeps a value holding a
+capturing lambda in its frame, so tasks capture freely with no collector. A task that is not
+waited takes a `static` lambda and a copied state; a task's slot, taken at spawn from the
+`IIo`'s allocator, is its one allocation. The std has the whole set under the .NET names
+(threads, atomics, locks, tasks, data parallelism, channels, concurrent collections), with only
+the `IIo` parameter and `Result` new; the primitives sit on the OS, and schedulers, deques,
+channels and queues are CΔ. Evented stacks are carved from one reservation of address space and
+committed on touch, as the virtual arena does (D174); guard pages are on by default and can be
+turned off for scale, since each one splits the mapping the kernel counts. `CD1012` and `CD1015`
+name what to write instead of `async` and `lock`.
 
 **D153. A struct may implement getter-only static abstract properties.** Generic math names
 static values as properties (`T.Zero`, `AdditiveIdentity`); without them a user type could not
@@ -399,7 +440,11 @@ calls, assembly), never a model of one language.
 
 **D170. Annotations are language-neutral facts on IR declarations.** What enriches a C header
 for C# today enriches any frontend's declarations for any backend: the vocabulary is defined on
-IR concepts, and a manifest names declarations by IR key, so neither end is tied to C or to C#.
+IR concepts, and a manifest names declarations by IR key, so neither end is tied to C or to C#. The vocabulary comes from a clean room aimed at the CΔ
+projection: projections of real APIs written by hand without kabic's output, each fact becoming
+an annotation only if it also means something in C#; how a language shows a fact is policy of its
+projection, never IR. CΔ comes first because CΔ consumes it, and the C# projection is its shape
+with the std swapped for the BCL, so code over a library looks alike in both.
 
 **D171. The IR grows by need, always lowerable to C, with dialects for single languages.** Higher
 constructs save frontends from repeating lowerings and keep meaning for comptime and projections,
@@ -416,116 +461,21 @@ years to grow an ecosystem; CΔ inherits all of them by wrapping instead of rewr
 work concentrates on what wrapping cannot give: annotations and projections that make a foreign
 library feel native.
 
-**D174. The target property is `CDeltaTarget`.** MSBuild reserves `Target`, and the names .NET
-already uses (`RuntimeIdentifier`, `PlatformTarget`) carry other meanings and values. The
-`CDelta` prefix, as in `CDeltaEdition`, marks a property no other SDK defines.
-
-**D175. `Debug` builds on `x86_64` Linux compile C with tcc.** Compiling the generated C is the
-largest share of a rebuild, and tcc does it an order of magnitude faster than an optimizing
-compiler, on the C we already emit. It is chosen first by `auto` for `Debug` builds of the host
-only, because it optimizes nothing; `ReleaseSafe` keeps the optimizing compilers.
-
-**D176. The std has a virtual arena.** Reserving address space and committing it as it is used
+**D174. The std has a virtual arena.** Reserving address space and committing it as it is used
 gives a buffer that grows without moving and a scope freed in one store, with no new language
 concept: it is one more `IAllocator`.
 
-**D177. Flat data with offsets instead of pointers is a std library, later.** Offsets make data
+**D175. Flat data with offsets instead of pointers is a std library, later.** Offsets make data
 copyable, position independent and serializable with one copy; they need generics and `unsafe`
 only, so they wait for a program that needs them.
 
-**D178. Positions in text are counted in `s.Bytes`, never on `string`.** C# counts UTF-16 units
-and CΔ UTF-8 units; the concept is the same, but any accented letter makes the numbers differ,
-so every member that takes or returns a count lives on the span, where it already means bytes
-in C#. Members that expose no unit (`StartsWith`, `Split`, `Trim`, `==`) behave as in C#, and
-`EnumerateRunes()` keeps its BCL name and result.
-
-**D179. The annotation vocabulary comes from a clean room aimed at the CΔ projection.** Idiomatic
-CΔ projections of real APIs are written by hand without kabic's output, and each fact they need
-becomes an annotation only if it also means something in C#; how a language shows a fact is
-policy of its projection, never IR. CΔ comes first because CΔ consumes it, and the C# projection is
-its shape with the std swapped for the BCL, so code over a library looks alike in both.
-
-**D180. Code that declares is generated by Roslyn source generators.** Comptime cannot declare
-(D023), and a tool outside the compiler sees no semantic model and no IDE. An incremental
-generator sees both, runs in the IDE already because a CΔ project is a C# project, and costs CΔ
-nothing to build. `cdc` runs the project's generators as the IDE does, and their output is CΔ
-source checked like any other. A generator writes declarations; what can be computed is computed
-by comptime from `TypeInfo`.
-
-**D181. A loop over a comptime-only value is unrolled.** Walking the fields of a type in code that
-runs at run time needs each field's description as a constant, which a run-time index cannot
-give. Unrolling a loop whose count is comptime-known is the folding of conditions extended to
-loops, and needs no new syntax.
-
-**D182. Comptime reflection sees methods and binds them to delegates.** Finding behaviours by
-name or attribute is what generators were left doing after D180. Binding a method through
-`As<TDelegate>()` gives an expression whose type is a type argument, so C# type checking still
-holds; the compiler only checks that the signatures agree, and a `void*` parameter adapted by a
-thunk lets a table dispatch over methods whose types it does not know.
-
-**D183. A backend compiles a program; a projection writes a surface.** A backend receives the
-final IR, bodies included, and lowers the whole program to a target. A projection reads only the
-declaration layer (D168) and writes declarations in another language so that code there can reach
-a surface: the import stubs, the CΔ and C# projections, Zig, and plugins. The two have different
-inputs, guarantees and users, so they are named apart: `CDelta.Projection.CSharp` and
-`CDelta.Projection.Zig`, over the shared `CDelta.Projection`.
-
-**D184. The raw layer of the C# projection comes from the IR, not from a second reader.** The IR
-already holds every declaration with its exact layout and its annotations, and the import stubs
-already write it as C#; a generator that parses the header again could disagree with it and
-would not see the annotations. What .NET adds is small: `LibraryImport` with the library name,
-accessors for bit-fields, and a C shim compiled with the package that exports the `static inline`
-functions and call-like macros, which have no symbol for P/Invoke to reach.
-
-**D185. `CDelta.Diagnostics` is generated from the registry of `diagnostics.md`.** Every code
-lived in the document, the enum and the message table, kept equal by hand. A generator reading
-the document makes the normative table the only place a code is added, before and after the
-port, since generators run for CΔ projects too (D180).
-
-**D186. Build options are typed fields generated by the SDK.** `Builtin.Option<T>(name)` takes
-the name as text, so a typo is found late and the IDE completes nothing. The SDK's generator
-declares one field per `BuildOption`, initialized by that call, so the value still comes from
-comptime and the name is checked by C#.
-
-**D187. Files that become declarations are a generator of the SDK, later.** Assets, scenes and
-schemas are inputs whose members are names, which comptime cannot declare; a generator shipped
-with the SDK turns them into a static class with a member per file, when a program needs it.
-
-**D188. The std checks and computes at comptime what .NET leaves to run time.** A format
-specifier is literal in every interpolation, so it is checked against its type when compiling,
-and parsing it costs nothing when running. Unicode tables are computed by comptime from the
-Unicode data files embedded with `Embed`, so no generated file is kept and no table is built at
-startup.
-
-**D189. `[CMacro]` reaches every form of function-like macro.** A macro has no type, so its
-signature stays written by hand (D030), but no shape of macro is out of reach: a `ref` parameter
-is the lvalue the macro writes, a `void` one is a statement, a generic one is instantiated like
-any generic with each expansion checked by the C compiler, and a template spells the macros that
-take types or are not shaped like a call. Macros that declare need nothing, since the header is
-read after preprocessing.
-
-**D190. Tasks are structured: a `Task` lives in a `using` declaration and joins at scope exit.**
-A capturing lambda keeps its variables in its caller's frame, so a task running it must end
-before the frame does. `using` cancels and waits on every exit, the error returns of `Try`
-included, and `CD2002` already keeps a value holding the lambda from leaving the frame, so tasks
-capture freely with no collector. A task that is not waited takes a `static` lambda and a copied
-state. Its slot is the one allocation, taken at spawn from the `IIo`'s allocator.
-
-**D191. The concurrency std has the .NET names and the whole set.** Threads, atomics, locks,
-tasks, data parallelism, channels and concurrent collections are what a C# programmer reaches
-for; with the same names and roles, only the `IIo` parameter and `Result` are new. The
-primitives sit on the OS; schedulers, deques, channels and queues are CΔ, since they are small
-algorithms a library would only wrap.
-
-**D192. Evented stacks are reservations of address space.** A fixed stack sized for the worst
-call wastes memory and a small one overflows; reserving 1 MiB and committing on touch gives each
-coroutine the memory it uses, and reuses the mechanism of the virtual arena (D176). The stacks
-come from one reservation, since a mapping per stack would meet the kernel's limit of mappings;
-guard pages, which split it, are on by default and can be turned off for scale.
-
-**D193. C# programmers are taught the absence of `async` where they meet it.** `CD1012` and
-`CD1015` name what to write instead, and [language/concurrency.md](language/concurrency.md) maps
-each `async` idiom to its form, so the first error is also the guide.
+**D176. Comptime reflection walks fields and methods.** A loop over a comptime-only value is
+unrolled, the folding of conditions extended to loops, so code that runs at run time walks a type
+field by field with each description a constant. Methods bind to delegates through
+`As<TDelegate>()`, whose type is a type argument, so C# type checking holds; the compiler checks
+that the signatures agree, and a `void*` parameter adapted by a thunk lets a table dispatch over
+methods whose types it does not know. Finding behaviours by name or attribute is comptime's, not
+a generator's.
 
 ## Repository
 

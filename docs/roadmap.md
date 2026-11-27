@@ -144,7 +144,7 @@ work in a sample.
 
 - The rest of the C frontend: comments into doc comments, doc tags and annotations, the import
   cache.
-- `[CMacro]` in every form of D189, `CSource` items, macros of constant addresses.
+- `[CMacro]` in every form of D030, `CSource` items, macros of constant addresses.
 - `[Align]`, `[Naked]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` and `CppSource` items, `EntrySymbol`,
   `LinkerScript`, `LinkerArgs`, the embedded targets ([language/c-parity.md](language/c-parity.md)).
 - `[Export]`, the export header, static and shared libraries, `--emit-c`; the CMake and
@@ -158,7 +158,7 @@ layout assertions of every imported struct pass.
 
 - The interpreter, static initializers, `Comptime(...)`, `[Comptime]` parameters, folding and
   pruning, `TypeInfo`, `Builtin`, `Embed`, `CompileError`, quotas.
-- Method reflection and `MethodInfo.As<TDelegate>()` (D182).
+- Method reflection and `MethodInfo.As<TDelegate>()` (D176).
 - Unrolled loops over comptime-only values and `TypeInfo` arguments
   ([language/comptime.md](language/comptime.md#walking-a-type)).
 - Every `CD4xxx` rule.
@@ -178,9 +178,9 @@ Accepted when: `comptime` conformance passes; differential tests pass.
 - Build speed (D158): a compiler server, `cdc watch`, that keeps Roslyn, the imports and the core's
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET
-  SDK; the `tcc` provider for `Debug` builds (D175).
-- `CDelta.Sdk.Generators` with the typed build options (D186).
-- Source generators and analyzers of `Analyzer` items run by `cdc` as by the IDE (D180,
+  SDK; the `tcc` provider for `Debug` builds (D108).
+- `CDelta.Sdk.Generators` with the typed build options (D023).
+- Source generators and analyzers of `Analyzer` items run by `cdc` as by the IDE (D023,
   [language/modules-build.md](language/modules-build.md#generated-sources)); the NativeAOT spike
   keeps them, since they are assemblies loaded at build time.
 - Debugging (D159): the formatters of [compiler/backend-c.md](compiler/backend-c.md#debug-information)
@@ -197,7 +197,7 @@ LLDB.
 
 The steps of [kabic-migration.md](kabic-migration.md).
 
-- The clean room of the annotation vocabulary (D179), then the CΔ projection, then the C#
+- The clean room of the annotation vocabulary (D170), then the CΔ projection, then the C#
   projection as its shape over the BCL.
 - The plugin protocol of projections (D167) and the version of the declaration layer of
   the IR (D168).
@@ -273,7 +273,7 @@ Not scheduled; each starts when a real program needs it, with its gaps reviewed 
   fields, each `yield` a state, and the state lives in the caller's frame with no allocation. The
   result may only be iterated with `foreach` or held in a `var` local; converting it to the
   interface type is an error, except through `Dyn<IEnumerable<T>>`.
-- **Concurrency** (D152, D190 to D192, [language/concurrency.md](language/concurrency.md)), in three steps: `Std.Io`, an interface passed like `IAllocator` with
+- **Concurrency** (D152, [language/concurrency.md](language/concurrency.md)), in three steps: `Std.Io`, an interface passed like `IAllocator` with
   `Async` returning a future struct and `Await`, over a thread pool; an evented backend over the
   OS's readiness or completion API with fixed-size stacks from an allocator and a context switch
   per target; and only if a program still needs it, `async` and `await` as the iterator

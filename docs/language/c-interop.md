@@ -105,7 +105,7 @@ static unsafe partial class C
 
 The C backend writes a call of the macro with the arguments; the C compiler expands it and checks
 the expansion. `[CMacro]` applies only to `static extern` methods (`CD6008`). Every form of macro
-has a declaration (D189):
+has a declaration (D030):
 
 | Macro | Declaration | Written in C as |
 |---|---|---|

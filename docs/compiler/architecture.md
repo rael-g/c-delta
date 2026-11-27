@@ -72,21 +72,21 @@ These are invariants, checked by project references (a forbidden reference does 
 | Project | Target framework | Role |
 |---|---|---|
 | `src/CDelta.Diagnostics` | `netstandard2.0` | diagnostic codes, severities, source spans, the registry |
-| `src/CDelta.Diagnostics.Generator` | `netstandard2.0` | source generator of the codes and the registry from [diagnostics.md](diagnostics.md#registry) (D185) |
+| `src/CDelta.Diagnostics.Generator` | `netstandard2.0` | source generator of the codes and the registry from [diagnostics.md](diagnostics.md#registry) (D023) |
 | `src/CDelta.Ir` | `net10.0` | Delta IR model, builder, verifier, printer, parser |
 | `src/CDelta.Core` | `net10.0` | passes over IR, comptime interpreter, target descriptions |
 | `src/CDelta.Frontend.CSharp.Rules` | `netstandard2.0` | subset checker, Roslyn analyzer and diagnostic suppressor; loaded by the IDE |
 | `src/CDelta.Frontend.CSharp` | `net10.0` | Roslyn compilation, corelib symbols, lowering to IR |
 | `src/CDelta.Frontend.C` | `net10.0` | libclang reading of headers into IR declarations |
 | `src/CDelta.Backend.C` | `net10.0` | IR to C11 and the export header |
-| `src/CDelta.Projection.CSharp` | `net10.0` | IR declarations to C# source: import stubs now; the CΔ projection, then the C# projection (D179) |
+| `src/CDelta.Projection.CSharp` | `net10.0` | IR declarations to C# source: import stubs now; the CΔ projection, then the C# projection (D170) |
 | `src/CDelta.Projection` (M8) | `net10.0` | shared analyses of IR declarations for projections |
 | `src/CDelta.Projection.Zig` (M8) | `net10.0` | IR declarations to idiomatic Zig bindings |
 | `src/CDelta.Toolchain` | `net10.0` | C toolchain discovery and invocation, target triples |
 | `src/CDelta.Driver` | `net10.0` | project model, pipeline, caches |
 | `src/CDelta.Cli` | `net10.0` | the `cdc` command |
 | `src/CDelta.Build.Tasks` | `netstandard2.0` | MSBuild tasks that run `cdc` out of process |
-| `src/CDelta.Sdk.Generators` | `netstandard2.0` | source generators the SDK adds to every project: typed build options (D186) |
+| `src/CDelta.Sdk.Generators` | `netstandard2.0` | source generators the SDK adds to every project: typed build options (D023) |
 | `sdk/CDelta.Sdk` | | MSBuild SDK: props, targets, packaging of corelib, std, analyzer |
 | `lib/corelib` | none: it defines `System.Object` itself | the corelib reference assembly |
 | `lib/std` | CΔ | the standard library |

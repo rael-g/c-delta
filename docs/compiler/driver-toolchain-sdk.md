@@ -106,7 +106,7 @@ The first one found that supports the target is used. A user who builds for the 
 toolchain beyond the platform's own; `zig cc` is the provider of cross compilation, because it
 carries the C libraries of every target in one download. Only the `zig` provider knows about Zig.
 
-`tcc` exists for the edit, build and run loop (D175): it compiles C an order of magnitude faster
+`tcc` exists for the edit, build and run loop (D108): it compiles C an order of magnitude faster
 than the others and optimizes nothing, so it serves `Debug` builds only and `--toolchain tcc` with
 another mode is `CD0002`. It receives `-std=c11 -g`, with `-c` for objects; the other options of
 [backend-c.md](backend-c.md#c-compiler-flags) do not exist in it and change nothing it does. Its
@@ -177,7 +177,7 @@ produces it.
   disabled and `Nullable` disabled, so Roslyn sees no BCL.
 - References the corelib and the std reference assemblies shipped in the SDK.
 - Adds the global usings file of [frontend-csharp.md](frontend-csharp.md#roslyn-compilation).
-- Adds the subset analyzer and suppressor, and the generators of `CDelta.Sdk.Generators` (D186).
+- Adds the subset analyzer and suppressor, and the generators of `CDelta.Sdk.Generators` (D023).
 - Sets `LangVersion` from `CDeltaEdition`, `AllowUnsafeBlocks`, the promoted warnings in `WarningsAsErrors` and the
   suppressed ones in `NoWarn`.
 - Sets `DefineConstants` to the build symbols of the target and mode, so the IDE evaluates `#if`

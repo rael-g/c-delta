@@ -84,7 +84,7 @@ with the thread sanitizer of the toolchain where it has one.
 
 ## Evented stacks
 
-Each coroutine of `EventedIo` runs on its own stack (D192), carved from one reservation of address
+Each coroutine of `EventedIo` runs on its own stack (D152), carved from one reservation of address
 space that the backend makes at start: 1 MiB per stack by default on 64-bit targets and 64 KiB on
 32-bit ones. Pages become memory only when touched, so a coroutine costs what it uses. Stacks are
 reused from a pool, and `Trim` returns the pages a deep call left behind.

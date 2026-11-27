@@ -156,7 +156,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `NativeLibraryDir` | | library search directories |
 | `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)`, and a field of `BuildOptions` |
 
-The SDK's generator (D186) declares `internal static class BuildOptions` in the global namespace,
+The SDK's generator (D023) declares `internal static class BuildOptions` in the global namespace,
 with one `public static readonly` field per `BuildOption` whose name is a C# identifier, of the
 option's `Type`, initialized with `Builtin.Option<T>(name)`:
 

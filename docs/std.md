@@ -104,17 +104,17 @@ a fixed stack buffer and flushes to the writer: no allocation. `AppendFormatted<
 structs field by field through `TypeInfo`).
 
 The format of an interpolation hole is always literal, so the `format` parameter of
-`AppendFormatted<T>` is `[Comptime]` (D188): a specifier `T` does not accept is `CD4004` at the
+`AppendFormatted<T>` is `[Comptime]` (D022): a specifier `T` does not accept is `CD4004` at the
 hole, and the specifier is parsed by comptime, never at run time.
 
 The Unicode tables of `Std.Text` (general category, case mapping, display width) are
 `static readonly` data that comptime computes from the Unicode data files in `lib/std`, read with
-`Embed`, under a raised `[ComptimeQuota]` (D188).
+`Embed`, under a raised `[ComptimeQuota]` (D022).
 
 ### Virtual arena
 
 `VirtualArenaAllocator` reserves a range of address space once and commits pages as its top
-grows (D176). Memory is never moved, so pointers into it stay valid, and nothing is mapped until
+grows (D174). Memory is never moved, so pointers into it stay valid, and nothing is mapped until
 it is used, so a reservation of gigabytes costs nothing.
 
 | Member | Behavior |
@@ -159,7 +159,7 @@ with handles for graphs and cycles; a shared owner that is truly needed is refer
 hand. A conservative collector may exist as a package outside the std, as an `IAllocator` over a
 C library.
 
-Flat data (D177): `Std.Mem.Rel<T>`, a 32-bit byte offset into a buffer resolved with a bounds
+Flat data (D175): `Std.Mem.Rel<T>`, a 32-bit byte offset into a buffer resolved with a bounds
 check, so a structure of nodes and their links is one copyable, position independent block that
 is written or read with one copy; and a reader that checks such a block from untrusted bytes
 through `TypeInfo` before handing it out.
@@ -184,6 +184,6 @@ above:
 program needs it, in the order of the table unless a program asks otherwise; a library is
 replaced only by a decision.
 
-Asset files as declarations (D187): a generator of `CDelta.Sdk.Generators` that turns the files a
+Asset files as declarations (D023): a generator of `CDelta.Sdk.Generators` that turns the files a
 project marks as assets into a static class with a member per file, its path or its `Embed`
 contents, under a name derived from the file name.
