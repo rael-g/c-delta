@@ -658,8 +658,10 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
                 return Emit(bytesType, _f.Cast(CastKind.Bitcast, ArithMode.Default, LowerValue(text), bytesType), SpanOf(operation));
             case IPropertyReferenceOperation { Property.Name: "Current", Instance: { } runes } when runes.Type?.ContainingType?.SpecialType == SpecialType.System_String:
                 return LowerRuneCurrent(runes, SpanOf(operation));
-            case IInvocationOperation { TargetMethod.Name: "GetEnumerator" } textEnumeration when TypeMapper.IsString(textEnumeration.TargetMethod.ContainingType):
+            case IInvocationOperation { TargetMethod.Name: "GetEnumerator" or "EnumerateRunes" } textEnumeration when TypeMapper.IsString(textEnumeration.TargetMethod.ContainingType):
                 return LowerStringEnumerator(textEnumeration);
+            case IInvocationOperation { TargetMethod.Name: "GetEnumerator", Instance: { } runeEnumerator } when runeEnumerator.Type?.ContainingType?.SpecialType == SpecialType.System_String:
+                return Snapshot(LowerValue(runeEnumerator), SpanOf(runeEnumerator));
             case IInvocationOperation { TargetMethod.Name: "MoveNext" } textAdvance when textAdvance.TargetMethod.ContainingType.ContainingType?.SpecialType == SpecialType.System_String:
                 return LowerStringMoveNext(textAdvance);
             case IPropertyReferenceOperation { Property.GetMethod: { } } userProperty when IsUserAccessor(userProperty.Property):

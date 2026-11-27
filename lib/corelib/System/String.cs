@@ -23,6 +23,8 @@ public readonly unsafe struct String
 
     public Enumerator GetEnumerator() => throw null;
 
+    public Enumerator EnumerateRunes() => throw null;
+
     public static bool operator ==(String left, String right) => throw null;
 
     public static bool operator !=(String left, String right) => throw null;
@@ -33,6 +35,8 @@ public readonly unsafe struct String
 
     public struct Enumerator
     {
+        public Enumerator GetEnumerator() => throw null;
+
         public bool MoveNext() => throw null;
 
         public System.Text.Rune Current => throw null;
