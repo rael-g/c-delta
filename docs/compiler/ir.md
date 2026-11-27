@@ -275,8 +275,8 @@ Errors and results:
 | `r.Error` on `Result<T, E>` | `err r`, then `cast error.enum` to `E` |
 | `r.Error` on `Result` or `Result<T>` | `err r`, which is already `anyerror` |
 | `r.TryGet(out v, out e)` | `trace.save`; `branch` on `haspayload r`; success: `v` gets `r.payload(0)`, the result is `true`; error: `v` gets the zero constant of `T`, `e` gets `r.Error` as above, `trace.restore`, the result is `false` |
-| `Catch(r, d)` | `trace.save`; `branch` on `haspayload r`; success: `r.payload(0)`; error: `trace.restore`, then `d` |
-| `Try(r)` in a function returning `result<U, F>` | `branch` on `haspayload r`; success: `r.payload(0)`; error: `err r`, `cast error.error` to `F` (or `anyerror`), the deferred bodies, `trace.push`, `return result.err` |
+| `r.Catch(d)` | `trace.save`; `branch` on `haspayload r`; success: `r.payload(0)`; error: `trace.restore`, then `d` |
+| `r.Try()` in a function returning `result<U, F>` | `branch` on `haspayload r`; success: `r.payload(0)`; error: `err r`, `cast error.error` to `F` (or `anyerror`), the deferred bodies, `trace.push`, `return result.err` |
 | `error.Name` | `intrinsic error.name(e)`, of type `slice<u8> const`; the core replaces it by an index into the name table |
 | an error from `Main`, in the synthetic entry point only | the statement `intrinsic error.report(name)`, with `name` a `slice<u8> const`: writes `error: <name>` and the trace block to standard error ([backend-c.md](backend-c.md#output-of-an-error-from-main)) |
 

@@ -57,8 +57,8 @@ static Result<File> Open(ReadOnlySpan<byte> path)
 
 | Need | CΔ |
 |---|---|
-| Propagate to the caller | `var f = Try(Open(path));` |
-| Replace an error with a value | `var n = Catch(Parse(s), 0);` |
+| Propagate to the caller | `var f = Open(path).Try();` |
+| Replace an error with a value | `var n = Parse(s).Catch(0);` |
 | Inspect | `if (!r.TryGet(out var value, out var error)) { ... }` |
 | Branch on the error | `switch (error) { case FileError.NotFound: ... }` |
 | Assert success | `r.Value`: illegal behavior if `r` is an error |
@@ -68,14 +68,16 @@ static Result<File> Open(ReadOnlySpan<byte> path)
 
 ### `Try`
 
-`Try(r)` evaluates `r`; on success it yields the payload, on error it returns the error from the
+`r.Try()` evaluates `r`; on success it yields the payload, on error it returns the error from the
 enclosing function, running the pending `ErrDefer` and `Defer` bodies first.
 
 - The enclosing function must return a `Result` type (`CD3001`).
 - If it returns `Result<U, F>`, every member name of the operand's set must exist in `F`
   (`CD3002`). If it returns `Result` or `Result<U>`, any set is accepted.
-- `Try` is a function call in syntax and a control flow statement in meaning. It is the only
-  intrinsic that returns from its caller; its name says so.
+- `Try` is an extension method call in syntax and a control flow statement in meaning. It is the
+  only intrinsic that returns from its caller; its name says so.
+- It is postfix, so a chain reads in the order it runs and never nests:
+  `File.Open(io, path).Try().ReadAll(io, a).Try()`. `Catch` is postfix too: `Parse(s).Catch(0)`.
 
 ### A `Result` cannot be dropped
 
@@ -87,9 +89,9 @@ with `_ =`.
 ```csharp
 static Result<Buffer> Make(IAllocator a)
 {
-    var memory = Try(a.Alloc(4096, 16));
+    var memory = a.Alloc(4096, 16).Try();
     ErrDefer(() => a.Free(memory));
-    var header = Try(WriteHeader(memory));
+    var header = WriteHeader(memory).Try();
     return new Buffer(memory, header);
 }
 ```
@@ -166,7 +168,7 @@ return Process.Run(Run);
 
 static Result Run()
 {
-    var lines = Try(CountLines(Process.Args()[1]));
+    var lines = CountLines(Process.Args()[1]).Try();
     Debug.Print($"{lines}\n");
     return default;
 }

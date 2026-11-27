@@ -128,7 +128,7 @@ public TValue this[TKey key] => Find(key);
 `list[i] = x` and `list[i].X++` write through the returned reference, as they write the element
 in C#. A setter does not exist because in C# `dict[key] = v` inserts, and inserting allocates.
 The indexer of `Dictionary` therefore returns a value, not a reference, so `dict[key] = v` does
-not compile instead of behaving differently (D156): insertion is `Try(dict.Add(key, v))`, an
+not compile instead of behaving differently (D156): insertion is `dict.Add(key, v).Try()`, an
 update in place is `dict.GetValueRef(key)`. A missing key in the getter is a panic, as
 `KeyNotFoundException` is in C#; `TryGetValue` is the fallible form.
 
@@ -163,7 +163,7 @@ is a struct of the corelib, not a class, so it is unmanaged, may be a field of a
 laid out as `struct { const uint8_t* ptr; int32_t len; }` (D148).
 
 ```csharp
-string cmd = Try(ReadLine(input, buffer));
+string cmd = ReadLine(input, buffer).Try();
 switch (cmd)
 {
     case "help": ShowHelp(); break;

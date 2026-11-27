@@ -53,8 +53,12 @@ leaves to a build option. `unchecked` wraps, `checked` always traps.
 **D014. No exceptions; errors are `Result` values.** Error sets are enums; error identity is the
 member name across the program; codes are assigned globally by the compiler.
 
-**D015. `Try` is an intrinsic call that returns from its caller.** C# has no expression that can,
-and `try` is taken. Its name states the control flow.
+**D015. `Try` is an intrinsic extension method that returns from its caller: `r.Try()`.** C# has
+no expression that can, and `try` is taken. Its name states the control flow. It is postfix, as
+`Catch` is, so a chain reads in the order it runs instead of nesting calls inside out, and the
+operation comes first with the propagation after it. A postfix `?` would be lighter but is not C#
+syntax, so Roslyn could not parse it, and `!` keeps its operand's type; a method name of the
+corelib is CΔ's own, so no version of C# can give it another meaning.
 
 **D016. `throw` survives only as `throw Panic(...)` and `throw Unreachable()`.** It gives the
 noreturn flow analysis of C# for free.

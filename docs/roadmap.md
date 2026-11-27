@@ -109,7 +109,7 @@ static unsafe class Program
             Debug.Print("usage: count-lines <file>\n");
             Process.Exit(2);
         }
-        var lines = Try(CountLines(args[1].Pointer));
+        var lines = CountLines(args[1].Pointer).Try();
         C.printf("%lld\n", __arglist(lines));
         return default;
     }

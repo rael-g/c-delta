@@ -208,7 +208,7 @@ exactly the semantics of [../language/memory.md](../language/memory.md#defer).
 
 ### `Try`
 
-`Try(r)` splits its block: evaluate `r` into a temp, `branch haspayload`. The success edge reads
+`r.Try()` splits its block: evaluate `r` into a temp, `branch haspayload`. The success edge reads
 the payload. The error edge reads `err`, casts it with `error.error` to the error set of the
 method's return type, runs every active deferred body up to the method's outermost region, then
 returns `result.err` of the method's return type. Whether the error sets are compatible was

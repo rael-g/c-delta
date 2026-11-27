@@ -26,7 +26,7 @@ static class Program
         Defer(() => squares.Deinit());
 
         for (int i = 0; i < 10; i++)
-            Try(squares.Append(i * i));
+            squares.Append(i * i).Try();
 
         foreach (var square in squares.Items)
             Print($"{square}\n");
@@ -66,7 +66,7 @@ What to notice:
 | An optional value | `T?` | [types.md](types.md) |
 | A fallible result | `Result`, `Result<T>`, `Result<T, E>` | [errors.md](errors.md) |
 | An error set | an `enum` | [errors.md](errors.md) |
-| Propagate an error | `Try(expr)` | [errors.md](errors.md) |
+| Propagate an error | `expr.Try()` | [errors.md](errors.md) |
 | Cleanup at scope exit | `Defer`, `ErrDefer`, `using` | [memory.md](memory.md) |
 | A tagged union | a `[Union]` interface and its implementing structs | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
 | Static polymorphism | a generic constrained by an interface | [generics-interfaces-delegates.md](generics-interfaces-delegates.md) |
@@ -98,7 +98,7 @@ static Result<uint, ParseError> ParseDecimal(ReadOnlySpan<byte> text)
     return value;
 }
 
-static uint PortOrDefault(ReadOnlySpan<byte> text) => Catch(ParseDecimal(text), 8080u);
+static uint PortOrDefault(ReadOnlySpan<byte> text) => ParseDecimal(text).Catch(8080u);
 ```
 
 `value * 10` overflowing is illegal behavior: a panic in safe builds. `unchecked(value * 10)`

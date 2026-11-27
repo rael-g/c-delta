@@ -8,7 +8,7 @@ anything and no function is colored by what it calls.
 ```csharp
 static Result<string> Load(IIo io, IAllocator a, string url)
 {
-    var response = Try(Http.Get(io, url));
+    var response = Http.Get(io, url).Try();
     return response.ReadAll(io, a);
 }
 ```
@@ -29,8 +29,8 @@ The program chooses the backend once, usually in `Main`, and passes it down. A t
 ```csharp
 using var a = Task.Run(io, () => Load(io, alloc, urlA));
 using var b = Task.Run(io, () => Load(io, alloc, urlB));
-Try(Task.WhenAll(io, a, b));
-var pages = (Try(a.Wait(io)), Try(b.Wait(io)));
+Task.WhenAll(io, a, b).Try();
+var pages = (a.Wait(io).Try(), b.Wait(io).Try());
 ```
 
 - `Task.Run(io, work)` starts `work`, a `Func<T>` or a `Func<Result<T>>`, and returns a
@@ -111,10 +111,10 @@ kernel, so the data of a socket or a file is not copied between mappings on each
 | C# | CΔ |
 |---|---|
 | `async Task<T> LoadAsync(...)` | `Result<T> Load(IIo io, ...)` |
-| `await LoadAsync(x)` | `Try(Load(io, x))` |
+| `await LoadAsync(x)` | `Load(io, x).Try()` |
 | `Task.Run(() => ...)` | `using var t = Task.Run(io, () => ...)` |
-| `await Task.WhenAll(a, b)` | `Try(Task.WhenAll(io, a, b))` |
-| `await t` | `Try(t.Wait(io))` |
+| `await Task.WhenAll(a, b)` | `Task.WhenAll(io, a, b).Try()` |
+| `await t` | `t.Wait(io).Try()` |
 | `ConfigureAwait(false)`, `ValueTask`, sync-over-async | not needed: there is one function, not two |
 | `IAsyncEnumerable<T>`, `await foreach` | a `Channel<T>`, or an iterator over values already read |
 | `CancellationToken` | the same, with `error.Canceled` instead of an exception |

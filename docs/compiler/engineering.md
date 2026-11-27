@@ -191,7 +191,7 @@ never its IL emitter, so only binding matters.
 | collection expression | `Span<int> s = [1, 2, 3];` |
 | span iteration and ranges | `foreach (var x in s)`, `s[1..]`, `s[^1]` |
 | result conversions | `Result<int, E> F() => 1;` and `=> E.A;` |
-| defer and try | `Defer(() => G());`, `var v = Try(F());` |
+| defer and try | `Defer(() => G());`, `var v = F().Try();` |
 | panic | `throw Panic("x");` as the last statement of a non-void method |
 | variadic extern | `static extern int printf(byte* f, __arglist);` and a call |
 | extern without attribute | `static extern int f(int x);` binds, with CS0626 suppressed |

@@ -201,7 +201,7 @@ static class ParseTests
     [Test]
     static Result DecimalDigits()
     {
-        Try(Testing.ExpectEqual(42u, Try(Parse.Decimal("42"))));
+        Testing.ExpectEqual(42u, Parse.Decimal("42").Try()).Try();
         return default;
     }
 }

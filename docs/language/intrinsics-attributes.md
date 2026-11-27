@@ -14,11 +14,11 @@ The second table lists the C# names CΔ reuses.
 | `void Defer(Action body)` | run `body` at scope exit | [memory.md](memory.md#defer) |
 | `void ErrDefer(Action body)` | run `body` at scope exit by error | [errors.md](errors.md#errdefer) |
 | `void ErrDefer(Action<Error> body)` | the same, receiving the error | [errors.md](errors.md#errdefer) |
-| `T Try<T, E>(Result<T, E> r)` | payload or return the error | [errors.md](errors.md#try) |
-| `T Try<T>(Result<T> r)` | payload or return the error | [errors.md](errors.md#try) |
-| `void Try(Result r)` | return the error if any | [errors.md](errors.md#try) |
-| `T Catch<T, E>(Result<T, E> r, T fallback)` | payload or `fallback` | [errors.md](errors.md#handling) |
-| `T Catch<T>(Result<T> r, T fallback)` | payload or `fallback` | [errors.md](errors.md#handling) |
+| `T Try<T, E>(this Result<T, E> r)` | payload or return the error | [errors.md](errors.md#try) |
+| `T Try<T>(this Result<T> r)` | payload or return the error | [errors.md](errors.md#try) |
+| `void Try(this Result r)` | return the error if any | [errors.md](errors.md#try) |
+| `T Catch<T, E>(this Result<T, E> r, T fallback)` | payload or `fallback` | [errors.md](errors.md#handling) |
+| `T Catch<T>(this Result<T> r, T fallback)` | payload or `fallback` | [errors.md](errors.md#handling) |
 | `Error Fail<E>(E error) where E : struct, Enum` | an error set member as `Error` | [errors.md](errors.md#error-unions) |
 | `Exception Panic(ReadOnlySpan<byte> message)` | operand of `throw`: panic | [errors.md](errors.md#panics) |
 | `Exception Unreachable()` | operand of `throw`: unreachable | [errors.md](errors.md#panics) |

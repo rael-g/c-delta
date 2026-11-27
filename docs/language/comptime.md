@@ -171,9 +171,9 @@ static Result WriteStruct<W>(ref W writer, [Comptime] TypeInfo type, ref byte va
 {
     foreach (var field in type.Fields)
     {
-        Try(writer.Write(field.Name));
-        Try(writer.Write(" = "u8));
-        Try(WriteValue(ref writer, field.Type, ref Unsafe.Add(ref value, field.Offset)));
+        writer.Write(field.Name).Try();
+        writer.Write(" = "u8).Try();
+        WriteValue(ref writer, field.Type, ref Unsafe.Add(ref value, field.Offset)).Try();
     }
     return Ok();
 }

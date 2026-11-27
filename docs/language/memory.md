@@ -35,7 +35,7 @@ Allocation failure is a `Result` error (`Std.Mem.AllocError.OutOfMemory`), never
 ## Defer
 
 ```csharp
-var file = Try(Fs.Open(path));
+var file = Fs.Open(path).Try();
 Defer(() => file.Close());
 ```
 
