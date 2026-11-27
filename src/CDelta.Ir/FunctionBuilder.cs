@@ -106,6 +106,9 @@ public sealed class FunctionBuilder(Module module, Body body)
     public RvalueId CallDyn(OperandId dyn, int method, IReadOnlyList<OperandId> args) =>
         AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Dyn, CalleeId = dyn.Index, Aux = method, Args = AddArgs(args) });
 
+    public RvalueId CallUnion(OperandId pointer, int method, IReadOnlyList<OperandId> args) =>
+        AddRvalue(Blank(RvalueKind.Call) with { Callee = CalleeKind.Union, CalleeId = pointer.Index, Aux = method, Args = AddArgs(args) });
+
     public RvalueId DynMakeImpl(int impl, OperandId self, TypeId dynType) =>
         AddRvalue(Blank(RvalueKind.DynMake) with { Callee = CalleeKind.Direct, Aux = impl, A = self, Type = dynType });
 

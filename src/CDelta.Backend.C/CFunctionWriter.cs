@@ -251,6 +251,14 @@ internal sealed partial class CFunctionWriter(
                     targets.Add(t.Then.Index);
                     targets.Add(t.Else.Index);
                     break;
+                case TermKind.Switch:
+                    targets.Add(t.Else.Index);
+                    for (int i = 0; i < t.Cases.Count; i++)
+                    {
+                        targets.Add(_body.SwitchCases[t.Cases.Start + i].Target.Index);
+                    }
+
+                    break;
             }
         }
 
@@ -868,6 +876,16 @@ internal sealed partial class CFunctionWriter(
                 break;
             case TermKind.Branch:
                 Statement("if (" + OperandText(terminator.Operand) + ") goto bb" + terminator.Then.Index + "; else goto bb" + terminator.Else.Index + ";");
+                break;
+            case TermKind.Switch:
+                var cases = new StringBuilder("switch (" + OperandText(terminator.Operand) + ") { ");
+                for (int i = 0; i < terminator.Cases.Count; i++)
+                {
+                    SwitchCase item = _body.SwitchCases[terminator.Cases.Start + i];
+                    cases.Append("case ").Append(CConstants.Initializer(module, names, item.Value)).Append(": goto bb").Append(item.Target.Index).Append("; ");
+                }
+
+                Statement(cases.Append("default: goto bb").Append(terminator.Else.Index).Append("; }").ToString());
                 break;
             case TermKind.Return:
                 Statement(terminator.Operand.IsNone ? "return;" : "return " + OperandText(terminator.Operand) + ";");

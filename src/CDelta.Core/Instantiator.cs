@@ -3,7 +3,7 @@ using CDelta.Ir;
 
 namespace CDelta.Core;
 
-public sealed class Instantiator
+public sealed partial class Instantiator
 {
     private readonly Module _source;
     private readonly IBodyProvider _provider;
@@ -224,9 +224,16 @@ public sealed class Instantiator
             });
         }
 
+        var unionCalls = new List<int>();
         foreach (Rvalue rvalue in source.Rvalues)
         {
             Rvalue copy = rvalue with { Type = _remap.Type(rvalue.Type) };
+            if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Union)
+            {
+                unionCalls.Add(body.Rvalues.Count);
+                copy = copy with { Callee = CalleeKind.Direct, CalleeId = UnionDispatcher(source, rvalue).Index, Aux = 0 };
+            }
+
             if (rvalue.Kind == RvalueKind.Intrinsic)
             {
                 copy = copy with { Aux = _remap.String(new StringId(rvalue.Aux)).Index };
@@ -253,6 +260,20 @@ public sealed class Instantiator
         }
 
         body.Args.AddRange(source.Args);
+        foreach (int index in unionCalls)
+        {
+            Rvalue call = body.Rvalues[index];
+            Rvalue original = source.Rvalues[index];
+            int start = body.Args.Count;
+            body.Args.Add(new OperandId(original.CalleeId));
+            for (int i = 0; i < original.Args.Count; i++)
+            {
+                body.Args.Add(source.Args[original.Args.Start + i]);
+            }
+
+            body.Rvalues[index] = call with { Args = new IdRange(start, original.Args.Count + 1) };
+        }
+
         foreach (SwitchCase item in source.SwitchCases)
         {
             body.SwitchCases.Add(item with { Value = _remap.Constant(item.Value) });

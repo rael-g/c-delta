@@ -1516,6 +1516,11 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             return LowerDynOf(invocation, target, span);
         }
 
+        if (target.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface && TypeMapper.IsUnion(invocation.Instance?.Type))
+        {
+            return LowerUnionCall(invocation, target, span);
+        }
+
         if (target.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface && invocation.Instance?.Type is { TypeKind: Microsoft.CodeAnalysis.TypeKind.Interface })
         {
             return LowerDynCall(invocation, target, span);
@@ -1545,6 +1550,21 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
 
         return Emit(dynType, _f.DynMakeImpl(impl, self, dynType), span);
+    }
+
+    private OperandId? LowerUnionCall(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)
+    {
+        OperandId pointer = ReceiverAddress(invocation.Instance!, false, span);
+        var arguments = invocation.Arguments.Select(argument => LowerArgument(argument, span)).ToList();
+        RvalueId call = _f.CallUnion(pointer, TypeMapper.ContractMethodIndex(target), arguments);
+        TypeId returnType = CallReturnType(target);
+        if (_module.Types[returnType.Index].Kind == TypeKind.Void)
+        {
+            _f.CallStatement(call, span);
+            return null;
+        }
+
+        return Emit(returnType, call, span);
     }
 
     private OperandId? LowerDynCall(IInvocationOperation invocation, IMethodSymbol target, SourceSpan span)

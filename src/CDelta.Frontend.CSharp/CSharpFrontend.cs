@@ -456,11 +456,6 @@ public sealed class CSharpFrontend : IBodyProvider
             : TypeListId.None;
         foreach (INamedTypeSymbol contract in type.AllInterfaces)
         {
-            if (TypeMapper.IsUnion(contract))
-            {
-                continue;
-            }
-
             var methods = new List<ImplMethod>();
             foreach (IMethodSymbol member in contract.GetMembers().OfType<IMethodSymbol>())
             {

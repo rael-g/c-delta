@@ -193,6 +193,15 @@ public static class IrTyper
                         : IrTypes.InterfaceMethodSignature(module, new TypeId(module.Types[dynType.Index].A), r.Aux)?.Return ?? TypeId.None;
                 }
 
+                if (r.Callee == CalleeKind.Union)
+                {
+                    TypeId pointer = OfOperand(module, body, new OperandId(r.CalleeId));
+                    TypeId pointee = pointer.IsNone || module.Types[pointer.Index].Kind != TypeKind.Ptr ? TypeId.None : new TypeId(module.Types[pointer.Index].A);
+                    return pointee.IsNone || module.Types[pointee.Index].Kind != TypeKind.Union
+                        ? TypeId.None
+                        : IrTypes.InterfaceMethodSignature(module, module.Unions[module.Types[pointee.Index].A].Interface, r.Aux)?.Return ?? TypeId.None;
+                }
+
                 TypeId calleeType = OfOperand(module, body, new OperandId(r.CalleeId));
                 TypeNode node = module.Types[calleeType.Index];
                 return node.Kind == TypeKind.Fn ? module.Sigs[node.A].Return : TypeId.None;

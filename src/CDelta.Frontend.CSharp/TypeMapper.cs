@@ -157,7 +157,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         UnionId id = builder.DeclareUnion(
             contract.GetDocumentationCommentId()![2..],
             contract.ToDisplayString(_nameFormat),
-            spanOf(contract.Locations.FirstOrDefault() ?? Location.None));
+            spanOf(contract.Locations.FirstOrDefault() ?? Location.None),
+            InterfaceType(contract, location));
         _unions.Add(contract, id);
         builder.DefineUnionMembers(id, [.. ImplementersOf(contract).Select(member => Map(member, location))]);
         return id;

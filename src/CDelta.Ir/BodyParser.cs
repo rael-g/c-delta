@@ -456,7 +456,7 @@ internal sealed class BodyParser(
                 cursor.Expect('>');
             }
         }
-        else if (kind == "dyn")
+        else if (kind is "dyn" or "union")
         {
             indirect = ParseOperand(cursor);
             constrainedRef = cursor.ReadInt();
@@ -503,6 +503,11 @@ internal sealed class BodyParser(
         if (kind == "dyn")
         {
             return _f.CallDyn(indirect, constrainedRef, arguments);
+        }
+
+        if (kind == "union")
+        {
+            return _f.CallUnion(indirect, constrainedRef, arguments);
         }
 
         return kind == "direct" ? _f.CallDirect(callee, arguments, typeArgs) : _f.CallIndirect(indirect, arguments);

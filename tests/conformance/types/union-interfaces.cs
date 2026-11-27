@@ -1,17 +1,22 @@
 [Union]
 interface IShape
 {
+    int Sides(int extra);
 }
 
 struct Circle : IShape
 {
     public int Radius;
+
+    public int Sides(int extra) => extra;
 }
 
 struct Rect : IShape
 {
     public int Width;
     public int Height;
+
+    public int Sides(int extra) => 4 + extra;
 }
 
 static class P
@@ -47,6 +52,6 @@ static class P
         rect.Height = 6;
         IShape first = circle;
         IShape second = rect;
-        return Area(first) + Area(second) + Kind(first) * 100 - 100;
+        return Area(first) + Area(second) + Kind(first) * 100 - 100 + first.Sides(0) + second.Sides(0) - 4 - 0;
     }
 }

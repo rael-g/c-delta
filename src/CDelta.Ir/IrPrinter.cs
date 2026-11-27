@@ -462,7 +462,7 @@ public static partial class IrPrinter
 
     private static void PrintUnion(Module module, UnionDecl union, StringBuilder text)
     {
-        text.Append("union ").Append(Reference(module.Text(union.Key)));
+        text.Append("union ").Append(Reference(module.Text(union.Key))).Append(" of ").Append(TypeText(module, union.Interface));
         if (union.Size != UnionDecl.NotComputed)
         {
             text.Append(" tag ").Append(TypeText(module, union.Tag)).Append(" size ").Append(union.Size).Append(" align ").Append(union.Alignment);
@@ -1059,9 +1059,9 @@ public static partial class IrPrinter
                         text.Append('<').Append(string.Join(", ", constrainedArgs.Select(arg => TypeText(module, new TypeId(arg))))).Append('>');
                     }
                 }
-                else if (rvalue.Callee == CalleeKind.Dyn)
+                else if (rvalue.Callee is CalleeKind.Dyn or CalleeKind.Union)
                 {
-                    text.Append("dyn ");
+                    text.Append(rvalue.Callee == CalleeKind.Dyn ? "dyn " : "union ");
                     PrintOperand(module, body, new OperandId(rvalue.CalleeId), text);
                     text.Append(' ').Append(rvalue.Aux);
                 }

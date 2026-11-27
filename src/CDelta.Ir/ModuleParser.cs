@@ -237,20 +237,7 @@ internal sealed class ModuleParser
         var cursor = new IrCursor(_lines[start], start + 1);
         cursor.ExpectWord("union");
         string key = cursor.ReadReference();
-        UnionId id = _builder.DeclareUnion(key, key, SourceSpan.None);
-        TypeId tag = TypeId.None;
-        int size = UnionDecl.NotComputed;
-        int alignment = UnionDecl.NotComputed;
-        if (cursor.TryWord("tag"))
-        {
-            tag = _types.ParseType(cursor);
-            cursor.ExpectWord("size");
-            size = cursor.ReadInt();
-            cursor.ExpectWord("align");
-            alignment = cursor.ReadInt();
-        }
-
-        _module.Unions[id.Index] = _module.Unions[id.Index] with { Span = ParseSpan(cursor), Tag = tag, Size = size, Alignment = alignment };
+        _builder.DeclareUnion(key, key, SourceSpan.None);
     }
 
     private void DefineUnion(int start, int end)
@@ -258,6 +245,20 @@ internal sealed class ModuleParser
         var header = new IrCursor(_lines[start], start + 1);
         header.ExpectWord("union");
         UnionId id = _module.UnionsByKey[header.ReadReference()];
+        header.ExpectWord("of");
+        TypeId contract = _types.ParseType(header);
+        TypeId tag = TypeId.None;
+        int size = UnionDecl.NotComputed;
+        int alignment = UnionDecl.NotComputed;
+        if (header.TryWord("tag"))
+        {
+            tag = _types.ParseType(header);
+            header.ExpectWord("size");
+            size = header.ReadInt();
+            header.ExpectWord("align");
+            alignment = header.ReadInt();
+        }
+
         var members = new List<TypeId>();
         for (int i = start + 1; i < end; i++)
         {
@@ -270,6 +271,7 @@ internal sealed class ModuleParser
         }
 
         _builder.DefineUnionMembers(id, members);
+        _module.Unions[id.Index] = _module.Unions[id.Index] with { Interface = contract, Span = ParseSpan(header), Tag = tag, Size = size, Alignment = alignment };
     }
 
     private void DeclareInterfaceShell(int start)

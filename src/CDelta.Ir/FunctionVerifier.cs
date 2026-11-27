@@ -726,6 +726,27 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         return found.Return;
     }
 
+    private TypeId UnionCallType(Body body, Rvalue r)
+    {
+        TypeId pointer = OperandType(body, new OperandId(r.CalleeId));
+        TypeId pointee = pointer.IsNone || KindOf(pointer) != TypeKind.Ptr ? TypeId.None : new TypeId(module.Types[pointer.Index].A);
+        if (stage != ModuleStage.Lowered || pointee.IsNone || KindOf(pointee) != TypeKind.Union)
+        {
+            Fail("a union call outside Lowered or through something that is not a pointer to a union");
+            return TypeId.None;
+        }
+
+        (List<TypeId> Parameters, TypeId Return, InterfaceMethod Method)? signature = IrTypes.InterfaceMethodSignature(module, module.Unions[module.Types[pointee.Index].A].Interface, r.Aux);
+        if (signature is not { } found || found.Method.IsStatic)
+        {
+            Fail("a union call names a missing or static method");
+            return TypeId.None;
+        }
+
+        CheckArguments(body, r, found.Parameters, false);
+        return found.Return;
+    }
+
     private TypeId UnionMakeType(Body body, Rvalue r)
     {
         TypeId value = OperandType(body, r.A);
@@ -875,6 +896,11 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
         if (r.Callee == CalleeKind.Dyn)
         {
             return DynCallType(body, r);
+        }
+
+        if (r.Callee == CalleeKind.Union)
+        {
+            return UnionCallType(body, r);
         }
 
         TypeId calleeType = OperandType(body, new OperandId(r.CalleeId));
@@ -1122,7 +1148,7 @@ internal sealed class FunctionVerifier(Module module, ModuleStage stage, Functio
 
         if (r.Kind is RvalueKind.Call or RvalueKind.Aggregate or RvalueKind.Intrinsic)
         {
-            if (r.Kind == RvalueKind.Call && r.Callee is CalleeKind.Indirect or CalleeKind.Dyn)
+            if (r.Kind == RvalueKind.Call && r.Callee is CalleeKind.Indirect or CalleeKind.Dyn or CalleeKind.Union)
             {
                 ReadOperand(body, new OperandId(r.CalleeId), state, report);
             }

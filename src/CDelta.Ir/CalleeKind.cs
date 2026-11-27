@@ -6,4 +6,5 @@ public enum CalleeKind
     Indirect,
     Constrained,
     Dyn,
+    Union,
 }

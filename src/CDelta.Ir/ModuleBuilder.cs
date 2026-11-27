@@ -186,10 +186,10 @@ public sealed class ModuleBuilder(Module module)
         Module.Interfaces[id.Index] = Module.Interfaces[id.Index] with { Methods = new IdRange(start, methods.Count) };
     }
 
-    public UnionId DeclareUnion(string key, string name, SourceSpan span)
+    public UnionId DeclareUnion(string key, string name, SourceSpan span, TypeId contract = default)
     {
         var id = new UnionId(Module.Unions.Count);
-        Module.Unions.Add(new UnionDecl(Module.Intern(key), Module.Intern(name), span, IdRange.Empty, TypeId.None, UnionDecl.NotComputed, UnionDecl.NotComputed));
+        Module.Unions.Add(new UnionDecl(Module.Intern(key), Module.Intern(name), span, contract.Equals(default(TypeId)) ? TypeId.None : contract, IdRange.Empty, TypeId.None, UnionDecl.NotComputed, UnionDecl.NotComputed));
         Module.UnionsByKey.Add(key, id);
         return id;
     }

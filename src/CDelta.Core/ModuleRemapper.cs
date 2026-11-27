@@ -105,7 +105,7 @@ internal sealed class ModuleRemapper(Module source, Module destination)
         }
 
         var builder = new ModuleBuilder(destination);
-        UnionId created = builder.DeclareUnion(key, source.Text(declaration.Name), declaration.Span);
+        UnionId created = builder.DeclareUnion(key, source.Text(declaration.Name), declaration.Span, Type(declaration.Interface));
         var members = new List<TypeId>();
         for (int i = 0; i < declaration.Members.Count; i++)
         {
