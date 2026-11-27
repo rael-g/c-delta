@@ -1525,6 +1525,12 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
             target = implementation;
         }
 
+        if (target is { Name: "PrintErrorTrace", ContainingType: { Name: "Intrinsics", ContainingNamespace.Name: "CDelta" } })
+        {
+            _f.IntrinsicStatement(_f.Intrinsic(IrTyper.TracePrintIntrinsic, []), span);
+            return null;
+        }
+
         if (target.ContainingType.ToDisplayString() == "CDelta.Startup")
         {
             return LowerStartup(target, span);

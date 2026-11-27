@@ -4,6 +4,7 @@ public static class IrTyper
 {
     public const string ErrorNameIntrinsic = "error.name";
     public const string ErrorReportIntrinsic = "error.report";
+    public const string TracePrintIntrinsic = "trace.print";
     public const string TextEqlIntrinsic = "text.eql";
     public const string Utf8NextIntrinsic = "utf8.next";
 
@@ -165,7 +166,7 @@ public static class IrTyper
             case RvalueKind.Errcode:
                 return module.Type(new TypeNode(TypeKind.U16, TypeFlags.None, 0, 0));
             case RvalueKind.Intrinsic:
-                if (module.Strings[r.Aux] == ErrorReportIntrinsic)
+                if (module.Strings[r.Aux] is ErrorReportIntrinsic or TracePrintIntrinsic)
                 {
                     return module.Type(new TypeNode(TypeKind.Void, TypeFlags.None, 0, 0));
                 }

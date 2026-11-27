@@ -12,6 +12,8 @@ internal sealed class CEmitState
 
     public bool UsesReport { get; set; }
 
+    public bool UsesTracePrint { get; set; }
+
     public bool UsesTextEql { get; set; }
 
     public bool UsesUtf8Next { get; set; }

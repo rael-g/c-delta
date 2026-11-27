@@ -24,7 +24,7 @@ public static class SafetyPass
             new FunctionSafety(module, body, options.Target, checksOn).Run();
             if (!options.TracesErrors)
             {
-                RemoveTraces(body);
+                RemoveTraces(module, body);
             }
         }
 
@@ -33,11 +33,15 @@ public static class SafetyPass
         module.Target = options.Target;
     }
 
-    private static void RemoveTraces(Body body)
+    private static bool IsTracePrint(Module module, Body body, Statement statement) =>
+        statement.Kind == StatementKind.Intrinsic && module.Strings[body.Rvalues[statement.Rvalue.Index].Aux] == IrTyper.TracePrintIntrinsic;
+
+    private static void RemoveTraces(Module module, Body body)
     {
         foreach (Block block in body.Blocks)
         {
-            block.Statements.RemoveAll(id => body.Statements[id.Index].Kind is StatementKind.TracePush or StatementKind.TraceSave or StatementKind.TraceRestore);
+            block.Statements.RemoveAll(id => body.Statements[id.Index].Kind is StatementKind.TracePush or StatementKind.TraceSave or StatementKind.TraceRestore
+                || IsTracePrint(module, body, body.Statements[id.Index]));
         }
     }
 }

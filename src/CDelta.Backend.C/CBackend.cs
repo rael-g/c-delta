@@ -46,7 +46,7 @@ public static class CBackend
 
         if (state.UsesTrace)
         {
-            bool printed = options.LinkLibC && (state.UsesPanic && handler is null || state.UsesReport);
+            bool printed = options.LinkLibC && (state.UsesPanic && handler is null || state.UsesReport || state.UsesTracePrint);
             text.Append('\n').Append(CPrelude.TraceCounter);
             if (state.UsesTracePush || printed)
             {
@@ -61,7 +61,8 @@ public static class CBackend
 
         bool defaultPanic = state.UsesPanic && handler is null;
         bool report = state.UsesReport && options.LinkLibC;
-        if (options.LinkLibC && (defaultPanic || report))
+        bool tracePrinted = state.UsesTracePrint && options.LinkLibC;
+        if (options.LinkLibC && (defaultPanic || report || tracePrinted))
         {
             text.Append('\n').Append(CPrelude.LibcProtocol).Append('\n').Append(CPrelude.LibcWriters);
             if (state.UsesTrace)
@@ -219,7 +220,7 @@ public static class CBackend
         }
 
         text.Append(definitions);
-        string? libc = (defaultPanic || report) && options.LinkLibC ? CPrelude.LibcUnit : null;
+        string? libc = (defaultPanic || report || tracePrinted) && options.LinkLibC ? CPrelude.LibcUnit : null;
         return new CBackendOutput(text.ToString(), libc);
     }
 

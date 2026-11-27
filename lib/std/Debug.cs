@@ -7,6 +7,11 @@ public static unsafe class Debug
     [DllImport("c")]
     private static extern nint write(int descriptor, byte* bytes, nuint count);
 
+    public static void PrintErrorTrace()
+    {
+        CDelta.Intrinsics.PrintErrorTrace();
+    }
+
     public static void Print(ReadOnlySpan<byte> text)
     {
         fixed (byte* bytes = text)

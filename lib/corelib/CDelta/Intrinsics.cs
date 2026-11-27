@@ -22,6 +22,8 @@ public static class Intrinsics
 
     public static Error Fail<E>(E error) where E : struct, Enum => throw null;
 
+    public static void PrintErrorTrace() => throw null;
+
     public static Exception Unreachable() => throw null;
 
     public static Exception Panic(ReadOnlySpan<byte> message) => throw null;

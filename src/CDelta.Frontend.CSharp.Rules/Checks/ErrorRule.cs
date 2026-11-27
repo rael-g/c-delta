@@ -89,7 +89,7 @@ internal sealed class ErrorRule : SubsetRule
     {
         var invocation = (IInvocationOperation)context.Operation;
         IMethodSymbol target = invocation.TargetMethod;
-        ISymbol? enclosing = context.ContainingSymbol;
+        ISymbol? enclosing = EnclosingMethod(context, invocation);
         if (IsIntrinsic(target, "Try"))
         {
             if (InDeferredBody(invocation))

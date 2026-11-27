@@ -355,6 +355,15 @@ internal sealed partial class CFunctionWriter(
             case StatementKind.Call:
                 _text.Append(Indent).Append(CallText(_body.Rvalues[statement.Rvalue.Index])).Append(";\n");
                 break;
+            case StatementKind.Intrinsic when module.Strings[_body.Rvalues[statement.Rvalue.Index].Aux] == IrTyper.TracePrintIntrinsic:
+                if (options.LinkLibC)
+                {
+                    state.UsesTrace = true;
+                    state.UsesTracePrint = true;
+                    Statement("cd_trace_print();");
+                }
+
+                break;
             case StatementKind.Intrinsic:
                 if (options.LinkLibC)
                 {
