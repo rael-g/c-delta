@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.props" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CDeltaTarget>x86_64-linux-gnu</CDeltaTarget>
+    <CToolchain>clang</CToolchain>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <NativeLibrary Include="sqlite3" Linkage="Dynamic" />
+  </ItemGroup>
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.targets" />
+
+</Project>

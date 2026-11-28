@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-packages=(qemu-user libc6-arm64-cross wine64 clang libclang-rt-dev gcc)
+packages=(qemu-user libc6-arm64-cross wine64 clang libclang-rt-dev gcc zlib1g-dev libsqlite3-dev libvulkan-dev)
 sysroot="${CDELTA_AARCH64_SYSROOT:-/usr/aarch64-linux-gnu}"
 
 missing=()

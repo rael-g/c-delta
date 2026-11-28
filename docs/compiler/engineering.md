@@ -17,10 +17,11 @@ Everything runs in the distrobox `dev`. It provides:
 | `tcc` | 0.9.28 or newer, built from the commit pinned in `eng/setup-dev.sh` into `/usr/local` | the `Debug` toolchain, the toolchain differential test |
 | `qemu-aarch64` and an aarch64 glibc sysroot | any | running `aarch64-linux-gnu` tests; the sysroot is `CDELTA_AARCH64_SYSROOT`, default `/usr/aarch64-linux-gnu` |
 | `wine` | 9 or newer | running `x86_64-windows-gnu` tests |
+| `zlib`, `sqlite3` and Vulkan development headers | any | the `zlib`, `sqlite` and `vulkan-headers` end to end cases |
 | `git`, `bash` | any | |
 
 `dev` is Ubuntu 24.04. `eng/setup-dev.sh` installs what the base image lacks with `apt`
-(`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `libclang-rt-dev`, `gcc`) and checks every
+(`qemu-user`, `libc6-arm64-cross`, `wine64`, `clang`, `libclang-rt-dev`, `gcc`, `zlib1g-dev`, `libsqlite3-dev`, `libvulkan-dev`) and checks every
 version of the table; it is idempotent and changes nothing outside the container, so it writes no
 profile file. Ubuntu's `tcc` predates `_Thread_local`, so the script builds `tcc` from source.
 `zig` and the .NET SDK are part of the image; the script only checks their versions.
