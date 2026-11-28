@@ -473,7 +473,7 @@ internal sealed partial class CFunctionWriter(
             }
 
             OperandId argument = _body.Args[rvalue.Args.Start + i];
-            bool castToVoid = imported && module.Types[IrTyper.OfOperand(module, _body, argument).Index].Kind == TypeKind.Ptr;
+            bool castToVoid = imported && module.Types[IrTyper.OfOperand(module, _body, argument).Index].Kind is TypeKind.Ptr or TypeKind.Fn;
             text.Append(castToVoid ? "(void*)(" + OperandText(argument) + ")" : OperandText(argument));
         }
 
