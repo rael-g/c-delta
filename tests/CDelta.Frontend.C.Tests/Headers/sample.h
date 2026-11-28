@@ -24,3 +24,6 @@ static inline int sample_twice(int v) { return v * 2; }
 #define SAMPLE_BUFFER ((struct pair *)0x20000000)
 extern int sample_global;
 #define SAMPLE_GLOBAL_ADDRESS (&sample_global)
+
+struct wide { long double value; };
+int sample_wide(struct wide* w);

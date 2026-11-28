@@ -61,6 +61,11 @@ public static unsafe class CHeaderReader
             }
 
             IReadOnlyList<ImportedMacro> macros = ReadMacros(index, source, arguments, cursors, translator);
+            foreach ((string key, string reason) in translator.UnsupportedRecords)
+            {
+                unsupported["struct:" + key] = reason;
+            }
+
             return new CImportResult(module, macros, unsupported);
         }
         finally

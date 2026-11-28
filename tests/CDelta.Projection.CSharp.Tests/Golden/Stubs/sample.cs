@@ -30,6 +30,12 @@ static unsafe partial class Sample
         public int y;
     }
 
+    [CName("struct wide")]
+    [Unsupported("long double")]
+    public struct wide
+    {
+    }
+
     [CName("enum mode")]
     public enum mode : uint
     {
@@ -64,5 +70,7 @@ static unsafe partial class Sample
     public static extern point sample_origin();
 
     public static extern int sample_twice(int v);
+
+    public static extern int sample_wide(wide* w);
 
 }

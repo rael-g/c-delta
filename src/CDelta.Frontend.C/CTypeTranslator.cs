@@ -10,6 +10,8 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
     private readonly Dictionary<string, TypeId> _enums = [];
     private readonly Dictionary<string, int> _anonymous = [];
 
+    public Dictionary<string, string> UnsupportedRecords { get; } = [];
+
     public IReadOnlyList<CXCursor> PendingRecords => _pendingRecords;
 
     private readonly List<CXCursor> _pendingRecords = [];
@@ -229,6 +231,7 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
         bool isUnion = declaration.kind == CXCursorKind.CXCursor_UnionDecl;
         var fields = new List<FieldDecl>();
         int anonymousMembers = 0;
+        UnsupportedTypeException? failure = null;
         string parent = builder.Module.Text(builder.Module.Structs[id.Index].Key);
         CXCursorVisitor visitor = (field, _, _) =>
         {
@@ -250,7 +253,17 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
                 anonymousMembers++;
             }
 
-            TypeId translated = Translate(fieldType);
+            TypeId translated;
+            try
+            {
+                translated = Translate(fieldType);
+            }
+            catch (UnsupportedTypeException exception)
+            {
+                failure = exception;
+                return CXChildVisitResult.CXChildVisit_Break;
+            }
+
             int offsetBits = (int)field.OffsetOfField;
             int width = field.IsBitField ? field.FieldDeclBitWidth : FieldDecl.NoBits;
             int offset = isUnion ? 0 : width == FieldDecl.NoBits ? offsetBits / 8 : FieldDecl.NoOffset;
@@ -264,6 +277,12 @@ internal sealed unsafe class CTypeTranslator(ModuleBuilder builder, int importId
             return CXChildVisitResult.CXChildVisit_Continue;
         };
         declaration.VisitChildren(visitor, default);
+        if (failure is not null)
+        {
+            fields.Clear();
+            UnsupportedRecords[builder.Module.Text(builder.Module.Structs[id.Index].Key)] = failure.Message;
+        }
+
         builder.DefineFields(id, fields);
         StructDecl current = builder.Module.Structs[id.Index];
         builder.Module.Structs[id.Index] = current with

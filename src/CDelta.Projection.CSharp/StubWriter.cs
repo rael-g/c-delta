@@ -208,6 +208,11 @@ public static class StubWriter
                 members.Append(Indent).Append("[CName(").Append(Quote(cName)).Append(")]\n");
             }
 
+            if (unsupported.TryGetValue("struct:" + key, out string? reason))
+            {
+                members.Append(Indent).Append("[Unsupported(").Append(Quote(reason)).Append(")]\n");
+            }
+
             switch (declaration.Layout)
             {
                 case StructLayoutKind.Explicit:
