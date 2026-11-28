@@ -30,7 +30,7 @@ public sealed class ZigProvider(IProcessRunner runner, string executable) : IToo
     public ToolResult Compile(CompileRequest request)
     {
         var arguments = new List<string> { request.Cpp ? "c++" : "cc", "-target", TargetTriples.Zig(request.Target)!, "-c" };
-        CommonFlags.AddCompileFlags(arguments, request.Mode, request.Cpp);
+        CommonFlags.AddCompileFlags(arguments, request.Mode, !(request.Cpp || request.Assembly));
         foreach (string directory in request.IncludeDirectories)
         {
             arguments.Add("-I" + directory);
@@ -55,6 +55,7 @@ public sealed class ZigProvider(IProcessRunner runner, string executable) : IToo
         arguments.Add("-o");
         arguments.Add(request.Output);
         CommonFlags.AddLibraries(arguments, request.Libraries, request.NativeLibraries ?? [], request.LibraryDirectories ?? []);
+        CommonFlags.AddLinkerOptions(arguments, request);
         return runner.Run(Executable, arguments);
     }
 }

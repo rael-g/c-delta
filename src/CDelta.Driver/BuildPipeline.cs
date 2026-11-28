@@ -182,6 +182,21 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             objectPaths.Add(objectPath);
         }
 
+        foreach ((string asmSource, string flags) in plan?.AsmSources ?? [])
+        {
+            string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(asmSource) + ".asm.o");
+            string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            ToolResult assembled = toolchain.Compile(new CompileRequest(asmSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, false, true));
+            Trace(options, assembled, messages);
+            if (assembled.ExitCode != 0)
+            {
+                diagnostics.Add(DiagnosticCode.CD0004, new Location(asmSource, 0, 0), new Note(null, assembled.StandardError.Trim()));
+                return null;
+            }
+
+            objectPaths.Add(objectPath);
+        }
+
         foreach (string source in sources)
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
@@ -199,7 +214,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string output = options.OutputPath ?? (plan is null ? DefaultOutput(packageName, target) : ProjectOutput(plan, target, mode));
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
         List<NativeLibrary> natives = [.. (plan?.Libraries ?? []).Select(l => new NativeLibrary(l.Name, l.Static))];
-        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? [], plan?.CppSources.Count > 0));
+        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? [], plan?.CppSources.Count > 0, plan?.EntrySymbol, plan?.LinkerScript, plan?.LinkerArgs));
         Trace(options, linked, messages);
         if (linked.ExitCode != 0)
         {

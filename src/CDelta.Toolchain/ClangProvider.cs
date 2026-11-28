@@ -23,7 +23,7 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
     public ToolResult Compile(CompileRequest request)
     {
         var arguments = new List<string> { "--target=" + TargetTriples.Clang(request.Target), "-c" };
-        CommonFlags.AddCompileFlags(arguments, request.Mode, request.Cpp);
+        CommonFlags.AddCompileFlags(arguments, request.Mode, !(request.Cpp || request.Assembly));
         foreach (string directory in request.IncludeDirectories)
         {
             arguments.Add("-I" + directory);
@@ -48,6 +48,7 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
         arguments.Add("-o");
         arguments.Add(request.Output);
         CommonFlags.AddLibraries(arguments, request.Libraries, request.NativeLibraries ?? [], request.LibraryDirectories ?? []);
+        CommonFlags.AddLinkerOptions(arguments, request);
         return runner.Run(DriverFor(request.Cpp), arguments);
     }
 

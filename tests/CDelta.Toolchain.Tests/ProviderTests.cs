@@ -74,6 +74,32 @@ public sealed class ProviderTests
     }
 
     [Fact]
+    public void LinkPassesEntryScriptAndLinkerArguments()
+    {
+        var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));
+        var clang = new ClangProvider(runner, "clang");
+
+        clang.Link(new LinkRequest(["a.o"], "a", "x86_64-freestanding-none", OptimizeMode.Debug, [], null, null, false, "reset", "/p/link.ld", ["--gc-sections", "-Map=a.map"]));
+
+        Assert.Equal(
+            ["--target=x86_64-unknown-none-elf", "a.o", "-o", "a", "-Wl,--entry=reset", "-T", "/p/link.ld", "-Wl,--gc-sections", "-Wl,-Map=a.map"],
+            runner.Calls[0].Arguments);
+    }
+
+    [Fact]
+    public void AssemblyIsCompiledWithoutTheCStandard()
+    {
+        var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));
+        var zig = new ZigProvider(runner, "zig");
+
+        zig.Compile(new CompileRequest("a.s", "a.o", "x86_64-linux-gnu", OptimizeMode.Debug, [], [], null, false, true));
+
+        Assert.Equal("cc", runner.Calls[0].Arguments[0]);
+        Assert.DoesNotContain("-std=c11", runner.Calls[0].Arguments);
+        Assert.Contains("a.s", runner.Calls[0].Arguments);
+    }
+
+    [Fact]
     public void ClangUsesItsOwnTriple()
     {
         var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));

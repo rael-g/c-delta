@@ -6,8 +6,8 @@ namespace CDelta.Driver;
 
 public static class ProjectLoader
 {
-    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget";
-    private const string Items = "Compile,CSource,CppSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
+    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget,EntrySymbol,LinkerScript,LinkerArgs";
+    private const string Items = "Compile,CSource,CppSource,AsmSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
 
     public static ProjectPlan? Load(IProcessRunner runner, string projectPath, DiagnosticBag diagnostics)
     {
@@ -37,7 +37,11 @@ public static class ProjectLoader
             [.. Entries(items, "CIncludeDir").Select(e => Full(e, directory))],
             [.. Entries(items, "CDefine").Select(e => Metadata(e, "Value") is { Length: > 0 } value ? Identity(e) + "=" + value : Identity(e))],
             [.. Entries(items, "NativeLibrary").Select(e => (Identity(e), string.Equals(Metadata(e, "Linkage"), "Static", StringComparison.OrdinalIgnoreCase)))],
-            [.. Entries(items, "NativeLibraryDir").Select(e => Full(e, directory))]);
+            [.. Entries(items, "NativeLibraryDir").Select(e => Full(e, directory))],
+            [.. Entries(items, "AsmSource").Select(e => (Full(e, directory), Metadata(e, "Flags") ?? string.Empty))],
+            Property(properties, "EntrySymbol"),
+            Property(properties, "LinkerScript") is { } script ? Path.GetFullPath(script, directory) : null,
+            [.. (Property(properties, "LinkerArgs") ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)]);
     }
 
     private static string? Property(JsonElement properties, string name) =>

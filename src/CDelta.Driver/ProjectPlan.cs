@@ -13,7 +13,11 @@ public sealed record ProjectPlan(
     IReadOnlyList<string> IncludeDirectories,
     IReadOnlyList<string> Defines,
     IReadOnlyList<(string Name, bool Static)> Libraries,
-    IReadOnlyList<string> LibraryDirectories)
+    IReadOnlyList<string> LibraryDirectories,
+    IReadOnlyList<(string Path, string Flags)> AsmSources,
+    string? EntrySymbol,
+    string? LinkerScript,
+    IReadOnlyList<string> LinkerArgs)
 {
     public string Directory => System.IO.Path.GetDirectoryName(ProjectPath)!;
 }

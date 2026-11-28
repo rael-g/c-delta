@@ -8,4 +8,7 @@ public readonly record struct LinkRequest(
     IReadOnlyList<string> Libraries,
     IReadOnlyList<NativeLibrary>? NativeLibraries = null,
     IReadOnlyList<string>? LibraryDirectories = null,
-    bool Cpp = false);
+    bool Cpp = false,
+    string? EntrySymbol = null,
+    string? LinkerScript = null,
+    IReadOnlyList<string>? LinkerArgs = null);

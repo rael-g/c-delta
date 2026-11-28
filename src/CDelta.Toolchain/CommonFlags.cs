@@ -2,9 +2,9 @@ namespace CDelta.Toolchain;
 
 internal static class CommonFlags
 {
-    public static void AddCompileFlags(List<string> arguments, OptimizeMode mode, bool cpp = false)
+    public static void AddCompileFlags(List<string> arguments, OptimizeMode mode, bool cStandard = true)
     {
-        if (!cpp)
+        if (cStandard)
         {
             arguments.Add("-std=c11");
         }
@@ -28,6 +28,25 @@ internal static class CommonFlags
             default:
                 arguments.Add("-Os");
                 break;
+        }
+    }
+
+    public static void AddLinkerOptions(List<string> arguments, LinkRequest request)
+    {
+        if (request.EntrySymbol is { Length: > 0 } entry)
+        {
+            arguments.Add("-Wl,--entry=" + entry);
+        }
+
+        if (request.LinkerScript is { Length: > 0 } script)
+        {
+            arguments.Add("-T");
+            arguments.Add(script);
+        }
+
+        foreach (string argument in request.LinkerArgs ?? [])
+        {
+            arguments.Add("-Wl," + argument);
         }
     }
 
