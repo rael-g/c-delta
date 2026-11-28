@@ -142,8 +142,7 @@ work in a sample.
 
 ## M5: C import and export
 
-- The rest of the C frontend: comments into doc comments, doc tags and annotations, the import
-  cache.
+- The rest of the C frontend: comments into doc comments (`cdelta.Doc`), the import cache.
 - `[CMacro]` in every form of D030, `CSource` items, macros of constant addresses.
 - `[Align]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` and `CppSource` items, `EntrySymbol`,
   `LinkerScript`, `LinkerArgs`, the embedded targets ([language/c-parity.md](language/c-parity.md)).
@@ -197,8 +196,8 @@ LLDB.
 
 The steps of [kabic-migration.md](kabic-migration.md).
 
-- The clean room of the annotation vocabulary (D170), then the CΔ projection, then the C#
-  projection as its shape over the BCL.
+- The clean room of the annotation vocabulary (D170), then the doc tags of the C frontend read
+  into annotations, then the CΔ projection, then the C# projection as its shape over the BCL.
 - The plugin protocol of projections (D167) and the version of the declaration layer of
   the IR (D168).
 - Hot reload (D160): a shared library reloaded by its host on change, with versioned file names;

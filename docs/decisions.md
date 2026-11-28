@@ -494,7 +494,10 @@ IR concepts, and a manifest names declarations by IR key, so neither end is tied
 projection: projections of real APIs written by hand without kabic's output, each fact becoming
 an annotation only if it also means something in C#; how a language shows a fact is policy of its
 projection, never IR. CΔ comes first because CΔ consumes it, and the C# projection is its shape
-with the std swapped for the BCL, so code over a library looks alike in both.
+with the std swapped for the BCL, so code over a library looks alike in both. Until the clean
+room records the vocabulary, no doc tag is read: a tag read early would fix a syntax the clean
+room has not chosen. A doc comment itself is not an annotation but text, carried as the attribute
+`cdelta.Doc`, so the C import, the export header and the IDE show it today.
 
 **D171. The IR grows by need, always lowerable to C, with dialects for single languages.** Higher
 constructs save frontends from repeating lowerings and keep meaning for comptime and projections,

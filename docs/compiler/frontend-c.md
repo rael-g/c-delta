@@ -75,10 +75,15 @@ expansions are ordinary declarations.
 
 ## Doc tags and annotations
 
-Doc comments are read with their tags: a tag states a fact about a declaration that C cannot
-express (a pointer written back, a pointer and a count forming one sequence, a borrowed or
-optional value). Tags become annotations of the IR ([ir.md](ir.md#annotations)). The CΔ import
-ignores them; projections use them.
+The doc comment of a declaration is the comment libclang attaches to it by its default rules
+(`/** */`, `///` and their kin). Its text, without the comment markers, becomes the attribute
+`cdelta.Doc("text")` of the IR declaration, and the import stubs write it as the C# doc comment.
+
+Tags in doc comments state facts C cannot express (a pointer written back, a pointer and a count
+forming one sequence, a borrowed or optional value) and become annotations of the IR
+([ir.md](ir.md#annotations)). They are read from M8, once the clean room has designed their
+vocabulary; until then a tag is part of the text. The CΔ import ignores annotations; projections
+use them.
 
 ## Import stubs
 
@@ -115,3 +120,10 @@ AST sequences).
 
 The import cache key is the hash of every file clang opened, the defines, the include directories,
 the target and the libclang version. A hit skips parsing and reuses the IR and the stubs.
+
+Which files clang opens is known only after a parse, so an entry of
+`obj/cdelta/imports-cache/<key>/` is found by a key of what is known before it: the headers of the
+import, the defines, the include directories, the target and the libclang version. It holds a
+manifest listing every file clang opened with its hash, the IR declarations and the stubs, and a
+lookup is a hit when every file of the manifest still has its hash. An entry is written in a
+temporary directory and renamed into place, so builds running at once never see half of one.

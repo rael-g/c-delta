@@ -549,6 +549,10 @@ one sequence, an owner, a borrowed or optional value, an error convention (D170)
 defined on IR concepts, never on the syntax of a language, so annotations of any frontend reach
 every projection and plugin. It is designed in M8 by the clean room of [../kabic-migration.md](../kabic-migration.md#the-clean-room).
 
+The text of a doc comment is not an annotation: every frontend carries it as the attribute
+`cdelta.Doc("text")`, which the export header writes as a C comment and the import stubs as a C#
+doc comment.
+
 Annotations come from three sources:
 
 - comments of the source language, such as the doc tags of a C header;
