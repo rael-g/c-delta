@@ -16,6 +16,10 @@ public sealed class CSharpFrontend : IBodyProvider
     private const string Language = "csharp";
     private const string EntryPointAttribute = "cdelta.EntryPoint";
     private const string PanicHandlerAttribute = "cdelta.PanicHandler";
+    private const string ExportAttribute = "cdelta.Export";
+    private const string ExportType = "CDelta.ExportAttribute";
+    private const string LinkageType = "CDelta.LinkageAttribute";
+    private const int WeakLinkage = 1;
     private const string PanicHandlerType = "CDelta.PanicHandlerAttribute";
     private const string MainName = "Main";
 
@@ -100,6 +104,11 @@ public sealed class CSharpFrontend : IBodyProvider
         foreach (IMethodSymbol method in PanicHandlerCandidates())
         {
             roots.Add(Declare(method, [PanicHandlerAttribute]));
+        }
+
+        foreach (IMethodSymbol method in ExportCandidates())
+        {
+            roots.Add(Declare(method, [ExportAttribute]));
         }
 
         return roots;
@@ -357,6 +366,20 @@ public sealed class CSharpFrontend : IBodyProvider
             .OrderBy(m => m.GetDocumentationCommentId(), StringComparer.Ordinal)
             .Take(1);
 
+    private IEnumerable<IMethodSymbol> ExportCandidates() =>
+        MethodsOfAssembly()
+            .Where(m => ExportAttributeOf(m) is not null)
+            .OrderBy(m => m.GetDocumentationCommentId(), StringComparer.Ordinal);
+
+    private static AttributeData? ExportAttributeOf(ISymbol symbol) =>
+        symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ExportType);
+
+    internal static string ExportNameOf(IMethodSymbol method) =>
+        ExportAttributeOf(method) is { ConstructorArguments: [{ Value: string name }] } ? name : method.Name;
+
+    private static bool IsWeak(IMethodSymbol method) =>
+        method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == LinkageType && a.ConstructorArguments is [{ Value: int kind }] && kind == WeakLinkage);
+
     private IEnumerable<IMethodSymbol> MethodsOfAssembly()
     {
         var pending = new Stack<INamespaceOrTypeSymbol>();
@@ -556,6 +579,13 @@ public sealed class CSharpFrontend : IBodyProvider
 
         var origin = Origin.FromSource(module.Intern(Language));
         LinkageKind linkage = LinkageKind.Internal;
+        string? exportName = null;
+        if (ExportAttributeOf(method) is not null)
+        {
+            linkage = LinkageKind.Export;
+            exportName = ExportNameOf(method);
+        }
+
         CallConv conv = CallConv.Default;
         if (method.IsExtern)
         {
@@ -597,9 +627,14 @@ public sealed class CSharpFrontend : IBodyProvider
             _types.ReferenceType(_types.Map(method.ReturnType, location), method.RefKind),
             conv,
             linkage,
-            null,
+            exportName,
             attributes,
             TypeMapper.ModeOf(method.RefKind));
+        if (linkage == LinkageKind.Export && IsWeak(method))
+        {
+            module.Functions[id.Index] = module.Functions[id.Index] with { ExportWeak = true };
+        }
+
         var typeParameters = new List<string>();
         if (method.ContainingType.IsGenericType)
         {

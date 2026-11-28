@@ -8,7 +8,9 @@ public static class RootsPass
 
     public const string PanicHandlerAttribute = "cdelta.PanicHandler";
 
-    private static readonly string[] _rootAttributes = [EntryPointAttribute, PanicHandlerAttribute];
+    public const string ExportAttribute = "cdelta.Export";
+
+    private static readonly string[] _rootAttributes = [EntryPointAttribute, PanicHandlerAttribute, ExportAttribute];
 
     public static List<FunctionId> Find(Module module)
     {
