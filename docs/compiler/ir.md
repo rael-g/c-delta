@@ -332,6 +332,24 @@ the union's interface, and a call on a union value uses the callee `union(p, met
 `dyn`. The core lowers it into a `switch` on `tag (*p)` whose case for member `k` calls the
 `Impl` method of that member with `this` set to `addr (*p).payload(k)`.
 
+A default method body of `I<T...>` is a function generic over the interface's type parameters and
+the implementer: `fn I.M<type T..., type Self: I<T...>>(this: ptr<param Self>, ...)`, named by the
+`default` of the interface method. A call on `this` inside it is `constrained(param Self,
+I.method)`. An `Impl` of `struct S` for `I<A...>` that does not override `M` lists `M = I.M<A...,
+struct S>`.
+
+The receiver passed to a default method depends on how the call reaches it, as in C#, where a
+generic call on a struct reaching a default method boxes a copy:
+
+| Call | `this` | A mutation persists in |
+|---|---|---|
+| `constrained` on a value, resolved to a default | `addr` of a `temp` copy of the receiver | nothing |
+| `constrained` on the `this` of a default function | that `this` | the same copy |
+| `dyn` | the object the `dyn` points at, through the table's thunk | the object |
+| `union` | `addr (*p).payload(k)` | the union |
+
+Instantiation inserts the copy when it resolves a `constrained` callee to a default method.
+
 ## Attributes
 
 ```

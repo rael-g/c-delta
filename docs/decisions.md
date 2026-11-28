@@ -86,7 +86,13 @@ method that mutates its struct mutates the member held in the union, as a mutati
 interface changes the object it holds. The methods of an interface are indexed bases first: each
 base in `extends` order with its own bases before it, depth first, a base reached twice kept only
 at its first position, then the interface's own methods. The table of an interface then begins
-with the table of its first base, the layout a C programmer writes by hand.
+with the table of its first base, the layout a C programmer writes by hand. A default method
+body is one generic function over the implementer, `Self`, listed by every `Impl` that does not
+override it, so it is compiled once per implementing struct by instantiation and serves the three
+uses alike. Its receiver follows C#, where a generic call on a struct reaching a default method
+boxes a copy: a `constrained` call that resolves to a default passes a copy of the receiver,
+unless the receiver is already the `this` of a default; a `dyn` passes the object it points at,
+and a union the member it holds.
 
 **D021. Delegates are values of two pointers (function and context), never multicast.**
 Capturing lambdas capture variables by reference into a stack frame struct; escaping the frame is

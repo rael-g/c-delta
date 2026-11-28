@@ -138,6 +138,7 @@ with a violation is still an error, which keeps the IDE and the build consistent
 | enum | `Enum`, exhaustive unless `[Flags]`, `[NonExhaustive]` or imported |
 | `[Union]` interface and its implementers | `Interface`, and a `Union` naming it with the implementers in declaration order, then by file path; one `Impl` per implementer |
 | other interface | `Interface`, and one `Impl` per implementing struct |
+| default interface method body | one function generic over the interface's type parameters and `Self` ([ir.md](ir.md#impls-and-dispatch)), named by the method's `default` |
 | delegate type | `closure(sig)`; the delegate's name is kept as an attribute |
 | function pointer type | `fn(sig)` |
 | tuple | a canonical anonymous struct per element type list |

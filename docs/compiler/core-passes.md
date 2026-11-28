@@ -35,7 +35,9 @@ arguments; two keys are equal when their arguments are structurally equal. For e
 
 1. Get the generic body from the frontend (`IBodyProvider.Lower`, once per function).
 2. Substitute type parameters and comptime parameters.
-3. Resolve `constrained` callees through the `Impl` of the concrete type.
+3. Resolve `constrained` callees through the `Impl` of the concrete type. A callee resolved to a
+   default method gets a copy of its receiver unless the receiver is the `this` of a default
+   function ([ir.md](ir.md#impls-and-dispatch)).
 4. Evaluate comptime regions and intrinsics whose operands are now known (section 2a).
 5. Fold constants, then remove branches whose condition is a constant. Calls in removed branches
    are never instantiated, which is what makes platform code and `CompileError` work.

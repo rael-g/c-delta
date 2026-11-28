@@ -75,7 +75,9 @@ table.
 - It does not own the value. Its lifetime is the lifetime of `x`.
 - `default` and `null` are the null interface value; calling it is illegal behavior.
 - An interface with static abstract members cannot be a value type of a variable, as in C#.
-- Default interface method bodies are compiled once per implementing struct.
+- Default interface method bodies are compiled once per implementing struct. As in C#, a generic
+  call on a struct that reaches a default method runs it on a copy of the struct, so a mutation it
+  makes through `this` is lost; through a `Dyn<I>` or a `[Union]` value it changes the struct held.
 
 ### 3. As a tagged union: `[Union]`
 
