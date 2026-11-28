@@ -39,6 +39,10 @@ static unsafe partial class Sample
 
     [CName("sample")] [Opaque] public struct sample { }
 
+    [CMacro] public static readonly pair* SAMPLE_BUFFER;
+
+    [CMacro] public static readonly uint* SAMPLE_CONTROL;
+
     public const int SAMPLE_LETTER = 120;
 
     public const string SAMPLE_NAME = "sample";
@@ -47,7 +51,11 @@ static unsafe partial class Sample
 
     public const double SAMPLE_RATIO = 0.5;
 
+    [CMacro] public static readonly uint* SAMPLE_REGISTER;
+
     [CName("sample_count")] public static int sample_count;
+
+    [CName("sample_global")] public static int sample_global;
 
     public static extern int sample_log(byte* format, __arglist);
 

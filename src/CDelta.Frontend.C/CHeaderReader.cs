@@ -10,6 +10,7 @@ public static unsafe class CHeaderReader
 {
     private const string SyntheticName = "cdelta_imports.h";
     private const string MacroPrefix = "__cdelta_macro_";
+    private const string AddressPrefix = "__cdelta_address_";
     private const string UnsupportedAttribute = "cdelta.Unsupported";
 
     public static CImportResult Read(string moduleName, IReadOnlyList<ImportRequest> imports, ReadOptions options, DiagnosticBag diagnostics)
@@ -59,7 +60,7 @@ public static unsafe class CHeaderReader
                 }
             }
 
-            IReadOnlyList<ImportedMacro> macros = ReadMacros(index, source, arguments, cursors);
+            IReadOnlyList<ImportedMacro> macros = ReadMacros(index, source, arguments, cursors, translator);
             return new CImportResult(module, macros, unsupported);
         }
         finally
@@ -277,7 +278,7 @@ public static unsafe class CHeaderReader
         builder.DeclareGlobal(name, name, SourceSpan.None, origin, type, true, false, ConstId.None, LinkageKind.Extern, null);
     }
 
-    private static List<ImportedMacro> ReadMacros(CXIndex index, string source, string[] arguments, List<CXCursor> cursors)
+    private static List<ImportedMacro> ReadMacros(CXIndex index, string source, string[] arguments, List<CXCursor> cursors, CTypeTranslator translator)
     {
         var names = new List<string>();
         foreach (CXCursor cursor in cursors)
@@ -298,6 +299,7 @@ public static unsafe class CHeaderReader
         foreach (string name in names)
         {
             text.Append("static const __typeof__(").Append(name).Append(") ").Append(MacroPrefix).Append(name).Append(" = (").Append(name).Append(");\n");
+            text.Append("static const unsigned long long ").Append(AddressPrefix).Append(name).Append(" = (unsigned long long)(").Append(name).Append(");\n");
         }
 
         File.WriteAllText(probe, text.ToString());
@@ -311,23 +313,63 @@ public static unsafe class CHeaderReader
 
         using (unit)
         {
+            var pointers = new Dictionary<string, CXCursor>();
+            var constantAddresses = new HashSet<string>();
             CXCursorVisitor visitor = (cursor, _, _) =>
             {
-                if (cursor.kind == CXCursorKind.CXCursor_VarDecl && cursor.Spelling.ToString().StartsWith(MacroPrefix, StringComparison.Ordinal))
+                string spelling = cursor.kind == CXCursorKind.CXCursor_VarDecl ? cursor.Spelling.ToString() : string.Empty;
+                if (spelling.StartsWith(MacroPrefix, StringComparison.Ordinal))
                 {
                     ImportedMacro? macro = Evaluate(cursor);
                     if (macro is not null)
                     {
                         macros.Add(macro);
                     }
+                    else if (cursor.Type.CanonicalType.kind == CXTypeKind.CXType_Pointer)
+                    {
+                        pointers[spelling[MacroPrefix.Length..]] = cursor;
+                    }
+                }
+                else if (spelling.StartsWith(AddressPrefix, StringComparison.Ordinal) && IsConstantInteger(cursor))
+                {
+                    constantAddresses.Add(spelling[AddressPrefix.Length..]);
                 }
 
                 return CXChildVisitResult.CXChildVisit_Continue;
             };
             unit.Cursor.VisitChildren(visitor, default);
+            foreach ((string name, CXCursor cursor) in pointers.Where(pair => constantAddresses.Contains(pair.Key)).OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            {
+                TypeId type = translator.Translate(cursor.Type);
+                macros.Add(new ImportedMacro(name, MacroKind.Address, cursor.Type.CanonicalType.Spelling.ToString(), 0, 0, string.Empty, type));
+            }
+
+            while (translator.PendingRecords.Count > 0)
+            {
+                CXCursor[] pending = [.. translator.PendingRecords];
+                translator.ClearPending();
+                foreach (CXCursor record in pending)
+                {
+                    translator.DefineRecord(record);
+                }
+            }
         }
 
         return macros;
+    }
+
+    private static bool IsConstantInteger(CXCursor cursor)
+    {
+        CXEvalResult result = cursor.Evaluate;
+        if (result.Handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        using (result)
+        {
+            return result.Kind == CXEvalResultKind.CXEval_Int;
+        }
     }
 
     private static ImportedMacro? Evaluate(CXCursor cursor)

@@ -29,6 +29,8 @@ opaque sample origin cheader(0, "sample") @0:0:0
 
 global sample_count: c.int mutable extern origin cheader(0, "sample_count") @0:0:0
 
+global sample_global: c.int mutable extern origin cheader(0, "sample_global") @0:0:0
+
 fn sample_log(format: ptr<c.char> nullable const many, ...) -> c.int extern origin cheader(0, "sample_log") @0:0:0
 
 fn sample_open(path: ptr<c.char> nullable const many, out: ptr<ptr<opaque sample> nullable many> nullable many) -> c.int extern origin cheader(0, "sample_open") @0:0:0
@@ -36,7 +38,10 @@ fn sample_open(path: ptr<c.char> nullable const many, out: ptr<ptr<opaque sample
 fn sample_origin() -> struct point extern origin cheader(0, "sample_origin") @0:0:0
 
 fn sample_twice(v: c.int) -> c.int extern origin cheader(0, "sample_twice") @0:0:0
+macro SAMPLE_BUFFER Address struct pair *const 
+macro SAMPLE_CONTROL Address volatile unsigned int *const 
 macro SAMPLE_LETTER Integer int 120
 macro SAMPLE_NAME Text char* sample
 macro SAMPLE_OK Integer int 0
 macro SAMPLE_RATIO Float double 0.5
+macro SAMPLE_REGISTER Address volatile unsigned int *const 

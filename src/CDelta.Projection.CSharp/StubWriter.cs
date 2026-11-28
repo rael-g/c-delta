@@ -308,6 +308,9 @@ public static class StubWriter
                     members.Append(Indent).Append("public const ").Append(floating).Append(' ').Append(name)
                         .Append(" = ").Append(FloatLiteral(macro.Float, floating)).Append(";\n\n");
                     break;
+                case StubMacroKind.Address:
+                    members.Append(Indent).Append("[CMacro] public static readonly ").Append(Spell(macro.Type)).Append(' ').Append(name).Append(";\n\n");
+                    break;
                 default:
                     members.Append(Indent).Append("public const string ").Append(name).Append(" = ").Append(Quote(macro.Text)).Append(";\n\n");
                     break;

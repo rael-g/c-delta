@@ -27,7 +27,7 @@ public sealed class StubWriterTests
         string headers = Path.Combine(AppContext.BaseDirectory, "Headers");
         CImportResult result = CHeaderReader.Read("probe", [new ImportRequest(["sample.h"], [], [], [])], new ReadOptions("x86_64-linux-gnu", [], [headers], []), diagnostics);
         Assert.False(diagnostics.HasError);
-        List<StubMacro> macros = [.. result.Macros.Select(m => new StubMacro(m.Name, (StubMacroKind)(int)m.Kind, m.CType, m.Integer, m.Float, m.Text))];
+        List<StubMacro> macros = [.. result.Macros.Select(m => new StubMacro(m.Name, (StubMacroKind)(int)m.Kind, m.CType, m.Integer, m.Float, m.Text, m.Type))];
         return StubWriter.Write(result.Module, macros, result.Unsupported, new StubOptions(string.Empty, "Sample", only));
     }
 }

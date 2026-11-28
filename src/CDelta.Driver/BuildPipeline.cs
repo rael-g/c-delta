@@ -310,7 +310,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             return false;
         }
 
-        List<StubMacro> macros = [.. read.Macros.Select(m => new StubMacro(m.Name, (StubMacroKind)(int)m.Kind, m.CType, m.Integer, m.Float, m.Text))];
+        List<StubMacro> macros = [.. read.Macros.Select(m => new StubMacro(m.Name, (StubMacroKind)(int)m.Kind, m.CType, m.Integer, m.Float, m.Text, m.Type))];
         string stubs = Path.Combine(intermediate, "imports");
         Directory.CreateDirectory(stubs);
         for (int i = 0; i < declarations.Count; i++)
