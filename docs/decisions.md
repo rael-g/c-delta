@@ -462,7 +462,10 @@ packages with versions, a package type and lock files; `CDeltaFetch` carries any
 `zig fetch` and CMake's `FetchContent` do: an archive or a git commit fixed by its hash, built
 as a CΔ package or by a recipe for C. A C library becomes a one-line dependency without being
 republished. No build system of the library runs: the headers it would generate come from its
-own templates, filled by `CConfigHeader` items with the values of the recipe. A package may also carry an annotation manifest (D170) with the facts of a C
+own templates, filled by `CConfigHeader` items with the values of the recipe. A package manager of C, such as
+vcpkg or Conan, enters as a dependency provider: a package of MSBuild targets, from the community
+monorepo, that installs its libraries before the build and adds their prefix as items, so the SDK
+knows none of them. A package may also carry an annotation manifest (D170) with the facts of a C
 library, beside a `CDeltaFetch` recipe that builds it or alone, for a library of the system; one
 publication then makes the library idiomatic in every projection. The packages of common
 libraries come from one community monorepo, where anyone corrects a fact by a pull request and

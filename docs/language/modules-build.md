@@ -78,6 +78,15 @@ hash; the hash is its lock, and content that does not match is `CD0010`.
 - `cdc fetch <url> --save` adds the item with the hash it computed. The same name and hash reached
   twice is one dependency; the same name with two hashes is `CD0001`.
 
+### Dependency providers
+
+A dependency provider is a package whose MSBuild targets run before `CDeltaFetch`, also in
+design-time builds, install C libraries with another package manager, and add the installed
+prefix as items: `CIncludeDir` for its headers, `NativeLibraryDir` for its libraries and
+`PkgConfigPath` for its `pkg-config` files. The libraries are still named by `NativeLibrary`
+items, usually with `PkgConfig`. The SDK knows no package manager; a provider is referenced like
+any package, and `#:package` adds one to a file-based program.
+
 ### Editions
 
 An edition fixes the C# language version a package is bound with and the version of CΔ's own
@@ -166,6 +175,7 @@ under `cdc`, the IDE and `dotnet run`.
 | `NativeLibrary` | `Linkage` (`Static`, `Dynamic`), `PkgConfig` | libraries to link; with `PkgConfig="name"`, flags and paths come from `pkg-config` |
 | `CDeltaFetch` | `Url`, `Hash`, and for a C library `Sources`, `IncludeDirs`, `Defines`, `Import`, `Recipe` | a dependency fetched by URL, [below](#fetched-dependencies) |
 | `NativeLibraryDir` | | library search directories |
+| `PkgConfigPath` | | directories `pkg-config` searches before `PKG_CONFIG_PATH` |
 | `CConfigHeader` | `Style` (`CMake`, `Autoconf`), `Output`, `Values` | a header generated from a template, [below](#generated-c-headers) |
 | `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)`, and a field of `BuildOptions` |
 
