@@ -1,3 +1,3 @@
 namespace CDelta.Backend.C;
 
-public readonly record struct CBackendOutput(string Program, string? Libc);
+public readonly record struct CBackendOutput(string Program, string? Libc, string? Header = null);

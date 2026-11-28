@@ -225,7 +225,7 @@ public static class CBackend
 
         text.Append(definitions);
         string? libc = (defaultPanic || report || tracePrinted) && options.LinkLibC ? CPrelude.LibcUnit : null;
-        return new CBackendOutput(text.ToString(), libc);
+        return new CBackendOutput(text.ToString(), libc, CHeaderWriter.Write(module, names, options.PackageName));
     }
 
     public static string TableName(int impl) => "cd_vtable_" + impl;

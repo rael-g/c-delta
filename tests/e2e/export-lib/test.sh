@@ -6,7 +6,9 @@ cc="${CC:-clang}"
 
 $CDC build static/export-static.csproj
 test -f static/bin/Debug/x86_64-linux-gnu/libgeometry.a
-$cc consumer.c static/bin/Debug/x86_64-linux-gnu/libgeometry.a -o "$work/with-static"
+test -f static/bin/Debug/x86_64-linux-gnu/geometry.h
+grep -q "geo_distance2" static/bin/Debug/x86_64-linux-gnu/geometry.h
+$cc -Istatic/bin/Debug/x86_64-linux-gnu consumer.c static/bin/Debug/x86_64-linux-gnu/libgeometry.a -o "$work/with-static"
 set +e
 "$work/with-static"
 status=$?
@@ -17,7 +19,7 @@ $CDC build shared/export-shared.csproj
 test -f shared/bin/Debug/x86_64-linux-gnu/libgeometry.so
 visible="$(nm -D --defined-only shared/bin/Debug/x86_64-linux-gnu/libgeometry.so | awk '{print $3}' | grep -E '^(geo_|Clamp|cd_)' | sort | tr '\n' ' ')"
 test "$visible" = "Clamp geo_distance2 geo_twice "
-$cc consumer.c -Lshared/bin/Debug/x86_64-linux-gnu -lgeometry -Wl,-rpath,"$PWD/shared/bin/Debug/x86_64-linux-gnu" -o "$work/with-shared"
+$cc -Ishared/bin/Debug/x86_64-linux-gnu consumer.c -Lshared/bin/Debug/x86_64-linux-gnu -lgeometry -Wl,-rpath,"$PWD/shared/bin/Debug/x86_64-linux-gnu" -o "$work/with-shared"
 set +e
 "$work/with-shared"
 status=$?

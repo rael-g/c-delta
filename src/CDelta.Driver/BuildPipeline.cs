@@ -142,7 +142,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         bool debugInfo = mode is BuildMode.Debug or BuildMode.ReleaseSafe;
         bool library = plan is { OutputType: LibraryOutputType };
         bool shared = library && plan!.LibraryKind == SharedKind;
-        CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true, shared));
+        CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true, shared, packageName));
         string cPath = Path.Combine(intermediate, packageName + ".c");
         File.WriteAllText(cPath, generated.Program);
         var sources = new List<string> { cPath };
@@ -151,6 +151,13 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             string libcPath = Path.Combine(intermediate, packageName + ".libc.c");
             File.WriteAllText(libcPath, generated.Libc);
             sources.Add(libcPath);
+        }
+
+        string? headerPath = null;
+        if (generated.Header is not null)
+        {
+            headerPath = Path.Combine(intermediate, packageName + ".h");
+            File.WriteAllText(headerPath, generated.Header);
         }
 
         string objects = Path.Combine(intermediate, "objects");
@@ -227,6 +234,12 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         {
             diagnostics.Add(DiagnosticCode.CD0005, new Location(output, 0, 0), new Note(null, linked.StandardError.Trim()));
             return null;
+        }
+
+        if (headerPath is not null)
+        {
+            File.Copy(headerPath, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(output))!, packageName + ".h"), true);
+            sources.Add(headerPath);
         }
 
         if (options.EmitC)

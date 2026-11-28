@@ -1,6 +1,4 @@
-int geo_distance2(int ax, int ay, int bx, int by);
-int Clamp(int value, int low, int high);
-int geo_twice(int value);
+#include "geometry.h"
 
 int main(void)
 {
