@@ -7,4 +7,5 @@ public readonly record struct LinkRequest(
     OptimizeMode Mode,
     IReadOnlyList<string> Libraries,
     IReadOnlyList<NativeLibrary>? NativeLibraries = null,
-    IReadOnlyList<string>? LibraryDirectories = null);
+    IReadOnlyList<string>? LibraryDirectories = null,
+    bool Cpp = false);

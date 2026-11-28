@@ -23,7 +23,7 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
     public ToolResult Compile(CompileRequest request)
     {
         var arguments = new List<string> { "--target=" + TargetTriples.Clang(request.Target), "-c" };
-        CommonFlags.AddCompileFlags(arguments, request.Mode);
+        CommonFlags.AddCompileFlags(arguments, request.Mode, request.Cpp);
         foreach (string directory in request.IncludeDirectories)
         {
             arguments.Add("-I" + directory);
@@ -38,7 +38,7 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
         arguments.Add(request.Source);
         arguments.Add("-o");
         arguments.Add(request.Output);
-        return runner.Run(Executable, arguments);
+        return runner.Run(DriverFor(request.Cpp), arguments);
     }
 
     public ToolResult Link(LinkRequest request)
@@ -48,6 +48,19 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
         arguments.Add("-o");
         arguments.Add(request.Output);
         CommonFlags.AddLibraries(arguments, request.Libraries, request.NativeLibraries ?? [], request.LibraryDirectories ?? []);
-        return runner.Run(Executable, arguments);
+        return runner.Run(DriverFor(request.Cpp), arguments);
+    }
+
+    private string DriverFor(bool cpp)
+    {
+        if (!cpp)
+        {
+            return Executable;
+        }
+
+        string directory = Path.GetDirectoryName(Executable) ?? string.Empty;
+        string name = Path.GetFileName(Executable);
+        string suffix = name.StartsWith("clang-", StringComparison.Ordinal) ? name["clang".Length..] : string.Empty;
+        return Path.Combine(directory, "clang++" + suffix);
     }
 }

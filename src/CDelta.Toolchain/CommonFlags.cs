@@ -2,9 +2,13 @@ namespace CDelta.Toolchain;
 
 internal static class CommonFlags
 {
-    public static void AddCompileFlags(List<string> arguments, OptimizeMode mode)
+    public static void AddCompileFlags(List<string> arguments, OptimizeMode mode, bool cpp = false)
     {
-        arguments.Add("-std=c11");
+        if (!cpp)
+        {
+            arguments.Add("-std=c11");
+        }
+
         arguments.Add("-fno-strict-aliasing");
         arguments.Add("-ffp-contract=off");
         arguments.Add("-w");

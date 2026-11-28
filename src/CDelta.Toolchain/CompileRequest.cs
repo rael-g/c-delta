@@ -7,4 +7,5 @@ public readonly record struct CompileRequest(
     OptimizeMode Mode,
     IReadOnlyList<string> IncludeDirectories,
     IReadOnlyList<string> Defines,
-    IReadOnlyList<string>? ExtraFlags = null);
+    IReadOnlyList<string>? ExtraFlags = null,
+    bool Cpp = false);

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.props" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CDeltaTarget>x86_64-linux-gnu</CDeltaTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CppSource Include="native/sum.cpp" Flags="-std=c++17 -DSCALE=1" />
+    <CIncludeDir Include="native" />
+  </ItemGroup>
+
+  <Import Project="../../../sdk/CDelta.Sdk/Sdk/Sdk.targets" />
+
+</Project>

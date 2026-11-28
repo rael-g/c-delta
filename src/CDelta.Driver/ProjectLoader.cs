@@ -7,7 +7,7 @@ namespace CDelta.Driver;
 public static class ProjectLoader
 {
     private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget";
-    private const string Items = "Compile,CSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
+    private const string Items = "Compile,CSource,CppSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
 
     public static ProjectPlan? Load(IProcessRunner runner, string projectPath, DiagnosticBag diagnostics)
     {
@@ -33,6 +33,7 @@ public static class ProjectLoader
             string.Equals(Property(properties, "EmitC"), "true", StringComparison.OrdinalIgnoreCase),
             [.. Entries(items, "Compile").Where(e => Metadata(e, "CDeltaGenerated") != "true").Select(e => Full(e, directory)).Order(StringComparer.Ordinal)],
             [.. Entries(items, "CSource").Select(e => (Full(e, directory), Metadata(e, "Flags") ?? string.Empty))],
+            [.. Entries(items, "CppSource").Select(e => (Full(e, directory), Metadata(e, "Flags") ?? string.Empty))],
             [.. Entries(items, "CIncludeDir").Select(e => Full(e, directory))],
             [.. Entries(items, "CDefine").Select(e => Metadata(e, "Value") is { Length: > 0 } value ? Identity(e) + "=" + value : Identity(e))],
             [.. Entries(items, "NativeLibrary").Select(e => (Identity(e), string.Equals(Metadata(e, "Linkage"), "Static", StringComparison.OrdinalIgnoreCase)))],

@@ -167,6 +167,21 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
             objectPaths.Add(objectPath);
         }
 
+        foreach ((string cppSource, string flags) in plan?.CppSources ?? [])
+        {
+            string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(cppSource) + ".cpp.o");
+            string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            ToolResult compiledCpp = toolchain.Compile(new CompileRequest(cppSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, true));
+            Trace(options, compiledCpp, messages);
+            if (compiledCpp.ExitCode != 0)
+            {
+                diagnostics.Add(DiagnosticCode.CD0004, new Location(cppSource, 0, 0), new Note(null, compiledCpp.StandardError.Trim()));
+                return null;
+            }
+
+            objectPaths.Add(objectPath);
+        }
+
         foreach (string source in sources)
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
@@ -184,7 +199,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string output = options.OutputPath ?? (plan is null ? DefaultOutput(packageName, target) : ProjectOutput(plan, target, mode));
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
         List<NativeLibrary> natives = [.. (plan?.Libraries ?? []).Select(l => new NativeLibrary(l.Name, l.Static))];
-        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? []));
+        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? [], plan?.CppSources.Count > 0));
         Trace(options, linked, messages);
         if (linked.ExitCode != 0)
         {

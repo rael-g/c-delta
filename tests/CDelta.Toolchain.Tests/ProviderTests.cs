@@ -44,6 +44,36 @@ public sealed class ProviderTests
     }
 
     [Fact]
+    public void ZigCompilesAndLinksCppWithItsCppDriver()
+    {
+        var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));
+        var zig = new ZigProvider(runner, "zig");
+
+        zig.Compile(new CompileRequest("a.cpp", "a.o", "x86_64-linux-gnu", OptimizeMode.Debug, [], [], null, true));
+        zig.Link(new LinkRequest(["a.o"], "a", "x86_64-linux-gnu", OptimizeMode.Debug, [], null, null, true));
+
+        Assert.Equal("c++", runner.Calls[0].Arguments[0]);
+        Assert.DoesNotContain("-std=c11", runner.Calls[0].Arguments);
+        Assert.Equal("c++", runner.Calls[1].Arguments[0]);
+    }
+
+    [Theory]
+    [InlineData("clang", "clang++")]
+    [InlineData("/usr/bin/clang", "/usr/bin/clang++")]
+    [InlineData("/usr/bin/clang-18", "/usr/bin/clang++-18")]
+    public void ClangUsesItsCppDriverForCpp(string executable, string expected)
+    {
+        var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));
+        var clang = new ClangProvider(runner, executable);
+
+        clang.Compile(new CompileRequest("a.cpp", "a.o", "x86_64-linux-gnu", OptimizeMode.Debug, [], [], null, true));
+        clang.Compile(new CompileRequest("a.c", "a.o", "x86_64-linux-gnu", OptimizeMode.Debug, [], []));
+
+        Assert.Equal(expected, runner.Calls[0].Executable);
+        Assert.Equal(executable, runner.Calls[1].Executable);
+    }
+
+    [Fact]
     public void ClangUsesItsOwnTriple()
     {
         var runner = new FakeProcessRunner((_, _) => Ok(string.Empty));

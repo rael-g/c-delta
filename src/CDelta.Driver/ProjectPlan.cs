@@ -9,6 +9,7 @@ public sealed record ProjectPlan(
     bool EmitC,
     IReadOnlyList<string> Sources,
     IReadOnlyList<(string Path, string Flags)> CSources,
+    IReadOnlyList<(string Path, string Flags)> CppSources,
     IReadOnlyList<string> IncludeDirectories,
     IReadOnlyList<string> Defines,
     IReadOnlyList<(string Name, bool Static)> Libraries,
