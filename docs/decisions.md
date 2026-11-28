@@ -405,7 +405,11 @@ follows a capturing lambda into the values that hold it, so a query cannot escap
 
 **D155. Top-level statements are kept.** Short programs and scripts are a real use, as `cdc run
 file.cs` shows. C# makes them return only `void` or `int`, so `Try` goes through
-`Std.Process.Run`, and the implicit `args` array is rejected.
+`Std.Process.Run`, and the implicit `args` array is rejected. A single file is a file-based
+program: the `#:` directives C# 14 parses there give it properties, packages and references, the
+properties `CSourceFiles`, `CFlags` and `CIncludeDirs` its C sources, and `#!/usr/bin/env cdc`
+makes it a script. Through `#:sdk CDelta.Sdk` the same file opens in the IDE and runs under
+`dotnet run`, with no syntax of CΔ's own.
 
 **D156. No silent divergence from C#.** A kept construct behaves as in C#, or the difference
 stops compilation; at run time CΔ differs only where C# would throw, by panicking. A familiar

@@ -178,6 +178,8 @@ Accepted when: `comptime` conformance passes; differential tests pass.
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET
   SDK; the `tcc` provider for `Debug` builds (D108).
+- File-based programs (D155): the `#:` directives, `CSourceFiles`, `CFlags` and `CIncludeDirs`,
+  `cdc <file.cs>` with its cache, `cdc init --from`, `CD0011`.
 - `CDelta.Sdk.Generators` with the typed build options (D023).
 - Source generators and analyzers of `Analyzer` items run by `cdc` as by the IDE (D023,
   [language/modules-build.md](language/modules-build.md#generated-sources)); the NativeAOT spike
@@ -190,7 +192,8 @@ a sample project opens in VS Code with completion and CΔ diagnostics; a sample 
 generator builds and shows the generated members in both; a one-line change to a
 sample of a few thousand lines rebuilds and runs in Debug in under one second on the CI machine;
 the `debug` end to end case inspects a `string`, a `Result` and a `[Union]` value in GDB and
-LLDB.
+LLDB; the `file` end to end case runs a file-based program with a C source as a script, by `cdc`
+and by `dotnet run`.
 
 ## M8: kabic
 

@@ -16,6 +16,7 @@ One `CSharpCompilation` per package, created by the driver in dependency order.
 | `CheckOverflow` | `false`: explicit `checked` and `unchecked` are read from syntax, see below |
 | `NullableContextOptions` | `Disable` |
 | `Deterministic` | `true` |
+| Features | `FileBasedProgram` when the driver builds files instead of a project ([driver-toolchain-sdk.md](driver-toolchain-sdk.md#file-based-programs)) |
 | Preprocessor symbols | the build symbols of [../language/modules-build.md](../language/modules-build.md#conditional-compilation) |
 | References | the corelib, and `ToMetadataReference()` of each dependency's compilation; never the BCL |
 | Specific diagnostic options | the promotions and suppressions of [../language/subset.md](../language/subset.md) |

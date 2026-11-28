@@ -145,6 +145,12 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `EntrySymbol` | the symbol the linker starts at, for freestanding targets | the toolchain's default |
 | `LinkerScript` | a linker script, relative to the project | none |
 | `LinkerArgs` | extra arguments passed to the linker unchanged | none |
+| `CSourceFiles` | C sources separated by `;`, globs allowed: `CSource` items, for a [file-based program](../compiler/driver-toolchain-sdk.md#file-based-programs) | none |
+| `CFlags` | the `Flags` of every `CSourceFiles` item | none |
+| `CIncludeDirs` | directories separated by `;`: `CIncludeDir` items | none |
+
+The SDK turns `CSourceFiles` and `CIncludeDirs` into items, so a file-based program builds the same
+under `cdc`, the IDE and `dotnet run`.
 
 ### Items
 

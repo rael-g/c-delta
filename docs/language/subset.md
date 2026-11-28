@@ -41,6 +41,7 @@ including the std, cannot declare them.
 | `#if`, `#elif`, `#else`, `#endif` | Restricted: only on symbols defined by the build. `CD1023` |
 | `#define`, `#undef` | Removed. `CD1023` |
 | `#region`, `#pragma warning`, `#nullable`, `#line`, `#error`, `#warning` | Kept |
+| `#!` and `#:` directives | Kept in files built without a project, as [file-based programs](../compiler/driver-toolchain-sdk.md#file-based-programs) |
 
 ## Namespaces and compilation units
 

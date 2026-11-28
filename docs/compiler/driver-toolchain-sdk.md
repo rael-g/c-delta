@@ -14,9 +14,10 @@
 | `cdc ir [project] --stage lowered or instantiated or final` | print the IR |
 | `cdc fmt [paths] [--check]` | format sources with Roslyn's formatter and the one CΔ style |
 | `cdc fix --edition <n> [project]` | move a package to edition `n`, applying the code fixes of every rule that changed, and set `CDeltaEdition` |
-| `cdc init [--lib]` | create a project |
+| `cdc init [--lib] [--from file.cs]` | create a project; with `--from`, one whose project file holds the directives of a [file-based program](#file-based-programs), which are removed from the file |
 | `cdc targets` | list supported targets and their tiers |
 | `cdc toolchain` | show the C toolchain chosen for a target and its paths |
+| `cdc <file.cs> [args]` | `cdc run <file.cs> -- [args]`, so that `#!/usr/bin/env cdc` runs a file |
 | `cdc version` | compiler, corelib, Roslyn, libclang and toolchain versions |
 | `cdc toolchain install <target>` | install the pinned toolchain pack for a target ([below](#toolchain-packs)) |
 | `cdc fetch <url> [--save] [--name n]` | download a dependency into the cache and print its hash; with `--save`, add a `CDeltaFetch` item to the project |
@@ -28,6 +29,27 @@ Common options: `--target`, `--mode`, `-o`, `--emit-c`, `--dump-ir <stage>`, `--
 Given `.cs` files instead of a project, `cdc` builds them as one executable package with the
 default properties, so a single file program needs no project file. Its package root is the
 directory of the first file, and its `PackageName` is that file's stem.
+
+### File-based programs
+
+A file given to `cdc` declares its build in the directives C# 14 parses in file-based programs,
+at the top of the file. `cdc` parses files given on its command line with Roslyn's
+`FileBasedProgram` feature; in a project the directives are Roslyn's error.
+
+| Directive | Meaning |
+|---|---|
+| `#!` on the first line | nothing; `#!/usr/bin/env cdc` makes the file a script |
+| `#:sdk CDelta.Sdk@<version>` | the SDK of the project the IDE and `dotnet run <file.cs>` build for the file; `cdc` reads only its name |
+| `#:property <Name>=<Value>` | a property of [the project file](../language/modules-build.md#properties) |
+| `#:package <Name>@<Version>` | a `PackageReference` |
+| `#:project <path>` | a `ProjectReference`, relative to the file |
+
+Any other directive, an unknown property and an `#:sdk` other than `CDelta.Sdk` are `CD0011`, and so
+is a directive in any file but the first.
+
+`cdc run` of files writes its output to `<cache>/files/<id>/` and skips the build when the
+contents of the files and of the C sources they name, the options and the compiler version are
+those of the last build. It uses the compiler server when one is running (D158).
 
 | Option | Values | Default |
 |---|---|---|
@@ -46,7 +68,8 @@ value is exit code `2` with a usage line.
 | Build of | Output | Intermediate files |
 |---|---|---|
 | a project | `bin/<Configuration>/<Target>/<PackageName>[.exe]` under the project directory | `obj/cdelta/` under the project directory |
-| files | `<stem of the first file>[.exe]` in the current directory | `<cache>/files/<id>/` |
+| files, by `cdc build` | `<stem of the first file>[.exe]` in the current directory | `<cache>/files/<id>/` |
+| files, by `cdc run` | `<cache>/files/<id>/<stem of the first file>[.exe]` | `<cache>/files/<id>/` |
 
 - `<Configuration>` is `Debug` for the `Debug` mode and `Release` for the others. `<Target>` is the
   resolved triple, also when the project says `native`.
