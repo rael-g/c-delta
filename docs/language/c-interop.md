@@ -188,8 +188,11 @@ static class Geometry
 Every build that has exports writes `<PackageName>.h` next to the output, in `include/` for a
 library ([../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md#outputs-and-intermediate-files)):
 
-- an include guard, `<stdint.h>`, `<stddef.h>` and `<stdbool.h>`, and an `extern "C"` block for
-  C++;
+- the include guard `<PACKAGENAME>_H`, the package name in upper case with every character
+  outside `[A-Z0-9_]` written `_`, then `<stdint.h>`, `<stddef.h>` and `<stdbool.h>`, and an
+  `extern "C"` block for C++;
+- the export name of every declaration, the declared name when `[Export]` gives none;
+- function pointer types spelled in full (`int32_t (*callback)(int32_t)`), with no typedef;
 - exported enums, then structs in dependency order, then fields, then function prototypes;
 - the doc comments of exported declarations, as C comments;
 - `_Static_assert` on the size of every exported struct.

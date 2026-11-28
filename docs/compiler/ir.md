@@ -172,9 +172,9 @@ Slices, stack memory and optionals:
 
 ```
 Struct   name, type params, fields (name, type, attributes, [Bits n], [Align n]),
-         layout: c | c.packed(n) | auto | explicit(offsets), min size, min alignment,
+         layout: c | c.packed(n) | auto | explicit(offsets), min size, min alignment, export name,
          computed: size, alignment, field offsets (Final)
-Enum     name, backing integer type, members (name, value), exhaustive flag
+Enum     name, backing integer type, members (name, value), exhaustive flag, export name
 Union    name, interface, members (struct types), computed: tag type, payload size, alignment,
          member tags
 Interface name, type params, methods (signature, has default body), static members,
@@ -359,6 +359,9 @@ Attribute  name (namespaced: cs.Obsolete, cdelta.Export, ann.out, proj.cs.name),
            (positional and named constants)
 ```
 
+An argument is printed as an optional `name=` and a typed constant; a string is a `bytes`
+constant of type `slice<u8> const`: `#[cdelta.Doc(slice<u8> const bytes "Opens a file.")]`.
+
 The IR never interprets an attribute it does not own; the namespace says who does. This is how
 annotations travel from any frontend to the projections without new IR constructs
 ([annotations](#annotations)).
@@ -414,7 +417,7 @@ stage       = "lowered" | "instantiated" | "final"
 mattr       = "#![" attr "]" NL
 attrs       = {"#[" attr "]" NL}
 attr        = ref ["(" [aarg {"," aarg}] ")"]
-aarg        = [ident "="] value
+aarg        = [ident "="] constant
 
 item        = source | cimport | struct | enum | union | interface | opaque | global
             | function | impl | errorname
@@ -424,11 +427,11 @@ origin      = "origin" ( "source" "(" ident ")" | "cheader" "(" int "," string "
                        | "clibrary" "(" string "," string ")" | "synthetic" )
 
 struct      = attrs "struct" ref [tparams] [layout] ["size" int "align" int] ["minsize" int]
-              ["minalign" int]
+              ["minalign" int] ["export" "(" string ")"]
               [origin] span "{" NL {field} "}" NL
 layout      = "layout" ("c" | "c.packed" "(" int ")" | "auto" | "explicit")
 field       = attrs ident ":" type ["align" int] ["bits" int ["at" int]] ["@" int] NL
-enum        = attrs "enum" ref ":" type ["exhaustive"] [origin] span "{" NL {ident "=" int NL} "}" NL
+enum        = attrs "enum" ref ":" type ["exhaustive"] ["export" "(" string ")"] [origin] span "{" NL {ident "=" int NL} "}" NL
 union       = attrs "union" ref "of" type ["tag" type "size" int "align" int] span "{" NL {type ["=" int] NL} "}" NL
 interface   = attrs "interface" ref [tparams] ["extends" type {"," type}] span "{" NL {imethod} "}" NL
 imethod     = ["static"] "fn" ident sig ["default" ref] NL

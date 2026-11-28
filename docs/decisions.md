@@ -468,7 +468,11 @@ the repository publishes each package to NuGet, so facts outlive the author who 
 library with no CΔ tooling installed. A library is laid out as an installed prefix (`include/`,
 `lib/`, `bin/`, `lib/cmake/`, `lib/pkgconfig/`), so `find_package` and `pkg-config` find it with
 no configuration, and is versioned by the property `Version` as C libraries are: a shared library
-carries the major version in its soname, so a consumer never loads an incompatible one.
+carries the major version in its soname, so a consumer never loads an incompatible one. The
+export header names nothing of CΔ's own: an exported struct or enum carries its C name in the IR
+as an exported function does, the guard is derived from the package name, and function pointer
+types are spelled in full instead of through generated typedefs, whose names would change with
+unrelated edits.
 
 **D166. CΔ evolves from kabic; it does not port it.** kabic was designed for another context, so
 each of its pieces is evaluated against CΔ's design and redesigned or dropped. Its code and
