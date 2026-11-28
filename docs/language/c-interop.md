@@ -83,6 +83,11 @@ declarations, functions taking or returning a struct by value with a flexible ar
 | `T[N]` parameter | `T*` |
 | function pointer | `delegate*<...>` for the target's default convention; `delegate* unmanaged[Stdcall]<...>` and the other named conventions only when the header states a different one |
 
+`CLong` and `CULong` keep the surface of .NET: `new CLong(int)`, `new CLong(nint)` and `Value` of
+type `nint`; `new CULong(uint)`, `new CULong(nuint)` and `Value` of type `nuint`. The constructor
+from `nint` or `nuint` is checked where `long` is narrower than a pointer, as in .NET, so a value
+that does not fit panics.
+
 Imports are per target: a header read for `x86_64-windows` and for `x86_64-linux` may produce
 different declarations. Code written against `CLong`, `nuint` and the declared names stays
 portable.

@@ -183,6 +183,8 @@ branches, with explicit flow captures for evaluation order. The translation is t
 | a method call on a `[Union]` value | `call union` with `addr` of the value's place (`addr.mut` unless the method is `readonly`) and the method's index in the interface |
 | a `[CMacro]` method | a function with linkage `c.macro` and the macro's name, or `c.macro template` and the attribute's template; calls are `call direct` with the type arguments |
 | a `[CMacro] static readonly` field | a function with no parameters, linkage `c.macro template` and the macro's name as the template, returning the field's type; each read is a `call direct` of it, and taking the field's address or a `ref` to it is `CD6012` |
+| `new CLong(v)`, `new CULong(v)` | `cast int.int` of `v` to `c.long` or `c.ulong`: `wrap` from `int` and `uint`, `trap` from `nint` and `nuint` |
+| `x.Value` of a `CLong` or a `CULong` | `cast int.int wrap` to `isize` or `usize` |
 | a user indexer access | `call direct` of the getter; a `ref` getter returns `ptr<T>`, copied into a temp and used as the place `(*%t)`, so `x[i] = v` and `x[i].F++` write through it |
 | an operator or conversion whose `OperatorMethod` is a user method | `call direct` of that method; Roslyn has already chosen the `checked` form in a checked context |
 | a lifted operator (`IsLifted`) on optionals | expanded as C# defines it: arithmetic gives `optional.none` unless both operands have a payload; `==` is true when both have none and compares payloads when both have one; `< > <= >=` are false unless both have a payload |
