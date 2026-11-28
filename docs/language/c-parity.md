@@ -44,6 +44,26 @@ template string and typed operand lists for outputs, inputs and clobbers. Its ex
 designed before M9. On MSVC, which has no inline assembly on x64, `Asm` is `CD0002` and
 `AsmSource` items are assembled by the toolchain's assembler.
 
+## Alignment, aliasing and interrupts
+
+- `[Align(n)]` gives a struct, a field or a static field a minimum alignment. On a field it moves
+  the field's offset to the next multiple of `n` and raises the struct's alignment to at least
+  `n`. `n` is a power of two, and under explicit layout the given offset is a multiple of it
+  (`CD6014`). An `n` at or below the natural alignment changes nothing, and C gets no `_Alignas`,
+  which C rejects when weaker than natural.
+- `[NoAlias]` marks a pointer parameter as the only way the function reaches that memory; the C
+  parameter is `restrict`. A `restrict` parameter of an imported function is kept the same way.
+- `[Interrupt(kind)]` marks a `static void` method without parameters as an interrupt handler:
+
+  | `InterruptKind` | Targets | C |
+  |---|---|---|
+  | `Irq` | `thumbv6m-none-eabi`, `thumbv7em-none-eabi`, `thumbv7em-none-eabihf` | `__attribute__((interrupt("IRQ")))` |
+  | `Machine` | `riscv32imac-none-elf` | `__attribute__((interrupt("machine")))` |
+  | `Supervisor` | `riscv32imac-none-elf` | `__attribute__((interrupt("supervisor")))` |
+
+  A kind the target lacks, any kind on another target, or another signature is `CD6013`. A
+  handler saves the length of the error return trace on entry and restores it on every exit.
+
 ## Language runtimes
 
 These capabilities are what a language runtime needs: a collector scanning stacks, coroutines

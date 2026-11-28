@@ -171,8 +171,8 @@ Slices, stack memory and optionals:
 ### Declarations of types
 
 ```
-Struct   name, type params, fields (name, type, attributes, [Bits n]),
-         layout: c | c.packed(n) | auto | explicit(offsets), min size,
+Struct   name, type params, fields (name, type, attributes, [Bits n], [Align n]),
+         layout: c | c.packed(n) | auto | explicit(offsets), min size, min alignment,
          computed: size, alignment, field offsets (Final)
 Enum     name, backing integer type, members (name, value), exhaustive flag
 Union    name, interface, members (struct types), computed: tag type, payload size, alignment,
@@ -197,7 +197,7 @@ global has a constant initializer in `Instantiated` and later.
 ## Functions
 
 ```
-Function  name, type params, comptime params, params (name, type, mode), return type,
+Function  name, type params, comptime params, params (name, type, mode, noalias), return type,
           calling convention, linkage (internal | export(name, weak?) | extern | c.macro(text, template?)),
           inline (default | always | never), safety override, attributes,
           body (optional)
@@ -424,9 +424,10 @@ origin      = "origin" ( "source" "(" ident ")" | "cheader" "(" int "," string "
                        | "clibrary" "(" string "," string ")" | "synthetic" )
 
 struct      = attrs "struct" ref [tparams] [layout] ["size" int "align" int] ["minsize" int]
+              ["minalign" int]
               [origin] span "{" NL {field} "}" NL
 layout      = "layout" ("c" | "c.packed" "(" int ")" | "auto" | "explicit")
-field       = attrs ident ":" type ["bits" int ["at" int]] ["@" int] NL
+field       = attrs ident ":" type ["align" int] ["bits" int ["at" int]] ["@" int] NL
 enum        = attrs "enum" ref ":" type ["exhaustive"] [origin] span "{" NL {ident "=" int NL} "}" NL
 union       = attrs "union" ref "of" type ["tag" type "size" int "align" int] span "{" NL {type ["=" int] NL} "}" NL
 interface   = attrs "interface" ref [tparams] ["extends" type {"," type}] span "{" NL {imethod} "}" NL
@@ -436,7 +437,7 @@ global      = attrs "global" ref ":" type {gflag} ["=" (constant | "comptime" re
 gflag       = "mutable" | "threadlocal" | linkage | "section" string | "align" int
 function    = attrs "fn" ref [tparams] "(" [param {"," param}] ["," "..."] ")" "->" [pmode] type
               {fflag} [origin] span (body | NL)
-param       = ident ":" [pmode] type
+param       = ident ":" ["noalias"] [pmode] type
 pmode       = "ref" | "ref.readonly" | "out"
 fflag       = "cc" conv | linkage | "inline" ("always" | "never") | "safety" ("on" | "off")
 linkage     = "internal" | "export" "(" string ")" ["weak"] | "extern" | "c.macro" ["template"] string

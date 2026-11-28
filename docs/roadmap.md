@@ -145,7 +145,7 @@ work in a sample.
 - The rest of the C frontend: comments into doc comments, doc tags and annotations, the import
   cache.
 - `[CMacro]` in every form of D030, `CSource` items, macros of constant addresses.
-- `[Align]`, `[Naked]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` and `CppSource` items, `EntrySymbol`,
+- `[Align]`, `[Interrupt]`, `[NoAlias]`, `AsmSource` and `CppSource` items, `EntrySymbol`,
   `LinkerScript`, `LinkerArgs`, the embedded targets ([language/c-parity.md](language/c-parity.md)).
 - `[Export]`, the export header, static and shared libraries, `--emit-c`; the CMake and
   `pkg-config` files of libraries and the `CMakeLists.txt` of the C source output (D165).
@@ -213,7 +213,7 @@ runs after a change to its source.
 
 - GCC and MSVC providers, tier 2 runners.
 - C function bodies in the C frontend (comptime of `static inline` C functions).
-- `Asm`, `FrameAddress`, `ReturnAddress`, `MustTail` and the `Vector64<T>` to `Vector512<T>` types,
+- `Asm` with `[Naked]`, `FrameAddress`, `ReturnAddress`, `MustTail` and the `Vector64<T>` to `Vector512<T>` types,
   all designed first
   ([language/c-parity.md](language/c-parity.md)).
 - Documentation of the std in the generated reference.

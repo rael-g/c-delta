@@ -104,7 +104,7 @@ it is inlined, never turned into a delegate. Ordering with `Defer` is in
 
 ## Error return traces
 
-In Debug and ReleaseSafe the compiler records, per thread, the source location of each `Try` and
+In Debug and ReleaseSafe the compiler records, per thread (in one global without libc), the source location of each `Try` and
 `return` that propagated an error, in a fixed ring of 32 entries. When `Main` returns an error or a
 panic happens while an error is in flight, the trace is printed. ReleaseFast and ReleaseSmall
 record nothing. The ring needs no allocation and is part of the generated code, not a runtime.

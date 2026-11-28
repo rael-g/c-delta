@@ -92,7 +92,7 @@ program uses it; each is `static` (`static inline` for arithmetic).
 |---|---|
 | `noreturn void cd_panic(const uint8_t* msg, int32_t msg_len, const char* file, int32_t line)` | calls the user's `[PanicHandler]` if there is one, else `cd_default_panic` |
 | `noreturn void cd_default_panic(...)` | same parameters; the output below through `cd_libc_write_stderr`, then `cd_libc_abort()`; without libc `__builtin_trap()` |
-| `cd_trace`, `cd_trace_len` | `_Thread_local` ring of 32 `{ const char* file; int32_t line; }` and its count |
+| `cd_trace`, `cd_trace_len` | ring of 32 `{ const char* file; int32_t line; }` and its count, `_Thread_local` when libc is linked and plain `static` otherwise |
 | `void cd_trace_push(const char* file, int32_t line)` | writes at `cd_trace_len % 32`, then increments |
 | `void cd_trace_print(void)` | `intrinsic trace.print`: the trace block below, when `cd_trace_len > 0` |
 | `bool cd_text_eql(cd_T_slice_const_uint8_t a, cd_T_slice_const_uint8_t b)` | `intrinsic text.eql`: equal lengths and `__builtin_memcmp` |
@@ -156,7 +156,7 @@ then the exit code `1`, written by `cd_report_error`. The error name table is al
 | `optional<T>` | `typedef struct { T value; bool has; } cd_T_optional_<T>`; `payload(0)` is `value` |
 | `result<T, E>` | `typedef struct { T value; uint16_t err; } cd_T_result_<T>`, shared by every error set; `uint16_t` alone when `T` is `void`; `haspayload` is `err == 0`, `err` reads the field |
 | `errorset{...}`, `anyerror` | `uint16_t`; an `error` constant is its number from the `errorname` items; `error.error` casts are nothing |
-| `struct` | `struct` with the fields in IR order and `_Alignas` where the IR alignment exceeds natural |
+| `struct` | `struct` with the fields in IR order and `_Alignas` where the IR alignment of the struct or of a field exceeds natural |
 | explicit layout | `union` of one `struct` per field, each with a leading `char` padding array of the field's offset; a member struct whose field offset is not a multiple of the field's alignment is packed (`__attribute__((packed))`, `#pragma pack(1)` on MSVC), and the union has `_Alignas` of the IR alignment |
 | `union` (tagged) | `struct { tag_t tag; union { ... } as; }` |
 | `enum` | a `typedef` of the underlying integer; members are written as typed literals at each use |
@@ -236,6 +236,8 @@ if (__builtin_expect(!(i < s.len), 0)) cd_panic_bounds(i, s.len, "Program.cs", 1
   name for a function with no parameters and the `template` form, or as the template with its
   arguments and the C spellings of the instance's type arguments substituted. A `ref` argument is written as the lvalue it points to, `(*t)`,
   and a call returning `void` as a statement.
+- A `noalias` parameter is declared `T* restrict`. The function of an `[Interrupt]` handler gets
+  the attribute of [../language/c-parity.md](../language/c-parity.md#alignment-aliasing-and-interrupts).
 - A variadic call passes the variadic arguments as written; C's default argument promotions apply,
   which is the C meaning.
 

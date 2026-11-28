@@ -113,7 +113,7 @@ For every concrete struct, union, optional, result, slice, closure and dyn type:
 
 | Layout | Rule |
 |---|---|
-| `c` | the target C ABI rules: fields in order, each at the next multiple of its alignment, size rounded to the struct alignment |
+| `c` | the target C ABI rules: fields in order, each at the next multiple of its alignment, size rounded to the struct alignment; a field's `align n` and the struct's `minalign n` raise those alignments to at least `n` |
 | `c.packed(n)` | the same with alignments capped at `n` |
 | `auto` | fields sorted by decreasing alignment, stable, then the `c` rule |
 | `explicit` | the given offsets; size is the maximum end rounded to the maximum alignment |
@@ -132,6 +132,8 @@ compiler. Every primitive has its size as alignment except where stated.
 | `x86_64-windows-gnu` | 8 | 4 | `u16` | signed | native, align 16 | native | Microsoft |
 | `x86_64-windows-msvc` | 8 | 4 | `u16` | signed | struct of two `u64`, align 8 | struct of `u16` | Microsoft |
 | `wasm32-wasi-musl` | 4 | 4 | `i32` | signed | struct of two `u64`, align 8 | struct of `u16` | SysV |
+| `thumbv6m-none-eabi`, `thumbv7em-none-eabi`, `thumbv7em-none-eabihf` | 4 | 4 | `u32` | unsigned | struct of two `u64`, align 8 | struct of `u16` | SysV |
+| `riscv32imac-none-elf` | 4 | 4 | `i32` | unsigned | struct of two `u64`, align 8 | struct of `u16` | SysV |
 
 All targets are little endian. The layout catalog test of [testing.md](testing.md#layouts) checks
 this table against clang; a difference is a bug in the table.
@@ -166,7 +168,8 @@ The build mode and `[Safety]` overrides decide, per function, whether checks are
 With checks on: `fill.undef` after `Unsafe.SkipInit` and after the array local of a constant
 `stackalloc` under `[SkipLocalsInit]`, and `alloca` with `undef` becomes `alloca` with `fill`. The
 frontend emits every `trace.push`, `trace.save` and `trace.restore`; this pass keeps them when
-`ErrorReturnTrace` is enabled and removes them otherwise, with every `intrinsic trace.print`,
+`ErrorReturnTrace` is enabled and removes them otherwise; with the trace kept, an `[Interrupt]`
+handler gets a `trace.save` on entry and a `trace.restore` on every exit, with every `intrinsic trace.print`,
 which is also removed without libc.
 
 ## 9. Reachability cleanup

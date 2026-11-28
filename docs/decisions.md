@@ -259,7 +259,10 @@ knows no C compiler.
 save and restore the trace length, so a trace shows only the error in flight. Code reaches the
 trace only through the intrinsic `PrintErrorTrace()`, which writes the trace block to standard
 error, so `Std.Process.Run` and a `[PanicHandler]` report an error as a failing `Main` does with
-no case of the compiler for them.
+no case of the compiler for them. The trace is per thread where libc gives threads, and one
+global without libc, where there is no thread-local storage to rely on; an `[Interrupt]` handler
+saves and restores its length, so an interrupt never changes the trace of the code it
+interrupted.
 
 **D127. Implementation follows the documents and never decides design.** A gap or a conflict in
 the documents is answered by a change to the documents, and the affected work waits for it.
@@ -414,7 +417,9 @@ default arithmetic context wraps when checks are off instead of being assumed no
 **D157. CΔ can do anything C can, at worst through an explicit form.** Not being specialized
 means no closed door: freestanding code, vendor HALs, interrupt handlers, inline assembly, SIMD,
 linker control. Every capability is listed in [language/c-parity.md](language/c-parity.md); a
-missing one is a design gap.
+missing one is a design gap. Each lowers to what C already has: `[Align]` to `_Alignas`, `[NoAlias]`
+to a `restrict` parameter, `[Interrupt]` to the target's interrupt attribute for a kind the target
+has, and `[Naked]`, whose body is only `Asm`, waits for `Asm`.
 
 **D158. Build speed is a requirement, measured in CI.** A warm compiler server, the generated C
 split by module with cached objects, and a NativeAOT `cdc` remove most of the latency of a
