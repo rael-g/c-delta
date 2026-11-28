@@ -47,6 +47,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD0009 | a package uses an edition newer than this compiler; update the compiler | [../language/modules-build.md](../language/modules-build.md#editions) |
 | CD0010 | a fetched dependency does not match its hash | [../language/modules-build.md](../language/modules-build.md#fetched-dependencies) |
 | CD0011 | invalid directive of a file-based program | [driver-toolchain-sdk.md](driver-toolchain-sdk.md#file-based-programs) |
+| CD0012 | a name of a `CConfigHeader` template has no value | [../language/modules-build.md](../language/modules-build.md#generated-c-headers) |
 | CD1000 | this C# construct is not part of CΔ | [../language/subset.md](../language/subset.md) |
 | CD1001 | classes are not part of CΔ; use a struct, or a static class for a module | [../language/subset.md](../language/subset.md#types) |
 | CD1002 | records are not part of CΔ | [../language/subset.md](../language/subset.md#types) |

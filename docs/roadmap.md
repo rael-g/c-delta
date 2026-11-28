@@ -173,7 +173,8 @@ Accepted when: `comptime` conformance passes; differential tests pass.
 - Cross compilation to every tier 1 and 2 target; the `auto` order and toolchain packs with
   `cdc toolchain install` (D108, D163).
 - Dependencies (D164): the `CDelta` package type, lock files, `CDeltaFetch` with recipes for C,
-  `cdc fetch --save`, `PkgConfig` on `NativeLibrary`, `cdc publish`, `CD0010`.
+  `CConfigHeader`, `cdc fetch --save`, `PkgConfig` on `NativeLibrary`, `cdc publish`, `CD0010`,
+  `CD0012`.
 - Build speed (D158): a compiler server, `cdc watch`, that keeps Roslyn, the imports and the core's
   state warm; the generated C split by module, with object files cached by the SHA-256 of their C;
   a spike publishing `cdc` with NativeAOT, which decides whether builds can run without the .NET

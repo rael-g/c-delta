@@ -70,7 +70,8 @@ hash; the hash is its lock, and content that does not match is `CD0010`.
 - Otherwise it is a C library, built by the metadata of the item: `Sources` (globs of C files to
   compile), `IncludeDirs`, `Defines`, and `Import` (the headers of a generated `[Import]` class
   named after the item). A longer recipe lives in a `.props` file named by `Recipe`, holding the
-  same items.
+  same items, conditions on `$(CDeltaTarget)` for what differs by target, and the `CConfigHeader`
+  items for the headers the library's own build would generate.
 - A package may carry an annotation manifest (D170), with or without a `CDeltaFetch` recipe; a
   package with only a manifest annotates a library already on the system, such as the C library
   or GTK.
@@ -165,6 +166,7 @@ under `cdc`, the IDE and `dotnet run`.
 | `NativeLibrary` | `Linkage` (`Static`, `Dynamic`), `PkgConfig` | libraries to link; with `PkgConfig="name"`, flags and paths come from `pkg-config` |
 | `CDeltaFetch` | `Url`, `Hash`, and for a C library `Sources`, `IncludeDirs`, `Defines`, `Import`, `Recipe` | a dependency fetched by URL, [below](#fetched-dependencies) |
 | `NativeLibraryDir` | | library search directories |
+| `CConfigHeader` | `Style` (`CMake`, `Autoconf`), `Output`, `Values` | a header generated from a template, [below](#generated-c-headers) |
 | `BuildOption` | `Value`, `Type` | a value read by `Builtin.Option<T>(name)`, and a field of `BuildOptions` |
 
 The SDK's generator (D023) declares `internal static class BuildOptions` in the global namespace,
@@ -177,6 +179,21 @@ internal static class BuildOptions
     public static readonly bool EnableLogging = Builtin.Option<bool>("EnableLogging");
 }
 ```
+
+### Generated C headers
+
+A `CConfigHeader` fills the template a C library's build would turn into a header, such as a
+`config.h.in`, without running that build. `Values` holds `NAME=value` pairs separated by `;`; an
+empty value means not defined.
+
+| `Style` | Replaces |
+|---|---|
+| `CMake` | `#cmakedefine NAME` and `#cmakedefine NAME text` by `#define`, or by `/* #undef NAME */` when `NAME` is not defined; `#cmakedefine01 NAME` by `#define NAME 1` or `0`; `${NAME}` and `@NAME@` by the value |
+| `Autoconf` | `#undef NAME` by `#define NAME value`, or by `/* #undef NAME */` when `NAME` is not defined |
+
+The header is written at `Output` under `config/` in the intermediate directory, which is a
+`CIncludeDir` of the package. A name of the template that `Values` does not list is `CD0012`, so a
+recipe never leaves a setting undefined by omission.
 
 ## Targets
 
