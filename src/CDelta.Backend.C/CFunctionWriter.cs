@@ -26,10 +26,15 @@ internal sealed partial class CFunctionWriter(
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex Identifier();
 
-    public static string Signature(Module module, FunctionId id, CNames names, bool withNames, string[]? localNames, bool[]? unread = null)
+    public static string Signature(Module module, FunctionId id, CNames names, bool withNames, string[]? localNames, bool[]? unread = null, bool exportMarker = false)
     {
         FunctionDecl function = module.Functions[id.Index];
         var text = new StringBuilder();
+        if (exportMarker && function.Linkage == LinkageKind.Export)
+        {
+            text.Append("CD_EXPORT ");
+        }
+
         if (function.Linkage == LinkageKind.Internal)
         {
             text.Append("static ");
@@ -76,7 +81,7 @@ internal sealed partial class CFunctionWriter(
             state.UsesUnusedMarker |= flag;
         }
 
-        _text.Append(Signature(module, id, names, true, _locals, unread)).Append('\n').Append("{\n");
+        _text.Append(Signature(module, id, names, true, _locals, unread, options.SharedLibrary)).Append('\n').Append("{\n");
         for (int i = _function.Params.Count; i < _body.Locals.Count; i++)
         {
             TypeId type = _body.Locals[i].Type;

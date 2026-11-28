@@ -11,4 +11,5 @@ public readonly record struct LinkRequest(
     bool Cpp = false,
     string? EntrySymbol = null,
     string? LinkerScript = null,
-    IReadOnlyList<string>? LinkerArgs = null);
+    IReadOnlyList<string>? LinkerArgs = null,
+    bool Shared = false);

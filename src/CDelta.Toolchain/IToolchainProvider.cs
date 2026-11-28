@@ -15,4 +15,6 @@ public interface IToolchainProvider
     ToolResult Compile(CompileRequest request);
 
     ToolResult Link(LinkRequest request);
+
+    ToolResult Archive(ArchiveRequest request);
 }

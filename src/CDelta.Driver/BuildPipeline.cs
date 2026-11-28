@@ -17,6 +17,9 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
     private const int InternalError = 3;
     private const string NativeTarget = "native";
     private const string WindowsMarker = "-windows-";
+    private const string MacosMarker = "-macos-";
+    private const string LibraryOutputType = "Library";
+    private const string SharedKind = "Shared";
 
     private readonly List<string> _generated = [];
 
@@ -137,7 +140,9 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         ProjectPlan? plan)
     {
         bool debugInfo = mode is BuildMode.Debug or BuildMode.ReleaseSafe;
-        CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true));
+        bool library = plan is { OutputType: LibraryOutputType };
+        bool shared = library && plan!.LibraryKind == SharedKind;
+        CBackendOutput generated = CBackend.Generate(final, new BackendOptions(debugInfo, true, shared));
         string cPath = Path.Combine(intermediate, packageName + ".c");
         File.WriteAllText(cPath, generated.Program);
         var sources = new List<string> { cPath };
@@ -156,7 +161,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(cSource) + ".c.o");
             string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            ToolResult compiledC = toolchain.Compile(new CompileRequest(cSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra));
+            ToolResult compiledC = toolchain.Compile(new CompileRequest(cSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, false, false, shared));
             Trace(options, compiledC, messages);
             if (compiledC.ExitCode != 0)
             {
@@ -171,7 +176,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(cppSource) + ".cpp.o");
             string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            ToolResult compiledCpp = toolchain.Compile(new CompileRequest(cppSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, true));
+            ToolResult compiledCpp = toolchain.Compile(new CompileRequest(cppSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, true, false, shared));
             Trace(options, compiledCpp, messages);
             if (compiledCpp.ExitCode != 0)
             {
@@ -186,7 +191,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(asmSource) + ".asm.o");
             string[] extra = flags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            ToolResult assembled = toolchain.Compile(new CompileRequest(asmSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, false, true));
+            ToolResult assembled = toolchain.Compile(new CompileRequest(asmSource, objectPath, target, optimize, includeDirectories, plan!.Defines, extra, false, true, shared));
             Trace(options, assembled, messages);
             if (assembled.ExitCode != 0)
             {
@@ -200,7 +205,7 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         foreach (string source in sources)
         {
             string objectPath = Path.Combine(objects, Path.GetFileNameWithoutExtension(source) + ".o");
-            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, includeDirectories, plan?.Defines ?? []));
+            ToolResult compiled = toolchain.Compile(new CompileRequest(source, objectPath, target, optimize, includeDirectories, plan?.Defines ?? [], null, false, false, shared));
             Trace(options, compiled, messages);
             if (compiled.ExitCode != 0)
             {
@@ -214,7 +219,9 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
         string output = options.OutputPath ?? (plan is null ? DefaultOutput(packageName, target) : ProjectOutput(plan, target, mode));
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
         List<NativeLibrary> natives = [.. (plan?.Libraries ?? []).Select(l => new NativeLibrary(l.Name, l.Static))];
-        ToolResult linked = toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? [], plan?.CppSources.Count > 0, plan?.EntrySymbol, plan?.LinkerScript, plan?.LinkerArgs));
+        ToolResult linked = library && !shared
+            ? toolchain.Archive(new ArchiveRequest(objectPaths, output, target))
+            : toolchain.Link(new LinkRequest(objectPaths, output, target, optimize, LibrariesOf(final), natives, plan?.LibraryDirectories ?? [], plan?.CppSources.Count > 0, plan?.EntrySymbol, plan?.LinkerScript, plan?.LinkerArgs, shared));
         Trace(options, linked, messages);
         if (linked.ExitCode != 0)
         {
@@ -247,7 +254,25 @@ public sealed class BuildPipeline(IProcessRunner runner, Func<string, string?> e
     }
 
     private static string ProjectOutput(ProjectPlan plan, string target, BuildMode mode) =>
-        Path.Combine(plan.Directory, "bin", mode == BuildMode.Debug ? "Debug" : "Release", target, plan.PackageName + (target.Contains(WindowsMarker, StringComparison.Ordinal) ? ".exe" : string.Empty));
+        Path.Combine(plan.Directory, "bin", mode == BuildMode.Debug ? "Debug" : "Release", target, OutputName(plan, target));
+
+    private static string OutputName(ProjectPlan plan, string target)
+    {
+        bool windows = target.Contains(WindowsMarker, StringComparison.Ordinal);
+        if (plan.OutputType != LibraryOutputType)
+        {
+            return plan.PackageName + (windows ? ".exe" : string.Empty);
+        }
+
+        bool shared = plan.LibraryKind == SharedKind;
+        if (windows)
+        {
+            return plan.PackageName + (shared ? ".dll" : ".lib");
+        }
+
+        string extension = !shared ? ".a" : target.Contains(MacosMarker, StringComparison.Ordinal) ? ".dylib" : ".so";
+        return "lib" + plan.PackageName + extension;
+    }
 
     private static string DefaultOutput(string packageName, string target) =>
         Path.Combine(Directory.GetCurrentDirectory(), packageName + (target.Contains(WindowsMarker, StringComparison.Ordinal) ? ".exe" : string.Empty));

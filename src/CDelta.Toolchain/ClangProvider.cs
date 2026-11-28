@@ -24,6 +24,7 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
     {
         var arguments = new List<string> { "--target=" + TargetTriples.Clang(request.Target), "-c" };
         CommonFlags.AddCompileFlags(arguments, request.Mode, !(request.Cpp || request.Assembly));
+        CommonFlags.AddSharedCompileFlags(arguments, request);
         foreach (string directory in request.IncludeDirectories)
         {
             arguments.Add("-I" + directory);
@@ -41,9 +42,23 @@ public sealed class ClangProvider(IProcessRunner runner, string executable) : IT
         return runner.Run(DriverFor(request.Cpp), arguments);
     }
 
+    public ToolResult Archive(ArchiveRequest request) =>
+        runner.Run(ArchiverPath(), ["rcs", request.Output, .. request.Objects]);
+
+    private string ArchiverPath()
+    {
+        string sibling = Path.Combine(Path.GetDirectoryName(Executable) ?? string.Empty, "llvm-ar");
+        return File.Exists(sibling) ? sibling : PathSearch.Find("llvm-ar") ?? PathSearch.Find("ar") ?? "ar";
+    }
+
     public ToolResult Link(LinkRequest request)
     {
         var arguments = new List<string> { "--target=" + TargetTriples.Clang(request.Target) };
+        if (request.Shared)
+        {
+            arguments.Add("-shared");
+        }
+
         arguments.AddRange(request.Objects);
         arguments.Add("-o");
         arguments.Add(request.Output);

@@ -6,7 +6,7 @@ namespace CDelta.Driver;
 
 public static class ProjectLoader
 {
-    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget,EntrySymbol,LinkerScript,LinkerArgs";
+    private const string Properties = "OutputType,OptimizeMode,PackageName,CToolchain,EmitC,CDeltaTarget,EntrySymbol,LinkerScript,LinkerArgs,LibraryKind";
     private const string Items = "Compile,CSource,CppSource,AsmSource,CIncludeDir,CDefine,NativeLibrary,NativeLibraryDir";
 
     public static ProjectPlan? Load(IProcessRunner runner, string projectPath, DiagnosticBag diagnostics)
@@ -41,7 +41,9 @@ public static class ProjectLoader
             [.. Entries(items, "AsmSource").Select(e => (Full(e, directory), Metadata(e, "Flags") ?? string.Empty))],
             Property(properties, "EntrySymbol"),
             Property(properties, "LinkerScript") is { } script ? Path.GetFullPath(script, directory) : null,
-            [.. (Property(properties, "LinkerArgs") ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)]);
+            [.. (Property(properties, "LinkerArgs") ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)],
+            Property(properties, "OutputType"),
+            Property(properties, "LibraryKind"));
     }
 
     private static string? Property(JsonElement properties, string name) =>

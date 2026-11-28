@@ -9,4 +9,5 @@ public readonly record struct CompileRequest(
     IReadOnlyList<string> Defines,
     IReadOnlyList<string>? ExtraFlags = null,
     bool Cpp = false,
-    bool Assembly = false);
+    bool Assembly = false,
+    bool SharedLibrary = false);

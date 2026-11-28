@@ -26,6 +26,15 @@ internal static class CPrelude
 
         """;
 
+    public const string ExportMarker = """
+        #if defined(_WIN32)
+        #define CD_EXPORT __declspec(dllexport)
+        #else
+        #define CD_EXPORT __attribute__((visibility("default")))
+        #endif
+
+        """;
+
     public const string FnType = "typedef void (*cd_fn)(void);\n";
 
     public const string DynType = "typedef struct { void* self; const cd_fn* table; } cd_dyn;\n";

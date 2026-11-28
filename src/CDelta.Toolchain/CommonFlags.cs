@@ -50,6 +50,15 @@ internal static class CommonFlags
         }
     }
 
+    public static void AddSharedCompileFlags(List<string> arguments, CompileRequest request)
+    {
+        if (request.SharedLibrary)
+        {
+            arguments.Add("-fPIC");
+            arguments.Add("-fvisibility=hidden");
+        }
+    }
+
     public static void AddLibraries(
         List<string> arguments,
         IReadOnlyList<string> libraries,

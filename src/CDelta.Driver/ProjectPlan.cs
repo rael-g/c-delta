@@ -17,7 +17,9 @@ public sealed record ProjectPlan(
     IReadOnlyList<(string Path, string Flags)> AsmSources,
     string? EntrySymbol,
     string? LinkerScript,
-    IReadOnlyList<string> LinkerArgs)
+    IReadOnlyList<string> LinkerArgs,
+    string? OutputType = null,
+    string? LibraryKind = null)
 {
     public string Directory => System.IO.Path.GetDirectoryName(ProjectPath)!;
 }

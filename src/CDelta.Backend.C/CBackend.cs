@@ -17,7 +17,7 @@ public static class CBackend
         {
             if (module.Functions[function.Index].Origin.Kind != OriginKind.CHeader)
             {
-                prototypes.Append(CFunctionWriter.Signature(module, function, names, false, null)).Append(";\n");
+                prototypes.Append(CFunctionWriter.Signature(module, function, names, false, null, null, options.SharedLibrary)).Append(";\n");
             }
 
             if (module.Bodies[function.Index] is not null)
@@ -29,6 +29,10 @@ public static class CBackend
         FunctionId? handler = PanicHandler(module);
         var text = new StringBuilder(ImportLines(module));
         text.Append(CPrelude.Includes);
+        if (options.SharedLibrary)
+        {
+            text.Append('\n').Append(CPrelude.ExportMarker);
+        }
         if (state.UsesUnusedMarker)
         {
             text.Append('\n').Append(CPrelude.UnusedMarker);

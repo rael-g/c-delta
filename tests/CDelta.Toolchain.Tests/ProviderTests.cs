@@ -39,7 +39,7 @@ public sealed class ProviderTests
         zig.Compile(new CompileRequest("a.c", "a.o", "aarch64-linux-gnu", OptimizeMode.Debug, ["inc"], ["X=1"]));
 
         Assert.Equal(
-            ["cc", "-target", "aarch64-linux-gnu", "-c", "-std=c11", "-fno-strict-aliasing", "-ffp-contract=off", "-w", "-O0", "-g", "-Iinc", "-DX=1", "a.c", "-o", "a.o"],
+            ["cc", "-target", "aarch64-linux-gnu", "-c", "-std=c11", "-fno-strict-aliasing", "-ffp-contract=off", "-w", "-O0", "-g", "-fno-sanitize=undefined", "-Iinc", "-DX=1", "a.c", "-o", "a.o"],
             runner.Calls[0].Arguments);
     }
 
