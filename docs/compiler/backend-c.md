@@ -232,8 +232,9 @@ if (__builtin_expect(!(i < s.len), 0)) cd_panic_bounds(i, s.len, "Program.cs", 1
   are pointers.
 - `closure` calls pass the context first. `dyn` calls load the function from the table and pass
   `self` first.
-- `c.macro` calls are written as a call of the macro name, or as the template with its arguments
-  and type spellings substituted. A `ref` argument is written as the lvalue it points to, `(*t)`,
+- Calls of a function with linkage `c.macro` are written as a call of the macro name, as the bare
+  name for a function with no parameters and the `template` form, or as the template with its
+  arguments and the C spellings of the instance's type arguments substituted. A `ref` argument is written as the lvalue it points to, `(*t)`,
   and a call returning `void` as a statement.
 - A variadic call passes the variadic arguments as written; C's default argument promotions apply,
   which is the C meaning.

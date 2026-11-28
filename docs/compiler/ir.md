@@ -198,7 +198,7 @@ global has a constant initializer in `Instantiated` and later.
 
 ```
 Function  name, type params, comptime params, params (name, type, mode), return type,
-          calling convention, linkage (internal | export(name, weak?) | extern | c.macro),
+          calling convention, linkage (internal | export(name, weak?) | extern | c.macro(text, template?)),
           inline (default | always | never), safety override, attributes,
           body (optional)
 Body      locals, blocks; the entry is the first block
@@ -246,8 +246,10 @@ Rvalue   := Operand
 - `Callee`: `direct(Function<args>)`, `indirect(Operand)` for function pointers,
   `closure(Operand)`, `dyn(Operand, method)`, `union(Operand, method)` (Lowered only, lowered by
   the core into a `switch` on the tag), `constrained(param T, Interface.method)` (Lowered
-  only, resolved by instantiation), `c.macro(text, types)`: the macro's name, or with `template` its
-  template, and the C types of the instance's type arguments.
+  only, resolved by instantiation).
+- A function with linkage `c.macro` has no body; `text` is the macro's name, or with `template`
+  its template. A `direct` call of it is written by the backend as the macro, with the C spelling
+  of the instance's type arguments.
 - Constants: integers (128 bits of two's complement with a type, the widest IR integer), floats (bit pattern), `bool`, `null`,
   bytes (static data, with or without NUL), aggregates, pointers to globals with an offset,
   function references, error codes, `undef`, and types: `type X`, of type `comptime.type`, whose
@@ -437,7 +439,7 @@ function    = attrs "fn" ref [tparams] "(" [param {"," param}] ["," "..."] ")" "
 param       = ident ":" [pmode] type
 pmode       = "ref" | "ref.readonly" | "out"
 fflag       = "cc" conv | linkage | "inline" ("always" | "never") | "safety" ("on" | "off")
-linkage     = "internal" | "export" "(" string ")" ["weak"] | "extern" | "c.macro"
+linkage     = "internal" | "export" "(" string ")" ["weak"] | "extern" | "c.macro" ["template"] string
 conv        = "default" | "cdecl" | "stdcall" | "fastcall" | "thiscall" | "vectorcall"
 impl        = "impl" ref "=" type ":" type "{" NL {ident "=" ref [targs] NL} "}" NL
 errorname   = "error" ident "=" int NL
@@ -508,7 +510,7 @@ rvalue      = operand
             | "intrinsic" ident "(" [operand {"," operand}] ")"
             | "comptime" ref
 callee      = "direct" ref [targs] | "indirect" operand | "closure" operand
-            | "dyn" operand int | "union" operand int | "constrained" "param" ident type ident | "c.macro" ["template"] string [targs]
+            | "dyn" operand int | "union" operand int | "constrained" "param" ident type ident
 mode        = "default" | "trap" | "wrap" | "assume"
 castkind    = "int.int" | "int.float" | "float.int" | "float.float" | "int.enum" | "enum.int"
             | "ptr.int" | "int.ptr" | "ptr.ptr" | "bitcast" | "slice.ptr" | "enum.error"

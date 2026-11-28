@@ -56,7 +56,7 @@ exposes them under its own name.
 | `typedef` of a struct, union or enum | the record takes the typedef name; the tag name, if different, is recorded in `[CName]` |
 | other `typedef` | replaced by its underlying type everywhere |
 | object-like macro evaluating to an integer, float, character or string constant | `public const` with the C type of the expression |
-| object-like macro evaluating to a constant address: an integer constant cast to a pointer, possibly offset | `[CMacro] public static readonly` field of the pointer type; reading it emits the macro, and writing it is a compile error as for any `readonly` field |
+| object-like macro evaluating to a constant address: an integer constant cast to a pointer, possibly offset | `[CMacro] public static readonly` field of the pointer type; reading it emits the macro, writing it is a compile error as for any `readonly` field, and taking its address or a `ref` to it is `CD6012`, since a macro has no address |
 | other object-like macro | skipped |
 | function-like macro | skipped; declare it with `[CMacro]` |
 | anything that cannot be represented | declared with `[Unsupported("reason")]`; using it is `CD6003` |

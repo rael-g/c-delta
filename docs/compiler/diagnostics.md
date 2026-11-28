@@ -131,6 +131,7 @@ A code is never reused for another meaning. A retired code stays in this table m
 | CD6009 | two imports define the same macro differently | [frontend-c.md](frontend-c.md#the-translation-unit) |
 | CD6010 | two `[DllImport]` declarations of one C function have different signatures | [../language/c-interop.md](../language/c-interop.md#declaring-a-c-function-by-hand) |
 | CD6011 | a `[CMacro]` template names an argument or a type argument the method does not have | [../language/c-interop.md](../language/c-interop.md#macros) |
+| CD6012 | a `[CMacro]` field has no address | [../language/c-interop.md](../language/c-interop.md#what-a-header-becomes) |
 | CD9001 | internal compiler error | [architecture.md](architecture.md#internal-errors) |
 | CD9002 | internal IR verification failure | [ir.md](ir.md#verifier) |
 

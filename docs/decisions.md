@@ -142,7 +142,11 @@ every form.** A macro has no type, so its signature is written by hand, but no s
 reach: a `ref` parameter is the lvalue the macro writes, a `void` one is a statement, a generic
 one is instantiated like any generic with each expansion checked by the C compiler, and a
 template spells the macros that take types or are not shaped like a call. Macros that declare
-need nothing, since the header is read after preprocessing.
+need nothing, since the header is read after preprocessing. In the IR a macro is a function whose
+linkage `c.macro` carries its name or template, called `direct` like any function, so generics,
+instantiation and the backend take their usual path; an object-like macro of a constant address
+is such a function with no parameters, so a read of its field is a value and never a place, and
+the field's address does not exist (`CD6012`).
 
 **D031. Exported signatures use only C types.**
 
