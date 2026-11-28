@@ -72,7 +72,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         }
         else if (!method.IsStatic)
         {
-            TypeId self = frontend.Types.Map(method.ContainingType, location);
+            TypeId self = CSharpFrontend.IsDefaultBody(method) ? _builder.ParamType(TypeMapper.SelfParameter) : frontend.Types.Map(method.ContainingType, location);
             TypeFlags constness = frontend.IsReadOnlyMember(method) ? TypeFlags.Const : TypeFlags.None;
             _thisLocal = _f.NewLocal("this", _builder.Pointer(self, constness), LocalKind.Param, methodSpan);
         }
@@ -1869,25 +1869,30 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
         return Emit(returnType, call, span);
     }
 
-    private ITypeParameterSymbol? ConstrainedParameter(IOperation? instance, IMethodSymbol target, SyntaxNode syntax)
+    private string? ConstrainedParameter(IOperation? instance, IMethodSymbol target, SyntaxNode syntax)
     {
         if (target.ContainingType.TypeKind != Microsoft.CodeAnalysis.TypeKind.Interface)
         {
             return null;
         }
 
+        if (instance is IInstanceReferenceOperation && CSharpFrontend.IsDefaultBody(method))
+        {
+            return TypeMapper.SelfParameter;
+        }
+
         if (instance?.Type is ITypeParameterSymbol receiver)
         {
-            return receiver;
+            return receiver.Name;
         }
 
         MemberAccessExpressionSyntax? access = syntax as MemberAccessExpressionSyntax ?? (syntax as InvocationExpressionSyntax)?.Expression as MemberAccessExpressionSyntax;
         return instance is null && target.IsStatic && access is not null
-            ? _model.GetTypeInfo(access.Expression).Type as ITypeParameterSymbol
+            ? (_model.GetTypeInfo(access.Expression).Type as ITypeParameterSymbol)?.Name
             : null;
     }
 
-    private OperandId? LowerConstrainedCall(ITypeParameterSymbol parameter, IMethodSymbol target, IOperation? instance, IEnumerable<IArgumentOperation> callArguments, SourceSpan span)
+    private OperandId? LowerConstrainedCall(string parameter, IMethodSymbol target, IOperation? instance, IEnumerable<IArgumentOperation> callArguments, SourceSpan span)
     {
         var arguments = new List<OperandId>();
         if (!target.IsStatic)
@@ -1902,7 +1907,7 @@ internal sealed partial class BodyLowerer(CSharpFrontend frontend, IMethodSymbol
 
         Location location = target.Locations.FirstOrDefault() ?? Location.None;
         TypeId contract = frontend.Types.InterfaceType(target.ContainingType, location);
-        int reference = _builder.ConstrainedRef(parameter.Name, contract, target.Name);
+        int reference = _builder.ConstrainedRef(parameter, contract, target.Name);
         RvalueId call = _f.CallConstrained(reference, arguments);
         TypeId returnType = CallReturnType(target);
         if (_module.Types[returnType.Index].Kind == TypeKind.Void)

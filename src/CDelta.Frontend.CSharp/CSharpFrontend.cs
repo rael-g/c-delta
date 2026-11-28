@@ -37,7 +37,7 @@ public sealed class CSharpFrontend : IBodyProvider
         _diagnostics = diagnostics;
         Primitives = new PrimitiveImpls(this);
         Closures = new ClosureFunctions(this);
-        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls, ImplementersOf = ImplementersOf };
+        _types = new TypeMapper(builder, location => SpanOf(location)) { ImportIdOf = ImportIdOf, StructDefined = QueueImpls, ImplementersOf = ImplementersOf, DefaultOf = Declare };
     }
 
     public ModuleBuilder Builder { get; }
@@ -153,6 +153,9 @@ public sealed class CSharpFrontend : IBodyProvider
     }
 
     internal CSharpCompilation Compilation => _compilation;
+
+    internal static bool IsDefaultBody(IMethodSymbol method) =>
+        method.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface && TypeMapper.HasDefaultBody(method);
 
     internal bool IsReadOnlyMember(IMethodSymbol method) => method.IsReadOnly || method.ContainingType.IsReadOnly;
 
@@ -483,7 +486,16 @@ public sealed class CSharpFrontend : IBodyProvider
                     continue;
                 }
 
-                methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), typeArgs));
+                TypeListId arguments = typeArgs;
+                if (IsDefaultBody(implementation))
+                {
+                    arguments = Module.TypeList([
+                        .. implementation.ContainingType.TypeArguments.Select(argument => _types.Map(argument, location).Index),
+                        concrete.Index,
+                    ]);
+                }
+
+                methods.Add(new ImplMethod(Module.Intern(member.Name), Declare(implementation), arguments));
             }
 
             TypeId interfaceType = _types.InterfaceType(contract, location);
@@ -527,7 +539,7 @@ public sealed class CSharpFrontend : IBodyProvider
         if (!method.IsStatic)
         {
             bool readOnly = IsReadOnlyMember(method);
-            TypeId self = _types.Map(method.ContainingType, location);
+            TypeId self = IsDefaultBody(method) ? Builder.ParamType(TypeMapper.SelfParameter) : _types.Map(method.ContainingType, location);
             parameters.Add(new ParamDecl(
                 module.Intern("this"),
                 Builder.Pointer(self, readOnly ? TypeFlags.Const : TypeFlags.None),
@@ -595,6 +607,11 @@ public sealed class CSharpFrontend : IBodyProvider
         }
 
         typeParameters.AddRange(method.TypeParameters.Select(parameter => parameter.Name));
+        if (IsDefaultBody(method))
+        {
+            typeParameters.Add(TypeMapper.SelfParameter);
+        }
+
         Builder.SetTypeParams(id, typeParameters);
         _functions.Add(method, id);
         _symbols.Add(method);

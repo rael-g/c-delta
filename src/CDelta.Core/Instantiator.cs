@@ -68,7 +68,7 @@ public sealed partial class Instantiator
 
             _remap.Bindings = instance.Bindings;
             _depth = instance.Depth;
-            _destination.Bodies[instance.Destination.Index] = CopyBody(body);
+            _destination.Bodies[instance.Destination.Index] = CopyBody(body, IsDefaultFunction(instance.Source));
             _remap.Bindings = null;
         }
 
@@ -189,8 +189,9 @@ public sealed partial class Instantiator
         return created;
     }
 
-    private Body CopyBody(Body source)
+    private Body CopyBody(Body source, bool insideDefault)
     {
+        var defaultCalls = new List<int>();
         var body = new Body();
         foreach (LocalDecl local in source.Locals)
         {
@@ -252,6 +253,10 @@ public sealed partial class Instantiator
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Constrained)
             {
                 copy = ResolveConstrained(rvalue, copy);
+                if (_resolvedToDefault)
+                {
+                    defaultCalls.Add(body.Rvalues.Count);
+                }
             }
 
             if (rvalue.Kind == RvalueKind.Call && rvalue.Callee == CalleeKind.Direct)
@@ -284,6 +289,7 @@ public sealed partial class Instantiator
             body.SwitchCases.Add(item with { Value = _remap.Constant(item.Value) });
         }
 
+        CopyDefaultReceivers(body, defaultCalls, insideDefault);
         TypeTestFolding.Fold(_destination, body);
         return body;
     }
@@ -370,6 +376,7 @@ public sealed partial class Instantiator
 
             _remap.Bindings = saved;
             arguments.AddRange(IrTypes.CallTypeArgs(_source, rvalue).Select(argument => _remap.Type(new TypeId(argument))));
+            _resolvedToDefault = IsDefaultFunction(item.Function);
             return copy with { Callee = CalleeKind.Direct, CalleeId = Reach(item.Function, arguments).Index, Aux = 0 };
         }
 

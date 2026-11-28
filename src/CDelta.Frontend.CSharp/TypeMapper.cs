@@ -21,6 +21,10 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
     public Func<INamedTypeSymbol, IReadOnlyList<INamedTypeSymbol>> ImplementersOf { get; set; } = _ => [];
 
+    public Func<IMethodSymbol, FunctionId> DefaultOf { get; set; } = _ => FunctionId.None;
+
+    public const string SelfParameter = "Self";
+
     private readonly Dictionary<INamedTypeSymbol, UnionId> _unions = new(SymbolEqualityComparer.Default);
 
     public Action<INamedTypeSymbol, StructId> StructDefined { get; set; } = (_, _) => { };
@@ -120,6 +124,7 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
         }
 
         var methods = new List<InterfaceMethod>();
+        var defaults = new List<(int Index, IMethodSymbol Method)>();
         foreach (IMethodSymbol method in type.GetMembers().OfType<IMethodSymbol>())
         {
             if (!IsContractMember(method))
@@ -136,10 +141,21 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
                 .Select(parameter => new SigParam(Map(parameter.Type, location), ModeOf(parameter.RefKind)))
                 .ToList();
             SigId sig = builder.Signature(CallConv.Default, parameters, ReferenceType(Map(method.ReturnType, location), method.RefKind), false, ModeOf(method.RefKind));
+            if (HasDefaultBody(method))
+            {
+                defaults.Add((methods.Count, method));
+            }
+
             methods.Add(new InterfaceMethod(builder.Module.Intern(method.Name), method.IsStatic, sig, FunctionId.None));
         }
 
         builder.DefineInterfaceMethods(id, methods);
+        int first = builder.Module.Interfaces[id.Index].Methods.Start;
+        foreach ((int index, IMethodSymbol method) in defaults)
+        {
+            builder.Module.InterfaceMethods[first + index] = builder.Module.InterfaceMethods[first + index] with { Default = DefaultOf(method) };
+        }
+
         return id;
     }
 
@@ -211,6 +227,8 @@ internal sealed class TypeMapper(ModuleBuilder builder, Func<Location, SourceSpa
 
         return -1;
     }
+
+    public static bool HasDefaultBody(IMethodSymbol method) => !method.IsStatic && !method.IsAbstract;
 
     public static bool IsContractMember(IMethodSymbol member) =>
         member.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.UserDefinedOperator;
