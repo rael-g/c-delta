@@ -1,7 +1,10 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/count-lines/count-lines.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/CDelta.Backend.C/CDelta.Backend.C.csproj" />
-    <Project Path="src/CDelta.Backend.CSharp/CDelta.Backend.CSharp.csproj" />
+    <Project Path="src/CDelta.Projection.CSharp/CDelta.Projection.CSharp.csproj" />
     <Project Path="src/CDelta.Build.Tasks/CDelta.Build.Tasks.csproj" />
     <Project Path="src/CDelta.Cli/CDelta.Cli.csproj" />
     <Project Path="src/CDelta.Core/CDelta.Core.csproj" />
