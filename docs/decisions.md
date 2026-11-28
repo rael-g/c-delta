@@ -456,7 +456,10 @@ the repository publishes each package to NuGet, so facts outlive the author who 
 
 **D165. A CΔ library is a plain C library to C consumers.** Binary outputs come with CMake and
 `pkg-config` files; the C source output comes with a `CMakeLists.txt`, so a C project uses a CΔ
-library with no CΔ tooling installed.
+library with no CΔ tooling installed. A library is laid out as an installed prefix (`include/`,
+`lib/`, `bin/`, `lib/cmake/`, `lib/pkgconfig/`), so `find_package` and `pkg-config` find it with
+no configuration, and is versioned by the property `Version` as C libraries are: a shared library
+carries the major version in its soname, so a consumer never loads an incompatible one.
 
 **D166. CΔ evolves from kabic; it does not port it.** kabic was designed for another context, so
 each of its pieces is evaluated against CΔ's design and redesigned or dropped. Its code and

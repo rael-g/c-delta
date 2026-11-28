@@ -139,6 +139,7 @@ It is an MSBuild SDK-style project with the `.csproj` extension, so every C# IDE
 | `AllocationPanics` | `Allow`, `Deny`: whether calls that panic when incidental growth runs out of memory compile ([memory.md](memory.md#where-memory-comes-from)) | `Deny` on `freestanding`, otherwise `Allow` |
 | `Sanitize` | `None`, `Thread`, `Address`, `Undefined`: a sanitizer of the toolchain, in `Debug` only, where the toolchain has it | `None` |
 | `PackageName` | the C-visible name of the package (header name, library name) | the project name |
+| `Version` | the version of a library, `major.minor.patch`: its soname, and the version of its CMake and `pkg-config` files | `1.0.0` |
 | `ErrorReturnTrace` | `true`, `false` | `true` in safe modes |
 | `DebugSymbols` | `true`, `false` | `true` in Debug and ReleaseSafe |
 | `EntrySymbol` | the symbol the linker starts at, for freestanding targets | the toolchain's default |

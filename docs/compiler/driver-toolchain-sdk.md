@@ -53,8 +53,30 @@ value is exit code `2` with a usage line.
 - `<cache>` is `$XDG_CACHE_HOME/cdelta`, else `~/.cache/cdelta`; on Windows
   `%LOCALAPPDATA%\cdelta`. `<id>` is the first 16 hex digits of the SHA-256 of the sorted full
   paths of the files.
-- Libraries are `lib<PackageName>.a` or `.so` (`<PackageName>.lib` or `.dll` on Windows,
-  `.dylib` on macOS).
+- A library output is a prefix, laid out as an installed C library:
+
+  | Path | Contents |
+  |---|---|
+  | `include/<PackageName>.h` | the export header |
+  | `lib/lib<PackageName>.a` | a static library; `lib/<PackageName>.lib` on `msvc` |
+  | `lib/lib<PackageName>.so.<Version>` | a shared library on Linux, with soname `lib<PackageName>.so.<Major>` and the links `lib<PackageName>.so.<Major>` and `lib<PackageName>.so` |
+  | `lib/lib<PackageName>.<Major>.dylib` | a shared library on macOS, with install name `@rpath/lib<PackageName>.<Major>.dylib` and the link `lib<PackageName>.dylib` |
+  | `bin/<PackageName>.dll` | a shared library on Windows, with its import library `lib/<PackageName>.lib` (`lib/lib<PackageName>.dll.a` on `gnu`) |
+  | `lib/cmake/<PackageName>/<PackageName>Config.cmake`, `<PackageName>ConfigVersion.cmake` | the CMake package |
+  | `lib/pkgconfig/<PackageName>.pc` | the `pkg-config` file |
+
+  `CMAKE_PREFIX_PATH` set to the output directory, or `PKG_CONFIG_PATH` set to its
+  `lib/pkgconfig`, finds the library with no other configuration.
+- `<PackageName>Config.cmake` defines the imported target `<PackageName>::<PackageName>`, with
+  every path relative to the file, so the prefix can move. Its location, include directory and,
+  for a static library, `INTERFACE_LINK_LIBRARIES`: the `NativeLibrary` items, those with
+  `PkgConfig` through `find_dependency(PkgConfig)` and `pkg_check_modules(IMPORTED_TARGET)`, and
+  the C++ library of the toolchain when the package has `CppSource` items.
+  `<PackageName>ConfigVersion.cmake` accepts the same major version (`SameMajorVersion`).
+- `<PackageName>.pc` computes `prefix` from `${pcfiledir}`, gives `Version`,
+  `Cflags: -I${includedir}` and `Libs: -L${libdir} -l<PackageName>`; `Requires.private` lists the
+  `PkgConfig` names of the `NativeLibrary` items, and `Libs.private` the other `NativeLibrary`
+  items and the C++ library of the toolchain when the package has `CppSource` items.
 - Inside the intermediate directory: `<PackageName>.c`, `<PackageName>.libc.c`, `<PackageName>.h`, `ir/` for
   `--dump-ir`, `imports/` for import stubs, `objects/` for object files.
 - `cdc run` runs the output with the arguments after `--` and exits with its exit code.

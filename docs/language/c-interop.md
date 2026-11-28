@@ -185,7 +185,8 @@ static class Geometry
 
 ### Generated header
 
-Every build that has exports writes `<PackageName>.h` next to the output:
+Every build that has exports writes `<PackageName>.h` next to the output, in `include/` for a
+library ([../compiler/driver-toolchain-sdk.md](../compiler/driver-toolchain-sdk.md#outputs-and-intermediate-files)):
 
 - an include guard, `<stdint.h>`, `<stddef.h>` and `<stdbool.h>`, and an `extern "C"` block for
   C++;
@@ -198,8 +199,8 @@ Every build that has exports writes `<PackageName>.h` next to the output:
 | Output | What |
 |---|---|
 | executable | needs `Main` (`CD0007`) |
-| static library | `.a` or `.lib` with the exports and the header, plus `<PackageName>Config.cmake` and `<PackageName>.pc` so CMake's `find_package` and `pkg-config` find it |
-| shared library | `.so`, `.dll` or `.dylib`; only exports are visible, everything else has hidden visibility; with the same CMake and `pkg-config` files |
+| static library | `.a` or `.lib` with the exports and the header, plus `<PackageName>Config.cmake` and `<PackageName>.pc` so CMake's `find_package` and `pkg-config` find it, laid out as an installed prefix |
+| shared library | `.so`, `.dll` or `.dylib`, versioned by `Version` with the major version in its soname; only exports are visible, everything else has hidden visibility; with the same CMake and `pkg-config` files |
 | object | one `.o` or `.obj` |
 | C source | the generated `.c` files, the header and a `CMakeLists.txt` defining the library target, to vendor into a C project or reach with CMake's `FetchContent`; building it needs a C compiler and nothing of CΔ; see [../compiler/backend-c.md](../compiler/backend-c.md) |
 

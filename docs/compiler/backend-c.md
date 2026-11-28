@@ -288,5 +288,11 @@ MSVC receives the equivalent options (`/std:c11`, `/Od`, `/O2`, `/O1`, `/Zi`, `/
 ## Delivering C
 
 `EmitC=true` or `cdc build --emit-c` keeps `<PackageName>.c`, `<PackageName>.libc.c` and
-`<PackageName>.h`. Together they build with any C11 compiler for the same target with no other file, which is how CΔ code is handed
+`<PackageName>.h`, with a `CMakeLists.txt` that declares
+`project(<PackageName> VERSION <Version> LANGUAGES C)` (`C CXX` with `CppSource` items), one
+`add_library(<PackageName> ...)` of the generated and `CSource` files whose kind follows
+`BUILD_SHARED_LIBS`, the alias `<PackageName>::<PackageName>` for `FetchContent`, the header's
+directory as a `PUBLIC` include directory, `C_STANDARD 11` with `C_STANDARD_REQUIRED`,
+`C_VISIBILITY_PRESET hidden`, the `NativeLibrary` items as link libraries, and no compile
+definitions: the build mode is already in the generated C. Together they build with any C11 compiler for the same target with no other file, which is how CΔ code is handed
 to a C project that does not use `cdc`.
